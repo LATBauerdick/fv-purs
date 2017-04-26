@@ -11,6 +11,10 @@ data VHMeas = VHMeas {
     vertex      :: XMeas
   , helices     :: Array HMeas
                      }
+{-- instance semigroupHMeas :: Semigroup VHMeas where --}
+{--   append (VHMeas v hs) (VHMeas _ hs') = VHMeas v ( hs ++ hs' ) --}
+{--   mempty = VHMeas (XMeas (Matrix.zero 3 1) (Matrix.zero 3 3)) [] --}
+
 instance showVHMeas :: Show VHMeas where
   show (VHMeas {vertex, helices}) = "VHMeas w/ " <> show (length helices) <> " tracks."
 

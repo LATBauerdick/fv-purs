@@ -6,8 +6,8 @@ import Control.MonadZero (guard)
 import Data.Foldable (foldl)
 import Data.Number (fromString) as Data.Number
 import Data.Int (fromString, round) as Data.Int
-import Data.Array (mapMaybe, head, take, drop, slice, null, (!!), (..))
-import Data.Array.Partial (tail)
+import Data.Array (mapMaybe, take, drop, slice, null, (!!), (..), (:))
+import Data.Array.Partial (head, tail)
 import Data.Tuple (Tuple (..), fst)
 import Data.Maybe (Maybe (..), fromMaybe, fromJust)
 import Control.Monad.Aff (Aff)
@@ -103,7 +103,7 @@ hSlurp path = do
   let ws = words ds
   let npu :: Maybe Int
       npu = do
-              key <- head ws
+              let key = unsafePartial head ws
               guard $ key == "PU_zpositions:"
               snpu <- ws !! 1
               Data.Int.fromString snpu
@@ -124,17 +124,13 @@ hSlurpAll :: forall eff.
              Array FilePath
             ->  Aff (fs :: FS | eff)
                     (Maybe VHMeas)
-hSlurpAll ps | null ps = do pure Nothing
-             | otherwise = do
-  p0 <- unsafePartial head ps
+hSlurpAll [] = do pure Nothing
+hSlurpAll [p0] = do
   t0 <- hSlurp p0
-  v0 <- fst t0
-  let p1s = unsafePartial tail ps
-      hsa0 :: forall eff. FilePath -> Aff (fs :: FS | eff) (Maybe VHMeas)
-      hsa0 acc p = do
-        t <- hSlurp p
-        v <- fst t
-        pure v
-  let vhms = foldl hsa0 v0 p1s
-  pure vhms
-
+  let v0 = fst t0
+  pure v0
+hSlurpAll ps = do
+  t0 <- hSlurp $ unsafePartial head ps
+  let v0 = fst t0
+  vs <- hSlurpAll $ unsafePartial tail ps
+  pure $ v0 -- semigroup not yet implemented... <> vs
