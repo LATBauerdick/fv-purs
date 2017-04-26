@@ -1,5 +1,5 @@
 
-module Test.Input ( hSlurp, hSlurp' ) where
+module Test.Input ( hSlurp ) where
 
 import Prelude (bind, discard, pure, ($), (==), (+), (-), (*), (/), (<<<), (<>), map, otherwise)
 import Control.MonadZero (guard)
