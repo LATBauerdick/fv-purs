@@ -1,0 +1,23 @@
+{
+  "name": "ps",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-prelude": "^3.0.0",
+    "purescript-console": "^3.0.0",
+    "purescript-math": "^2.0.0",
+    "purescript-monoid": "^3.0.0",
+    "purescript-linear-algebra": "^0.1.1",
+    "purescript-stringutils": "^0.0.6",
+    "purescript-node-fs-aff": "^4.0.0",
+    "purescript-psci-support": "^3.0.0",
+    "purescript-numbers": "^4.2.0"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^3.0.0"
+  }
+}
