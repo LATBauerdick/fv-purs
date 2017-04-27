@@ -17,10 +17,11 @@ import Partial.Unsafe (unsafePartial)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Monoid ( class Monoid, mempty )
 
-newtype M = M (Matrix Number)
-instance showM :: Show M where
-  show (M m) = prettyMatrix m
+newtype M0 = M0 (Matrix Number)
+instance showM0 :: Show M0 where
+  show (M0 m) = prettyMatrix m
 
+type M = Matrix Number
 newtype V5 = V5 M
 newtype M5 = M5 M
 
@@ -33,6 +34,11 @@ sw a b = a
 {-- sw a b = (tr a) * b * a --}
 {-- tr :: M -> M --}
 {-- tr = transpose --}
+{-- fromList :: Int -> Array Number -> M0 --}
+{-- fromList r ds = M0 (unsafePartial $ fromJust $ fromArray r 1 ds) --}
+{-- fromList2 :: Int -> Int -> Array Number -> M0 --}
+{-- fromList2 r c ds = M0 (unsafePartial $ fromJust $ fromArray r c ds) --}
+
 -- | Dense Vector implementation
 type Vector = Array
 
@@ -117,12 +123,11 @@ instance functorMatrix :: Functor Matrix where
 {-- transpose m = matrix (ncols m) (nrows m) $ \(i,j) -> m ! (j,i) --}
 
 -- | Create column vector from array
-fromList :: Int -> Array Number -> M
-fromList r ds = M (unsafePartial $ fromJust $ fromArray r 1 ds)
+fromList :: forall a. Int -> Array a -> Matrix a
+fromList r vs = M_ {nrows: r, ncols: r, values: vs}
 -- | Create matrix from array
-fromList2 :: Int -> Int -> Array Number -> M
-fromList2 r c ds = M (unsafePartial $ fromJust $ fromArray r c ds)
-
+fromList2 :: forall a. Int -> Int -> Array a -> Matrix a
+fromList2 r c vs = M_ {nrows: r, ncols: c, values: vs}
 getElem :: ∀ a.
            Int      -- ^ Row
         -> Int      -- ^ Column
