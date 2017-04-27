@@ -1,15 +1,14 @@
 
 module Test.Input ( hSlurp ) where
 
-import Prelude (bind, discard, pure, ($), (==), (+), (-), (*), (/), (<<<), (<>), map, otherwise)
+import Prelude ( bind, discard, pure, ($), (==), (+), (-), (*), (/) )
 import Control.MonadZero (guard)
-import Data.Foldable (foldl)
 import Data.Number (fromString) as Data.Number
 import Data.Int (fromString, round) as Data.Int
-import Data.Array (mapMaybe, take, drop, slice, null, (!!), (..), (:))
+import Data.Array ( mapMaybe, take, drop, slice, (!!), (..) )
 import Data.Array.Partial (head, tail)
 import Data.Tuple (Tuple (..), fst)
-import Data.Maybe (Maybe (..), fromMaybe, fromJust)
+import Data.Maybe ( Maybe (Nothing, Just) )
 import Control.Monad.Aff (Aff)
 
 import Math ( sin, cos )
@@ -19,19 +18,45 @@ import Node.FS (FS)
 import Node.FS.Aff (readTextFile)
 import Node.Path (FilePath)
 import Data.String.Utils (words)
-import Unsafe.Coerce (unsafeCoerce)
+-- import Unsafe.Coerce (unsafeCoerce)
 import Partial.Unsafe (unsafePartial)
 
-import Matrix (sw, fromArray, M (..), V5 (..), M5 (..))
+import Matrix (sw, fromList, fromList2, V5 (..), M5 (..))
 import Types ( MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
+
+-- slurps up a bunch of Doubles from a text data file into VHMeas and MCtruth
+-- and parses them w/ hSlurp' to a vertex and a set of helix measurements
+hSlurp :: forall eff. FilePath
+                      -> Aff (fs :: FS | eff)
+                             (Tuple (Maybe VHMeas) (Maybe MCtruth))
+hSlurp path = do
+  ds <- readTextFile UTF8 path
+  let ws = words ds
+  let npu :: Maybe Int
+      npu = do
+              let key = unsafePartial head ws
+              guard $ key == "PU_zpositions:"
+              snpu <- ws !! 1
+              Data.Int.fromString snpu
+  let mc = case npu of
+              Nothing -> Nothing
+              Just n -> let
+                          mcArr = mapMaybe Data.Number.fromString
+                                           (slice 2 (2+n) ws)
+                          in Just $ MCtruth { pu_zpositions: mcArr }
+      vhm = case npu of
+              Nothing -> hSlurp' $ mapMaybe Data.Number.fromString ws
+              Just n -> hSlurp' $ mapMaybe Data.Number.fromString (drop (n+2) ws)
+
+  pure $ Tuple vhm mc
 
 -- slurp in the measurements of vertex and helices
 -- from a list of Doubles
 hSlurp' :: Array Number -> Maybe VHMeas
 hSlurp' inp = do
-  v0        <- fromArray 1 3 $ take 3 inp       -- initial vertex pos
-  cv0       <- fromArray 3 3 (take 9 $ drop 3 inp) -- cov matrix
-  let v     = XMeas (M v0) (M cv0)
+  let v0    = fromList 3 $ take 3 inp       -- initial vertex pos
+      cv0   = fromList2 3 3 (take 9 $ drop 3 inp) -- cov matrix
+      v     = XMeas v0 cv0
   w2pt      <- inp !! 12                 -- how to calc pt from w; 1 in case of CMS
   mnt       <- inp !! 13  -- number of helices to follow --}
   let nt    = Data.Int.round mnt
@@ -45,11 +70,11 @@ hSlurp' inp = do
 -- get the next helix, Aleph case
 nxtH :: Number -> Array Number -> Maybe HMeas
 nxtH w0 ds = do
-  let ih = take 5 ds
-      ich = take 25 $ drop 5 ds
-  h' <- fromArray 1 5 ih
-  ch' <- fromArray 5 5 ich
-  pure $ HMeas (V5 (M h')) (M5 (M ch')) w0
+  let ih    = take 5 ds
+      ich   = take 25 $ drop 5 ds
+      h'    = fromList 5 ih
+      ch'   = fromList2 5 5 ich
+  pure $ HMeas (V5 h') (M5 ch') w0
 
 -- get the next helix, CMS case
 nxtH' :: Number -> Array Number -> Maybe HMeas
@@ -80,44 +105,18 @@ nxtH' _ ds = do
       j01               = h0 * w0 * st/ct/ct
       j11               = 1.0 / ct / ct
       j10               = 0.0
-  jj                    <- fromArray 5 5 [  j00, j01, 0.0, 0.0, 0.0
-                                            , j10, j11, 0.0, 0.0, 0.0
-                                            , 0.0, 0.0, 1.0, 0.0, 0.0
-                                            , 0.0, 0.0, 0.0, 1.0, 0.0
-                                            , 0.0, 0.0, 0.0, 0.0, 1.0 ]
-  h'                    <- fromArray 1 5 [w, tl, h2, h3, h4]
+      jj                = fromList2 5 5 [  j00, j01, 0.0, 0.0, 0.0
+                                          , j10, j11, 0.0, 0.0, 0.0
+                                          , 0.0, 0.0, 1.0, 0.0, 0.0
+                                          , 0.0, 0.0, 0.0, 1.0, 0.0
+                                          , 0.0, 0.0, 0.0, 0.0, 1.0 ]
+      h'                = fromList 5 [w, tl, h2, h3, h4]
 
-  let ich = take 25 $ drop 5 ds
-  ch'                   <- fromArray 5 5 ich
-  let ch''              = sw (M jj) (M ch')
+  let ich               = take 25 $ drop 5 ds
+      ch'               = fromList2 5 5 ich
+      ch''              = sw (jj) (ch')
 
-  pure $ HMeas (V5 (M h')) (M5 ch'') w0
-
--- slurps up a bunch of Doubles from a text data file into a list
--- and parses them w/ hSlurp' to a vertex and a set of helix measurements
-hSlurp :: forall eff. FilePath
-                      -> Aff (fs :: FS | eff)
-                             (Tuple (Maybe VHMeas) (Maybe MCtruth))
-hSlurp path = do
-  ds <- readTextFile UTF8 path
-  let ws = words ds
-  let npu :: Maybe Int
-      npu = do
-              let key = unsafePartial head ws
-              guard $ key == "PU_zpositions:"
-              snpu <- ws !! 1
-              Data.Int.fromString snpu
-  let mc = case npu of
-              Nothing -> Nothing
-              Just n -> let
-                          mcArr = mapMaybe Data.Number.fromString
-                                           (slice 2 (2+n) ws)
-                          in Just $ MCtruth { pu_zpositions: mcArr }
-      vhm = case npu of
-              Nothing -> hSlurp' $ mapMaybe Data.Number.fromString ws
-              Just n -> hSlurp' $ mapMaybe Data.Number.fromString (drop (n+2) ws)
-
-  pure $ Tuple vhm mc
+  pure $ HMeas (V5 (h')) (M5 ch'') w0
 
 -- slurp all files named in a list of pathNames
 hSlurpAll :: forall eff.

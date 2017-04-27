@@ -2,10 +2,10 @@ module Types ( MCtruth (..), VHMeas (..), XMeas (..), HMeas (..)
               ) where
 
 import Prelude
-import Data.Monoid
+-- import Data.Monoid
 import Data.Array (length)
 
-import Matrix ( M (..), Matrix (..), M5, V5 )
+import Matrix ( M, M5, V5 )
 
 data VHMeas = VHMeas {
     vertex      :: XMeas
@@ -16,7 +16,7 @@ data VHMeas = VHMeas {
 {--   mempty = VHMeas (XMeas (Matrix.zero 3 1) (Matrix.zero 3 3)) [] --}
 
 instance showVHMeas :: Show VHMeas where
-  show (VHMeas {vertex, helices}) = "VHMeas w/ " <> show (length helices) <> " tracks."
+  show (VHMeas {vertex, helices}) = "VHMeas w/ " <> show (length helices) <> " tracks. " <> show vertex
 
 data MCtruth = MCtruth {
     pu_zpositions :: Array Number
@@ -27,7 +27,7 @@ instance showMCtruth :: Show MCtruth where
 data XMeas = XMeas M M -- 3-vector and covariance matrix for position/vertex measurement
 
 instance showXMeas :: Show XMeas where
-  show _ = "??? showXMeas to be implemented"
+  show (XMeas x _) = "XMeas at " <> show x
 
 data HMeas = HMeas V5 M5 Number -- 5-vector and covariance matrix for helix measurement
 
