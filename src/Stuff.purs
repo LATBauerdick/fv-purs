@@ -8,6 +8,7 @@ import Data.Tuple ( Tuple(..) )
 import Data.Maybe ( Maybe(..), fromMaybe )
 import Data.Foldable ( class Foldable, foldr )
 import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 
 -- | simultaneous 'quot' and 'rem'
 quotRem :: Int -> Int -> (Tuple Int Int)
@@ -46,6 +47,8 @@ foldr1 f xs = fromMaybe (unsafeCrashWith "foldr1: empty structure")
                          Nothing -> x
                          Just y  -> f x y)
 
+undefined :: forall a. a
+undefined = Unsafe.Coerce.unsafeCoerce unit
 
 diagonal :: Number -> Number -> Number
 diagonal w h = sqrt (w*w + h*h)

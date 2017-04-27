@@ -99,7 +99,7 @@ instance showMatrix :: Show a => Show (Matrix a) where
 --
 --   Useful when using 'submatrix' from a big matrix.
 --
-forceMatrix :: Matrix a -> Matrix a
+forceMatrix :: forall a. Matrix a -> Matrix a
 forceMatrix m = matrix (nrows m) (ncols m) $ \(Tuple i j) -> unsafeGet i j m
 -------------------------------------------------------
 -------------------------------------------------------
@@ -260,13 +260,14 @@ matrix :: forall a. Int -- ^ Rows
        -> ((Tuple Int Int) -> a) -- ^ Generator function
        -> Matrix a
 matrix n m f = M_ {nrows: n, ncols: m, values: val} where
-  val = A.create $ do
-    v <- MV.new $ n * m
-    let en = encode m
-    numLoop 1 n $
-      \i -> numLoop 1 m $
-      \j -> MV.unsafeWrite v (en i j) (f (Tuple i j))
-    return v
+  val = undefined -- unit
+    {-- A.create $ do --}
+    {-- v <- MV.new $ n * m --}
+    {-- let en = encode m --}
+    {-- numLoop 1 n $ --}
+    {--   \i -> numLoop 1 m $ --}
+    {--   \j -> MV.unsafeWrite v (en i j) (f (Tuple i j)) --}
+    {-- return v --}
 
 -- | /O(rows*cols)/. Identity matrix of the given order.
 --
