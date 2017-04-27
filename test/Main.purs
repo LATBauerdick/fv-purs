@@ -22,13 +22,18 @@ main = void $ launchAff do
   logShow (diagonal 3.0 4.0)
   logShow $ gcd' 121 22
 
-  log "Does hSlurp work??"
+  log "Test hSlurp dat/tr05129e001412.dat"
   logShow =<< hSlurp "dat/tr05129e001412.dat"
+  log "Test hSlurp dat/tav-4.dat"
   logShow =<< hSlurp "dat/tav-4.dat"
   Tuple vhm _ <- hSlurp "dat/tr05129e001412.dat"
   logShow vhm
+  log $ "Test identity 3"
   logShow $ identity 3
+  log $ "Test zero 3 3"
   logShow $ zero 3 3
+  log "Test Matrix operations: identity == zero?"
+  logShow $ (identity 3) == (zero 3 3)
   {-- (VHMeas _ hl, _) <- hSlurp "dat/tav-0.dat" --}
   {-- let HMeas _ _ w = head hl --}
   {-- w `shouldBe` 0.0114 --}

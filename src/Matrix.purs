@@ -6,16 +6,15 @@ module Matrix (
   ) where
 
 import Prelude
+import Stuff
 import Data.Array (
                     range, cons, index, unsafeIndex
                   , mapMaybe, replicate, slice, length , all
                   ) as A
 import Data.Tuple (Tuple (..))
 import Data.Maybe ( Maybe(..), fromJust, fromMaybe )
-import Data.Ord (signum)
-import Partial.Unsafe (unsafePartial)
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Monoid ( class Monoid, mempty )
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 
 newtype M0 = M0 (Matrix Number)
 instance showM0 :: Show M0 where
@@ -68,16 +67,6 @@ decode :: Int -> Int -> (Tuple Int Int)
 decode m k = (Tuple (q+1) (r+1))
   where (Tuple q r) = quotRem k m
 
-quotRem :: Int -> Int -> (Tuple Int Int)
-quotRem n d = if signum r == - signum d
-                 then (Tuple (q+1) (r-d))
-                 else qr
-  where qr@(Tuple q r) = divMod n d
-
-divMod :: Int -> Int -> (Tuple Int Int)
-divMod n d = (Tuple (n `div` d) (n `mod` d))
-
-
 instance eqMatrix :: Eq a => Eq (Matrix a) where
   eq m1 m2 =
     let (M_ {nrows: r1, ncols: c1}) = m1
@@ -94,24 +83,42 @@ sizeStr n m = show n <> "x" <> show m
 
 -- | Display a matrix as a 'String' using the 'Show' instance of its elements.
 prettyMatrix :: forall a. Show a => Matrix a -> String
-prettyMatrix (M_ m) = show m.values
---prettyMatrix m@(M_ {values: v} = unlines
---  [ "( " <> unwords (fmap (\j -> fill mx $ show $ m ! (i,j)) [1..ncols m]) <> " )" | i <- [1..nrows m] ]
+--prettyMatrix (M_ m) = show m.values
+prettyMatrix m@(M_ {values: v}) = show v --m.values
+--  unlines
+--  [ "( " <> unwords (fmap (\j -> fill mx $ show $ m ! (i,j)) 1..(ncols m)) <> " )" | i <- 1..(nrows m) ]
 --  where
---    mx = V.maximum $ fmap (length . show) v
---    fill k str = replicate (k - length str) ' ' ++ str
+--    mx = A.maximum $ fmap (length . show) v
+--    fill k str = replicate (k - length str) ' ' <> str
 
 instance showMatrix :: Show a => Show (Matrix a) where
   show = prettyMatrix
 
+-- | /O(rows*cols)/. Similar to 'V.force'. It copies the matrix content
+--   dropping any extra memory.
+--
+--   Useful when using 'submatrix' from a big matrix.
+--
+forceMatrix :: Matrix a -> Matrix a
+forceMatrix m = matrix (nrows m) (ncols m) $ \(Tuple i j) -> unsafeGet i j m
+-------------------------------------------------------
+-------------------------------------------------------
+---- FUNCTOR INSTANCE
 
 instance functorMatrix :: Functor Matrix where
   map f (M_ {nrows: r, ncols: c, values: v}) = M_ {nrows: r, ncols: c, values: map f v}
 
-{-- instance monoidMatrix :: Monoid a => Monoid (Matrix a) where --}
-{--   mempty = fromList 1 1 [mempty] --}
-{--   append m m' = matrix (max (nrows m) (nrows m')) (max (ncols m) (ncols m')) $ uncurry zipTogether --}
-{--     where zipTogether row column = fromMaybe mempty $ safeGet row column m <> safeGet row column m' --}
+-------------------------------------------------------
+-------------------------------------------------------
+
+-------------------------------------------------------
+-------------------------------------------------------
+---- MONOID INSTANCE
+
+-- instance monoidMatrix :: Monoid a => Monoid (Matrix a) where
+--   mempty = fromList 1 1 [mempty]
+--  append m m' = matrix (max (nrows m) (nrows m')) (max (ncols m) (ncols m')) $ uncurry zipTogether --}
+--     where zipTogether row column = fromMaybe mempty $ safeGet row column m <> safeGet row column m'
 
 -- | /O(rows*cols)/. The transpose of a matrix.
 --   Example:
@@ -121,6 +128,66 @@ instance functorMatrix :: Functor Matrix where
 -- > transpose ( 7 8 9 ) = ( 3 6 9 )
 {-- transpose :: Matrix a -> Matrix a --}
 {-- transpose m = matrix (ncols m) (nrows m) $ \(i,j) -> m ! (j,i) --}
+
+-- | /O(rows*cols)/. Map a function over a row.
+--   Example:
+--
+-- >                          ( 1 2 3 )   ( 1 2 3 )
+-- >                          ( 4 5 6 )   ( 5 6 7 )
+-- > mapRow (\_ x -> x + 1) 2 ( 7 8 9 ) = ( 7 8 9 )
+--
+{-- mapRow :: (Int -> a -> a) -- ^ Function takes the current column as additional argument. --}
+{--         -> Int            -- ^ Row to map. --}
+{--         -> Matrix a -> Matrix a --}
+{-- mapRow f r m = --}
+{--   matrix (nrows m) (ncols m) $ \(i,j) -> --}
+{--     let a = unsafeGet i j m --}
+{--     in  if i == r --}
+{--            then f j a --}
+{--            else a --}
+
+-- | /O(rows*cols)/. Map a function over a column.
+--   Example:
+--
+-- >                          ( 1 2 3 )   ( 1 3 3 )
+-- >                          ( 4 5 6 )   ( 4 6 6 )
+-- > mapCol (\_ x -> x + 1) 2 ( 7 8 9 ) = ( 7 9 9 )
+--
+{-- mapCol :: (Int -> a -> a) -- ^ Function takes the current row as additional argument. --}
+{--         -> Int            -- ^ Column to map. --}
+{--         -> Matrix a -> Matrix a --}
+{-- mapCol f c m = --}
+{--   matrix (nrows m) (ncols m) $ \(i,j) -> --}
+{--     let a = unsafeGet i j m --}
+{--     in  if j == c --}
+{--            then f i a --}
+{--            else a --}
+
+-------------------------------------------------------
+-------------------------------------------------------
+---- FOLDABLE AND TRAVERSABLE INSTANCES
+
+{-- instance foldableMatrix :: Foldable Matrix where --}
+{--   foldMap f = foldMap f <<< values <<< forceMatrix --}
+
+{-- instance Traversable Matrix where --}
+{--  sequenceA m = fmap (M (nrows m) (ncols m) 0 0 (ncols m)) . sequenceA . mvect $ forceMatrix m --}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- | Create column vector from array
 fromList :: forall a. Int -> Array a -> Matrix a
@@ -136,7 +203,7 @@ getElem :: ∀ a.
 getElem i j m =
   case safeGet i j m of
     Just x -> x
-    Nothing -> unsafeThrow
+    Nothing -> unsafeCrashWith
       $ "getElem: Trying to get the "
       <> show ( Tuple i j )
       <> " element from a "
@@ -188,18 +255,18 @@ zero n m = M_ { nrows: n, ncols: m, values: (A.replicate (n*m) 0.0)}
 -- >                                  (  3  2  1  0 )
 -- >                                  (  5  4  3  2 )
 -- > matrix 4 4 $ \(i,j) -> 2*i - j = (  7  6  5  4 )
-{-- matrix :: Int -- ^ Rows --}
-{--        -> Int -- ^ Columns --}
-{--        -> ((Int,Int) -> a) -- ^ Generator function --}
-{--        -> Matrix a --}
-{-- matrix n m f = M_ {nrows: n, ncols: m, values: val} where --}
-{--   val = A.create $ do --}
-{--     v <- MV.new $ n * m --}
-{--     let en = encode m --}
-{--     numLoop 1 n $ --}
-{--       \i -> numLoop 1 m $ --}
-{--       \j -> MV.unsafeWrite v (en (i,j)) (f (i,j)) --}
-{--     return v --}
+matrix :: forall a. Int -- ^ Rows
+       -> Int -- ^ Columns
+       -> ((Tuple Int Int) -> a) -- ^ Generator function
+       -> Matrix a
+matrix n m f = M_ {nrows: n, ncols: m, values: val} where
+  val = A.create $ do
+    v <- MV.new $ n * m
+    let en = encode m
+    numLoop 1 n $
+      \i -> numLoop 1 m $
+      \j -> MV.unsafeWrite v (en i j) (f (Tuple i j))
+    return v
 
 -- | /O(rows*cols)/. Identity matrix of the given order.
 --
