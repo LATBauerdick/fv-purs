@@ -1,20 +1,25 @@
 module Matrix (
     Matrix (..)
   , M (..), M5 (..), V5 (..)
-  , sw, fromList, fromList2
-  , zero, identity
+  , sw, tr
+  , fromList, fromList2, fromLists
+  , zero, identity, matrix, diagonal
+  , toList, toLists, getElem
+  , nrows, ncols
   ) where
 
 import Prelude
 import Stuff
 import Data.Array (
-                    range, cons, index, unsafeIndex
+                    range, cons, index, unsafeIndex, cons, concat, fromFoldable, take
                   , mapMaybe, replicate, slice, length , all
                   ) as A
 import Data.Tuple (Tuple (..))
+import Data.List ( List(..), (:), length, head ) as L
 import Data.Maybe ( Maybe(..), fromJust, fromMaybe )
 import Data.Monoid ( class Monoid, mempty )
-import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Data.Foldable ( foldr )
+import Partial.Unsafe ( unsafePartial )
 
 newtype M0 = M0 (Matrix Number)
 instance showM0 :: Show M0 where
@@ -29,10 +34,10 @@ instance showV5 :: Show V5 where
 
 -- | sandwich a matrix: a^T * b * a
 sw :: M -> M -> M
-sw a b = a
+sw a b = tr a
 {-- sw a b = (tr a) * b * a --}
-{-- tr :: M -> M --}
-{-- tr = transpose --}
+tr :: M -> M
+tr = transpose
 {-- fromList :: Int -> Array Number -> M0 --}
 {-- fromList r ds = M0 (unsafePartial $ fromJust $ fromArray r 1 ds) --}
 {-- fromList2 :: Int -> Int -> Array Number -> M0 --}
@@ -68,14 +73,12 @@ decode m k = (Tuple (q+1) (r+1))
   where (Tuple q r) = quotRem k m
 
 instance eqMatrix :: Eq a => Eq (Matrix a) where
-  eq m1 m2 =
-    let (M_ {nrows: r1, ncols: c1}) = m1
-        (M_ {nrows: r2, ncols: c2}) = m2
-        et = do
-          i <- A.range 1 r1
-          j <- A.range 1 c1
-          pure $ getElem i j m1 == getElem i j m2
-    in (r1 == r2) && (c1 == c2) && (A.all id et)
+  eq m1 m2 | nrows m1 /= nrows m2 || ncols m1 /= ncols m2 = false
+           | otherwise = A.all id pa where
+              pa = do
+                i <- A.range 1 (nrows m1)
+                j <- A.range 1 (ncols m1)
+                pure $ getElem i j m1 == getElem i j m2
 
 -- | Just a cool way to output the size of a matrix.
 sizeStr :: Int -> Int -> String
@@ -173,62 +176,6 @@ instance functorMatrix :: Functor Matrix where
 {-- instance Traversable Matrix where --}
 {--  sequenceA m = fmap (M (nrows m) (ncols m) 0 0 (ncols m)) . sequenceA . mvect $ forceMatrix m --}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- | Create column vector from array
-fromList :: forall a. Int -> Array a -> Matrix a
-fromList r vs = M_ {nrows: r, ncols: r, values: vs}
--- | Create matrix from array
-fromList2 :: forall a. Int -> Int -> Array a -> Matrix a
-fromList2 r c vs = M_ {nrows: r, ncols: c, values: vs}
-getElem :: ∀ a.
-           Int      -- ^ Row
-        -> Int      -- ^ Column
-        -> Matrix a -- ^ Matrix
-        -> a
-getElem i j m =
-  case safeGet i j m of
-    Just x -> x
-    Nothing -> unsafeCrashWith
-      $ "getElem: Trying to get the "
-      <> show ( Tuple i j )
-      <> " element from a "
-      <> sizeStr (nrows m) (ncols m)
-      <> " matrix."
-
--- | Variant of 'getElem' that returns Maybe instead of an error.
-safeGet :: forall a. Int -> Int -> Matrix a -> Maybe a
-safeGet i j a@(M_ {nrows: r, ncols: c, values: v})
- | i > r || j > c || r < 1 || c < 1 = Nothing
- | otherwise = Just $ unsafeGet i j a
-
--- | /O(1)/. Unsafe variant of 'getElem', without bounds checking.
-unsafeGet :: forall a.
-             Int      -- ^ Row
-             -> Int      -- ^ Column
-             -> Matrix a -- ^ Matrix
-             -> a
-
-unsafeGet i j (M_ {nrows: r, values: v}) = unsafePartial $ A.unsafeIndex v $ encode w (i+ro) (j+co)
-  where w = r
-        ro = 0
-        co = 0
-
-
 -------------------------------------------------------
 -------------------------------------------------------
 ---- BUILDERS
@@ -242,7 +189,7 @@ unsafeGet i j (M_ {nrows: r, values: v}) = unsafePartial $ A.unsafeIndex v $ enc
 -- >     (     ...     )
 -- >     ( 0 0 ... 0 0 )
 -- >   n ( 0 0 ... 0 0 )
-zero :: 
+zero ::
      Int -- ^ Rows
   -> Int -- ^ Columns
   -> Matrix Number
@@ -260,14 +207,11 @@ matrix :: forall a. Int -- ^ Rows
        -> ((Tuple Int Int) -> a) -- ^ Generator function
        -> Matrix a
 matrix n m f = M_ {nrows: n, ncols: m, values: val} where
-  val = undefined -- unit
-    {-- A.create $ do --}
-    {-- v <- MV.new $ n * m --}
-    {-- let en = encode m --}
-    {-- numLoop 1 n $ --}
-    {--   \i -> numLoop 1 m $ --}
-    {--   \j -> MV.unsafeWrite v (en i j) (f (Tuple i j)) --}
-    {-- return v --}
+--  val = undefined
+  val = do
+    i <- A.range 1 n
+    j <- A.range 1 m
+    pure $ f (Tuple i j)
 
 -- | /O(rows*cols)/. Identity matrix of the given order.
 --
@@ -285,6 +229,228 @@ identity n = M_ {nrows: n, ncols: n, values: val} where
     i <- A.range 0 (n-1)
     j <- A.range 0 (n-1)
     pure $ if i==j then 1.0 else 0.0
+
+-- | Similar to 'diagonalList' but with A.Array, which
+--   should be more efficient.
+diagonal :: forall a. a -- ^ Default element
+         -> Array a  -- ^ Diagonal vector
+         -> Matrix a
+diagonal e v = matrix n n $ \(Tuple i j) -> if i == j
+                                               then unsafePartial $ A.unsafeIndex v (i - 1)
+                                               else e
+  where
+    n = A.length v
+
+-- | Create a matrix from a non-empty list given the desired size.
+--   The list must have at least /rows*cols/ elements.
+--   An example:
+--
+-- >                           ( 1 2 3 )
+-- >                           ( 4 5 6 )
+-- > fromList2 3 3 (1 .. 9) =  ( 7 8 9 )
+--
+-- | Create column vector from array
+fromList :: forall a. Int -> Array a -> Matrix a
+fromList r vs = M_ {nrows: r, ncols: r, values: vs}
+-- | Create matrix from array
+fromList2 :: forall a. Int -> Int -> Array a -> Matrix a
+fromList2 r c vs = M_ {nrows: r, ncols: c, values: vs}
+
+-- | Get the elements of a matrix stored in a list.
+--
+-- >        ( 1 2 3 )
+-- >        ( 4 5 6 )
+-- > toList ( 7 8 9 ) = [1,2,3,4,5,6,7,8,9]
+--
+toList :: forall a. Matrix a -> Array a
+toList m = values m
+  {-- do --}
+  {--   i <- A.range 1 (nrows m) --}
+  {--   j <- A.range 1 (ncols m) --}
+  {--   pure $ unsafeGet i j m --}
+
+-- | Get the elements of a matrix stored in a list of lists,
+--   where each list contains the elements of a single row.
+--
+-- >         ( 1 2 3 )   [ [1,2,3]
+-- >         ( 4 5 6 )   , [4,5,6]
+-- > toLists ( 7 8 9 ) = , [7,8,9] ]
+--
+toLists :: forall a. Matrix a -> Array (Array a)
+toLists m = do
+  j <- A.range 1 (ncols m)
+  pure $ do
+    i <- A.range 1 (nrows m)
+    pure $ unsafeGet i j m
+
+-- | Diagonal matrix from a non-empty list given the desired size.
+--   Non-diagonal elements will be filled with the given default element.
+--   The list must have at least /order/ elements.
+--
+-- > diagonalList n 0 [1..] =
+-- >                   n
+-- >   1 ( 1 0 ... 0   0 )
+-- >   2 ( 0 2 ... 0   0 )
+-- >     (     ...       )
+-- >     ( 0 0 ... n-1 0 )
+-- >   n ( 0 0 ... 0   n )
+--
+diagonalList :: forall a. Int -> a -> Array a -> Matrix a
+diagonalList n e xs = matrix n n $ \(Tuple i j) -> if i == j 
+                                                      then unsafePartial $ A. unsafeIndex xs (i - 1)
+                                                      else e
+
+fromLists :: forall a. L.List (Array a) -> Matrix a
+fromLists L.Nil = error "fromLists: empty list."
+fromLists xss = fromList2 n m $ foldr (<>) [] xss
+  where
+    n = L.length xss
+    m = A.length $ unsafePartial $ fromJust $ L.head xss
+
+-- | /O(1)/. Represent a vector as a one row matrix.
+rowVector :: forall a. Array a -> Matrix a
+rowVector v = M_ {nrows: 1, ncols: A.length v, values: v}
+
+-- | /O(1)/. Represent a vector as a one column matrix.
+colVector :: forall a. Array a -> Matrix a
+colVector v = M_ { nrows: (A.length v), ncols: 1, values: v }
+
+-- | /O(rows*cols)/. Permutation matrix.
+--
+-- > permMatrix n i j =
+-- >               i     j       n
+-- >   1 ( 1 0 ... 0 ... 0 ... 0 0 )
+-- >   2 ( 0 1 ... 0 ... 0 ... 0 0 )
+-- >     (     ...   ...   ...     )
+-- >   i ( 0 0 ... 0 ... 1 ... 0 0 )
+-- >     (     ...   ...   ...     )
+-- >   j ( 0 0 ... 1 ... 0 ... 0 0 )
+-- >     (     ...   ...   ...     )
+-- >     ( 0 0 ... 0 ... 0 ... 1 0 )
+-- >   n ( 0 0 ... 0 ... 0 ... 0 1 )
+--
+-- When @i == j@ it reduces to 'identity' @n@.
+--
+permMatrix :: forall a. Int -- ^ Size of the matrix.
+           -> Int -- ^ Permuted row 1.
+           -> Int -- ^ Permuted row 2.
+           -> Matrix a -- ^ Permutation matrix.
+permMatrix n r1 r2 = undefined
+{-- permMatrix n r1 r2 | r1 == r2 = identity n --}
+{-- permMatrix n r1 r2 = matrix n n f --}
+{--  where --}
+{--   f (i,j) --}
+{--    | i == r1 = if j == r2 then 1 else 0 --}
+{--    | i == r2 = if j == r1 then 1 else 0 --}
+{--    | i == j = 1 --}
+{--    | otherwise = 0 --}
+
+-------------------------------------------------------
+-------------------------------------------------------
+---- ACCESSING
+
+-- | /O(1)/. Get an element of a matrix. Indices range from /(1,1)/ to /(n,m)/.
+--   It returns an 'error' if the requested element is outside of range.
+
+getElem :: ∀ a.
+           Int      -- ^ Row
+        -> Int      -- ^ Column
+        -> Matrix a -- ^ Matrix
+        -> a
+getElem i j m =
+  case safeGet i j m of
+    Just x -> x
+    Nothing -> error
+      $ "getElem: Trying to get the ("
+      <> show i <> ", " <> show j
+      <> ") element from a "
+      <> sizeStr (nrows m) (ncols m)
+      <> " matrix."
+
+-- | Variant of 'getElem' that returns Maybe instead of an error.
+safeGet :: forall a. Int -> Int -> Matrix a -> Maybe a
+safeGet i j a@(M_ {nrows: r, ncols: c, values: v})
+ | i > r || j > c || r < 1 || c < 1 = Nothing
+ | otherwise = Just $ unsafeGet i j a
+
+-- | /O(1)/. Unsafe variant of 'getElem', without bounds checking.
+unsafeGet :: forall a.
+             Int      -- ^ Row
+             -> Int      -- ^ Column
+             -> Matrix a -- ^ Matrix
+             -> a
+
+unsafeGet i j (M_ {ncols: c, values: v}) = unsafePartial $ A.unsafeIndex v $ encode w (i+ro) (j+co)
+  where w = c
+        ro = 0
+        co = 0
+
+{-- -- | Short alias for 'getElem'. --}
+{-- getElem_ :: forall a. Matrix a -> Array Int -> a --}
+{-- getElem_ m [i,j] = getElem i j m --}
+{-- infixl 8 getElem_ as ! --}
+
+{-- -- | Internal alias for 'unsafeGet'. --}
+{-- unsafeGet_ :: forall a. Matrix a -> Array Int -> a --}
+{-- unsafeGet_ m [i,j] = unsafeGet i j m --}
+{-- infixl 8 unsafeGet_ as !. --}
+
+
+--
+----
+----
+-----
+--
+
+
+-- | /O(rows*cols)/. The transpose of a matrix.
+--   Example:
+--
+-- >           ( 1 2 3 )   ( 1 4 7 )
+-- >           ( 4 5 6 )   ( 2 5 8 )
+-- > transpose ( 7 8 9 ) = ( 3 6 9 )
+transpose :: forall a. Matrix a -> Matrix a
+transpose m = matrix (ncols m) (nrows m) $ \(Tuple i j) -> getElem  j i m
+
+--
+----
+-----
+----
+----
+--
+--
+
+-------------------------------------------------------
+-------------------------------------------------------
+---- MATRIX OPERATIONS
+
+-- | Perform an operation element-wise.
+--   The second matrix must have at least as many rows
+--   and columns as the first matrix. If it's bigger,
+--   the leftover items will be ignored.
+--   If it's smaller, it will cause a run-time error.
+--   You may want to use 'elementwiseUnsafe' if you
+--   are definitely sure that a run-time error won't
+--   arise.
+elementwise :: forall a b c. (a -> b -> c) -> (Matrix a -> Matrix b -> Matrix c)
+elementwise f m m' = matrix (nrows m) (ncols m) $
+  \(Tuple i j) -> f (getElem i j m) (getElem i j m')
+
+-- | Unsafe version of 'elementwise', but faster.
+elementwiseUnsafe :: forall a b c. (a -> b -> c) -> (Matrix a -> Matrix b -> Matrix c)
+{-# INLINE elementwiseUnsafe #-}
+elementwiseUnsafe f m m' = matrix (nrows m) (ncols m) $
+  \(Tuple i j) -> f (unsafeGet i j m) (unsafeGet i j m')
+
+-- | Internal unsafe addition.
+elementwiseUnsafePlus :: forall a. Ring a => Matrix a -> Matrix a -> Matrix a
+elementwiseUnsafePlus a b = elementwiseUnsafe (+) a b
+infixl 6 elementwiseUnsafePlus as +.
+-- | Internal unsafe substraction.
+elementwiseUnsafeMinus :: forall a. Ring a => Matrix a -> Matrix a -> Matrix a
+elementwiseUnsafeMinus a b = elementwiseUnsafe (-) a b
+infixl 6 elementwiseUnsafeMinus as -.
+
 
 --------------------------------------------------------------------------------
 

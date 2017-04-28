@@ -8,18 +8,24 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import Node.FS (FS)
 
 import Data.Tuple ( Tuple(..) )
+import Data.Array ( (!!) )
+import Data.Maybe (Maybe (..) )
+import Data.List ( List(..),  (:) )
+import Data.Foldable ( foldr )
 
-import Stuff (gcd', diagonal)
-import Test.Input (hSlurp)
-import Matrix (identity, zero)
+import Stuff ( gcd', foldr1 )
+import Test.Input ( hSlurp )
+import Matrix ( identity, zero, matrix, fromList2, getElem, diagonal 
+              , toLists, fromLists
+              , nrows, ncols
+              )
 
-main :: forall e.  Eff ( exception :: EXCEPTION 
-                       , console :: CONSOLE 
+main :: forall e.  Eff ( exception :: EXCEPTION
+                       , console :: CONSOLE
                        , fs :: FS | e
                        ) Unit
 main = void $ launchAff do
   log "FVT Test Suite"
-  logShow (diagonal 3.0 4.0)
   logShow $ gcd' 121 22
 
   log "Test hSlurp dat/tr05129e001412.dat"
@@ -34,6 +40,36 @@ main = void $ launchAff do
   logShow $ zero 3 3
   log "Test Matrix operations: identity == zero?"
   logShow $ (identity 3) == (zero 3 3)
+-- >                                  (  1  0 -1 -2 )
+-- >                                  (  3  2  1  0 )
+-- >                                  (  5  4  3  2 )
+-- > matrix 4 4 $ \(i,j) -> 2*i - j = (  7  6  5  4 )
+  log $ "Test matrix creation"
+  let m0 = matrix 3 3 $ \(Tuple i j) -> 2*i - j
+  logShow $ Tuple (m0 == (fromList2 3 3 [1,0,-1,3,2,1,5,4,3])) m0
+  let m1 = matrix 3 4 $ \(Tuple i j) -> 2*i - j
+  logShow $ Tuple (m1 == (fromList2 3 3 [1,0,-1,3,2,1,5,4,3])) m1
+  log $ "Test getElem"
+  let e1 = getElem 3 4 m1
+  logShow $ Tuple (e1 == 2) e1
+  log $ "Test diagonal"
+  let d0 = diagonal 0 [1,2,3]
+      d1 = fromList2 3 3 [1,0,0,0,2,0,0,0,3]
+  logShow $ Tuple (d0 == d1) d0
+  log $ "Test fromLists"
+  let ll0 :: List (Array Int)
+      ll0 = [1,0,0] : [0,2,0] : [0,0,3] : Nil
+      ll1 = fromLists ll0
+  logShow $ Tuple (ll1 == d0) ll0
+
+
+
+
+  logShow $ foldr1 (<>) $ [11,12] : [21,22] : Nil
+  log $ "Test toLists"
+  let l0 = diagonal 0 [1,2,3]
+      l1 = toLists l0 !! 2
+  logShow $ Tuple (l1 == Just [0,0,3]) l1
   {-- (VHMeas _ hl, _) <- hSlurp "dat/tav-0.dat" --}
   {-- let HMeas _ _ w = head hl --}
   {-- w `shouldBe` 0.0114 --}

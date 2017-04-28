@@ -40,15 +40,17 @@ unlines (l:ls) = l <> "\n" <> unlines ls
 --
 -- @'foldr1' f = 'List.foldr1' f . 'toList'@
 foldr1 :: forall a t. (Foldable t) => (a -> a -> a) -> t a -> a
-foldr1 f xs = fromMaybe (unsafeCrashWith "foldr1: empty structure")
-                    (foldr mf Nothing xs)
-      where
-        mf x m = Just (case m of
-                         Nothing -> x
-                         Just y  -> f x y)
+foldr1 f xs = fromMaybe (error "foldr1: empty structure") (foldr mf Nothing xs) where
+  mf :: a -> Maybe a -> Maybe a
+  mf acc m = Just (case m of
+                         Nothing -> acc
+                         Just y  -> f acc y)
 
 undefined :: forall a. a
 undefined = Unsafe.Coerce.unsafeCoerce unit
+
+error :: forall a. String -> a
+error = unsafeCrashWith
 
 diagonal :: Number -> Number -> Number
 diagonal w h = sqrt (w*w + h*h)
