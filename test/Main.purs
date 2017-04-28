@@ -16,7 +16,8 @@ import Data.Foldable ( foldr )
 import Stuff ( gcd', foldr1 )
 import Test.Input ( hSlurp )
 import Matrix ( Matrix, identity, zero, matrix, fromList2, getElem, diagonal 
-              , (+.), (-.)
+              , (+.), (-.), (*.)
+              , multStd
               , toLists, fromLists
               , nrows, ncols
               )
@@ -73,9 +74,12 @@ main = void $ launchAff do
       d5 = diagonal 0 [2, 2, 2, 2, 2]
   logShow $ i5 +. i5 == d5n
   logShow $ Tuple ((diagonal 0 [1,1,1,1,1]) +. (diagonal 0 [1,1,1,1,1]) == (diagonal 0 [2,2,2,2,2])) i5
+  let iid3 = diagonal 0 [1,1,1]
+  logShow $ iid3 *. iid3
+  let id3 = identity 3
+  logShow $ id3 *. (fromList2 3 3 [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0])
+  logShow $ (fromList2 2 2 [0,1,1,0]) *. (fromList2 2 2 [16, 17,18,19])
 
-
-  logShow $ foldr1 (<>) $ [11,12] : [21,22] : Nil
   {-- (VHMeas _ hl, _) <- hSlurp "dat/tav-0.dat" --}
   {-- let HMeas _ _ w = head hl --}
   {-- w `shouldBe` 0.0114 --}

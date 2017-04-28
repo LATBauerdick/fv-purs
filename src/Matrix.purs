@@ -3,10 +3,11 @@ module Matrix (
   , M (..), M5 (..), V5 (..)
   , sw, tr
   , fromList, fromList2, fromLists
-  , zero, identity, matrix, diagonal
+  , identity, matrix, diagonal, zero
   , toList, toLists, getElem
   , nrows, ncols
   , (+.), (-.), elementwiseUnsafePlus, elementwiseUnsafeMinus
+  , multStd, (*.)
   ) where
 
 import Prelude
@@ -35,7 +36,7 @@ instance showV5 :: Show V5 where
 
 -- | sandwich a matrix: a^T * b * a
 sw :: M -> M -> M
-sw a b = tr a
+sw a b = (tr a) --*. b *. a
 {-- sw a b = (tr a) * b * a --}
 tr :: M -> M
 tr = transpose
@@ -499,6 +500,8 @@ If you want to be on the safe side, use ('*').
 
 -}
 
+infixl 6 multStd as *.
+
 -- | Standard matrix multiplication by definition.
 multStd :: forall a. Semiring a => Matrix a -> Matrix a -> Matrix a
 multStd a1@(M_ {nrows: n, ncols: m}) a2@(M_ {nrows: n', ncols: m'})
@@ -517,36 +520,53 @@ multStd2 a1@(M_ {nrows: n, ncols: m}) a2@(M_ {nrows: n', ncols: m'})
 multStd_ :: forall a. Semiring a => Matrix a -> Matrix a -> Matrix a
 multStd_ a@(M_ {nrows: 1, ncols: 1, values: av}) b@(M_ {nrows: 1, ncols: 1, values: bv}) =
   M_ {nrows: 1, ncols: 1, values: v} where
-   v = A.singleton $ (unsafePartial $ A.unsafeIndex av 1) * (unsafePartial $ A.unsafeIndex bv 1)
-  {-- M_ {1 1 0 0 1 $ V.singleton $ (a ! (1,1)) * (b ! (1,1)) --}
+   v = A.singleton $ (unsafePartial $ A.unsafeIndex av 0) * (unsafePartial $ A.unsafeIndex bv 0)
+multStd_ a@(M_ {nrows: 2, ncols: 2, values: av})
+         b@(M_ {nrows: 2, ncols:  2, values: bv}) =
+  M_ {nrows: 2, ncols: 2, values: v} where
+    a11 = unsafePartial $ A.unsafeIndex av 0
+    a12 = unsafePartial $ A.unsafeIndex av 1
+    a21 = unsafePartial $ A.unsafeIndex av 2
+    a22 = unsafePartial $ A.unsafeIndex av 3
+    b11 = unsafePartial $ A.unsafeIndex bv 0
+    b12 = unsafePartial $ A.unsafeIndex bv 1
+    b21 = unsafePartial $ A.unsafeIndex bv 2
+    b22 = unsafePartial $ A.unsafeIndex bv 3
+    v = [ a11*b11 + a12*b21 , a11*b12 + a12*b22
+         , a21*b11 + a22*b21 , a21*b12 + a22*b22
+        ]
+multStd_ a@(M_ {nrows: 3, ncols: 3, values: av})
+         b@(M_ {nrows: 3, ncols: 3, values: bv}) =
+  M_ {nrows: 3, ncols: 3, values: v} where
+    a11 = unsafePartial $ A.unsafeIndex av 0
+    a12 = unsafePartial $ A.unsafeIndex av 1
+    a13 = unsafePartial $ A.unsafeIndex av 2
+    a21 = unsafePartial $ A.unsafeIndex av 3
+    a22 = unsafePartial $ A.unsafeIndex av 4
+    a23 = unsafePartial $ A.unsafeIndex av 5
+    a31 = unsafePartial $ A.unsafeIndex av 6
+    a32 = unsafePartial $ A.unsafeIndex av 7
+    a33 = unsafePartial $ A.unsafeIndex av 8
+    b11 = unsafePartial $ A.unsafeIndex bv 0
+    b12 = unsafePartial $ A.unsafeIndex bv 1
+    b13 = unsafePartial $ A.unsafeIndex bv 2
+    b21 = unsafePartial $ A.unsafeIndex bv 3
+    b22 = unsafePartial $ A.unsafeIndex bv 4
+    b23 = unsafePartial $ A.unsafeIndex bv 5
+    b31 = unsafePartial $ A.unsafeIndex bv 6
+    b32 = unsafePartial $ A.unsafeIndex bv 7
+    b33 = unsafePartial $ A.unsafeIndex bv 8
+    v = [ a11*b11 + a12*b21 + a13*b31
+        , a11*b12 + a12*b22 + a13*b32
+        , a11*b13 + a12*b23 + a13*b33
+        , a21*b11 + a22*b21 + a23*b31
+        , a21*b12 + a22*b22 + a23*b32
+        , a21*b13 + a22*b23 + a23*b33
+        , a31*b11 + a32*b21 + a33*b31
+        , a31*b12 + a32*b22 + a33*b32
+        , a31*b13 + a32*b23 + a33*b33
+        ]
 multStd_ a b = undefined
-{-- multStd_ a@(M 2 2 _ _ _ _) b@(M 2 2 _ _ _ _) = --}
-{--   M 2 2 0 0 2 $ --}
-{--     let -- A --}
-{--         a11 = a !. (1,1) ; a12 = a !. (1,2) --}
-{--         a21 = a !. (2,1) ; a22 = a !. (2,2) --}
-{--         -- B --}
-{--         b11 = b !. (1,1) ; b12 = b !. (1,2) --}
-{--         b21 = b !. (2,1) ; b22 = b !. (2,2) --}
-{--     in V.fromList --} 
-{--          [ a11*b11 + a12*b21 , a11*b12 + a12*b22 --}
-{--          , a21*b11 + a22*b21 , a21*b12 + a22*b22 --}
-{--            ] --}
-{-- multStd_ a@(M 3 3 _ _ _ _) b@(M 3 3 _ _ _ _) = --}
-{--   M 3 3 0 0 3 $ --}
-{--     let -- A --}
-{--         a11 = a !. (1,1) ; a12 = a !. (1,2) ; a13 = a !. (1,3) --}
-{--         a21 = a !. (2,1) ; a22 = a !. (2,2) ; a23 = a !. (2,3) --}
-{--         a31 = a !. (3,1) ; a32 = a !. (3,2) ; a33 = a !. (3,3) --}
-{--         -- B --}
-{--         b11 = b !. (1,1) ; b12 = b !. (1,2) ; b13 = b !. (1,3) --}
-{--         b21 = b !. (2,1) ; b22 = b !. (2,2) ; b23 = b !. (2,3) --}
-{--         b31 = b !. (3,1) ; b32 = b !. (3,2) ; b33 = b !. (3,3) --}
-{--     in V.fromList --}
-{--          [ a11*b11 + a12*b21 + a13*b31 , a11*b12 + a12*b22 + a13*b32 , a11*b13 + a12*b23 + a13*b33 --}
-{--          , a21*b11 + a22*b21 + a23*b31 , a21*b12 + a22*b22 + a23*b32 , a21*b13 + a22*b23 + a23*b33 --}
-{--          , a31*b11 + a32*b21 + a33*b31 , a31*b12 + a32*b22 + a33*b32 , a31*b13 + a32*b23 + a33*b33 --}
-{--            ] --}
 {-- multStd_ a@(M n m _ _ _ _) b@(M _ m' _ _ _ _) = matrix n m' $ \(i,j) -> sum [ a !. (i,k) * b !. (k,j) | k <- [1 .. m] ] --}
 
 multStd__ :: forall a. Matrix a -> Matrix a -> Matrix a

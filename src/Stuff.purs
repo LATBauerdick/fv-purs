@@ -5,9 +5,9 @@ import Math ( sqrt )
 import Data.Ord (signum)
 import Data.List ( List(..), (:) )
 import Data.Tuple ( Tuple(..) )
-import Data.Maybe ( Maybe(..), fromMaybe )
+import Data.Maybe ( Maybe(..), fromMaybe' )
 import Data.Foldable ( class Foldable, foldr )
-import Partial.Unsafe (unsafePartial, unsafeCrashWith)
+import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 
 -- | simultaneous 'quot' and 'rem'
@@ -39,8 +39,10 @@ unlines (l:ls) = l <> "\n" <> unlines ls
 -- and thus may only be applied to non-empty structures.
 --
 -- @'foldr1' f = 'List.foldr1' f . 'toList'@
-foldr1 :: forall a t. (Foldable t) => (a -> a -> a) -> t a -> a
-foldr1 f xs = fromMaybe (error "foldr1: empty structure") (foldr mf Nothing xs) where
+foldr1 :: forall a t. Foldable t => Show a => (a -> a -> a) -> t a -> a
+foldr1 f xs = fromMaybe' ( \_ -> error $ "foldr1: empty structure" <> show xx) xx
+                         where
+  xx = (foldr mf Nothing xs)
   mf :: a -> Maybe a -> Maybe a
   mf acc m = Just (case m of
                          Nothing -> acc
