@@ -37,17 +37,16 @@ instance showMD :: Show MD where
 typeShow = "testShow: " <> show md where
   mm3 :: MM Dim3
   mm3 = MM $ fromList2 3 3 [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]
-  m3 = ((mm3 + mm3)*mm3)
   m5 :: MM Dim5
   m5 = one 
-  md = MakeMD {m3, m5}
+  md = MakeMD {m3: (mm3+mm3)*mm3, m5}
 
 newtype V5 = V5 M
 newtype M5 = M5 M
 instance showV5 :: Show V5 where
   show _ = "show V5: T.B.I."
 
-data VHMeas = VHMeas {
+newtype VHMeas = VHMeas {
     vertex      :: XMeas
   , helices     :: Array HMeas
                      }

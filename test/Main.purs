@@ -13,7 +13,7 @@ import Data.Maybe (Maybe (..) )
 import Data.List ( List(..),  (:) )
 
 import Types (typeShow)
-import Stuff ( gcd', foldr1 )
+import Stuff ( foldr1 )
 import Test.Input ( hSlurp )
 import Matrix ( Matrix, identity, zero_, matrix, fromList2, getElem, diagonal 
               , multStd
@@ -27,12 +27,6 @@ main :: forall e.  Eff ( exception :: EXCEPTION
                        ) Unit
 main = void $ launchAff do
   log "FVT Test Suite"
-  logShow $ gcd' 121 22
-
-  logShow $ diagonal 0.0 [1.0,2.0000000001,3.0]
-  logShow $ fromList2 1 3 [1.0,2.0000000001,3.0]
-  logShow $ fromList2 3 1 [1.0,2.0000000001,3.0]
-
 
   log "Test hSlurp dat/tr05129e001412.dat"
   logShow =<< hSlurp "dat/tr05129e001412.dat"

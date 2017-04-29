@@ -31,7 +31,7 @@ instance showM0 :: Show M0 where
 type M = Matrix Number
 -- | sandwich a matrix: a^T * b * a
 sw :: M -> M -> M
-sw a b = (tr a) --*. b *. a
+sw a b = (tr a) * b * a
 {-- sw a b = (tr a) * b * a --}
 tr :: M -> M
 tr = transpose
