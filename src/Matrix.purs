@@ -1,26 +1,27 @@
 module Matrix (
     Matrix (..)
-  , M (..), M5 (..), V5 (..)
-  , sw, tr
+  , M (..), sw, tr
   , fromList, fromList2, fromLists
-  , identity, matrix, diagonal, zero
+  , identity, matrix, diagonal, zero_
   , toList, toLists, getElem
-  , nrows, ncols
+  , nrows, ncols, values
   , (+.), (-.), elementwiseUnsafePlus, elementwiseUnsafeMinus
-  , multStd, (*.)
+  , multStd
   ) where
 
 import Prelude
 import Stuff
 import Data.Array (
-                    range, cons, index, unsafeIndex, cons, concat, fromFoldable, take
+                    range, index, unsafeIndex, cons, concat, fromFoldable, take
                   , mapMaybe, replicate, slice, length , all, singleton
                   ) as A
 import Data.Tuple (Tuple (..))
-import Data.List ( List(..), (:), length, head ) as L
+import Data.List ( List(..), (:), length, head, range ) as L
 import Data.Maybe ( Maybe(..), fromJust, fromMaybe )
 import Data.Monoid ( class Monoid, mempty )
-import Data.Foldable ( foldr )
+import Data.Foldable ( foldr, maximum, sum )
+import Data.String ( length ) as S
+import Data.String.Utils ( fromCharArray ) as S
 import Partial.Unsafe ( unsafePartial )
 
 newtype M0 = M0 (Matrix Number)
@@ -28,12 +29,6 @@ instance showM0 :: Show M0 where
   show (M0 m) = prettyMatrix m
 
 type M = Matrix Number
-newtype V5 = V5 M
-newtype M5 = M5 M
-
-instance showV5 :: Show V5 where
-  show _ = "show V5: T.B.I."
-
 -- | sandwich a matrix: a^T * b * a
 sw :: M -> M -> M
 sw a b = (tr a) --*. b *. a
@@ -65,7 +60,7 @@ nrows (M_ {nrows: r}) = r
 ncols :: forall a. Matrix a -> Int
 ncols (M_ {ncols: c}) = c
 values :: forall a. Matrix a -> Array a
-values (M_ {values: v}) = v
+values (M_ m) = m.values
 
 encode :: Int -> Int -> Int -> Int
 encode m i j = (i-1)*m + j - 1
@@ -89,12 +84,14 @@ sizeStr n m = show n <> "x" <> show m
 -- | Display a matrix as a 'String' using the 'Show' instance of its elements.
 prettyMatrix :: forall a. Show a => Matrix a -> String
 --prettyMatrix (M_ m) = show m.values
-prettyMatrix m@(M_ {values: v}) = show v --m.values
---  unlines
---  [ "( " <> unwords (fmap (\j -> fill mx $ show $ m ! (i,j)) 1..(ncols m)) <> " )" | i <- 1..(nrows m) ]
---  where
---    mx = A.maximum $ fmap (length . show) v
---    fill k str = replicate (k - length str) ' ' <> str
+prettyMatrix m@(M_ {nrows: r, ncols: c, values: v}) = unlines ls where
+  ls = do
+    i <- L.range 1 r
+    let ws :: L.List String
+        ws = map (\j -> fillBlanks mx (show $ getElem i j m)) (L.range 1 c)
+    pure $ "( " <> unwords ws <> " )"
+  mx = fromMaybe 0 (maximum $ map (S.length <<< show) v)
+  fillBlanks k str = (S.fromCharArray $ A.replicate (k - S.length str) " ") <> str
 
 instance showMatrix :: Show a => Show (Matrix a) where
   show = prettyMatrix
@@ -191,11 +188,16 @@ instance functorMatrix :: Functor Matrix where
 -- >     (     ...     )
 -- >     ( 0 0 ... 0 0 )
 -- >   n ( 0 0 ... 0 0 )
-zero ::
+zero_ ::
      Int -- ^ Rows
   -> Int -- ^ Columns
   -> Matrix Number
-zero n m = M_ { nrows: n, ncols: m, values: (A.replicate (n*m) 0.0)}
+zero_ n m = M_ { nrows: n, ncols: m, values: (A.replicate (n*m) 0.0)}
+zeroInt_ ::
+     Int -- ^ Rows
+  -> Int -- ^ Columns
+  -> Matrix Int
+zeroInt_ n m = M_ { nrows: n, ncols: m, values: (A.replicate (n*m) 0)}
 
 -- | /O(rows*cols)/. Generate a matrix from a generator function.
 --   Example of usage:
@@ -260,7 +262,7 @@ diagonal e v = matrix n n $ \(Tuple i j) -> if i == j
 --
 -- | Create column vector from array
 fromList :: forall a. Int -> Array a -> Matrix a
-fromList r vs = M_ {nrows: r, ncols: r, values: vs}
+fromList r vs = M_ {nrows: r, ncols: 1, values: vs}
 -- | Create matrix from array
 fromList2 :: forall a. Int -> Int -> Array a -> Matrix a
 fromList2 r c vs = M_ {nrows: r, ncols: c, values: vs}
@@ -462,6 +464,27 @@ infixl 6 elementwiseUnsafeMinus as -.
 
 -------------------------------------------------------
 -------------------------------------------------------
+--
+instance semiringMatrixiNumber ∷ Semiring (Matrix Number) where
+  add  = elementwiseUnsafePlus
+  mul  = multStd
+  zero = zero_ 3 3
+  one  = identity 3
+
+instance semiringMatrixInt ∷ Semiring (Matrix Int) where
+  add  = elementwiseUnsafePlus
+  mul  = multStd
+  zero = zeroInt_ 3 3
+  one  = identityInt 3
+
+instance ringMatrixNumber ∷ Ring (Matrix Number) where
+  sub = elementwiseUnsafeMinus
+instance ringMatrixInt ∷ Ring (Matrix Int) where
+  sub = elementwiseUnsafeMinus
+
+--
+-------------------------------------------------------
+-------------------------------------------------------
 ---- MATRIX MULTIPLICATION
 
 {- $mult
@@ -566,8 +589,11 @@ multStd_ a@(M_ {nrows: 3, ncols: 3, values: av})
         , a31*b12 + a32*b22 + a33*b32
         , a31*b13 + a32*b23 + a33*b33
         ]
+multStd_ a@(M_ {nrows: n, ncols: m}) b@(M_ {ncols: m'}) =
+  matrix n m' \(Tuple i j) -> sum do
+                                    k <- A.range 1 m
+                                    pure $ (getElem i k a ) * (getElem k j b)
 multStd_ a b = undefined
-{-- multStd_ a@(M n m _ _ _ _) b@(M _ m' _ _ _ _) = matrix n m' $ \(i,j) -> sum [ a !. (i,k) * b !. (k,j) | k <- [1 .. m] ] --}
 
 multStd__ :: forall a. Matrix a -> Matrix a -> Matrix a
 multStd__ a b = undefined
@@ -799,10 +825,6 @@ columns (M_ mat) = do
 
 {-- scaleDiag :: Double -> M -> M --}
 {-- scaleDiag s = (M.diagonal 0.0 . M.getDiag . M.scaleMatrix  s) --}
-
-{-- (^+) :: M -> M --}
-{-- (^+) = M.transpose --}
-
 
 {-- chol :: M -> M --}
 {-- chol a = M.cholDecomp a --}

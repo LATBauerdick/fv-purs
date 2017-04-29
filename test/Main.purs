@@ -11,14 +11,13 @@ import Data.Tuple ( Tuple(..) )
 import Data.Array ( (!!) )
 import Data.Maybe (Maybe (..) )
 import Data.List ( List(..),  (:) )
-import Data.Foldable ( foldr )
 
+import Types (typeShow)
 import Stuff ( gcd', foldr1 )
 import Test.Input ( hSlurp )
-import Matrix ( Matrix, identity, zero, matrix, fromList2, getElem, diagonal 
-              , (+.), (-.), (*.)
+import Matrix ( Matrix, identity, zero_, matrix, fromList2, getElem, diagonal 
               , multStd
-              , toLists, fromLists
+              , toLists, fromLists, fromList
               , nrows, ncols
               )
 
@@ -30,6 +29,11 @@ main = void $ launchAff do
   log "FVT Test Suite"
   logShow $ gcd' 121 22
 
+  logShow $ diagonal 0.0 [1.0,2.0000000001,3.0]
+  logShow $ fromList2 1 3 [1.0,2.0000000001,3.0]
+  logShow $ fromList2 3 1 [1.0,2.0000000001,3.0]
+
+
   log "Test hSlurp dat/tr05129e001412.dat"
   logShow =<< hSlurp "dat/tr05129e001412.dat"
   log "Test hSlurp dat/tav-4.dat"
@@ -39,9 +43,9 @@ main = void $ launchAff do
   log $ "Test identity 3"
   logShow $ identity 3
   log $ "Test zero 3 3"
-  logShow $ zero 3 3
+  logShow $ zero_ 3 3
   log "Test Matrix operations: identity == zero?"
-  logShow $ (identity 3) == (zero 3 3)
+  logShow $ (identity 3) == (zero_ 3 3)
 -- >                                  (  1  0 -1 -2 )
 -- >                                  (  3  2  1  0 )
 -- >                                  (  5  4  3  2 )
@@ -51,35 +55,42 @@ main = void $ launchAff do
   logShow $ Tuple (m0 == (fromList2 3 3 [1,0,-1,3,2,1,5,4,3])) m0
   let m1 = matrix 3 4 $ \(Tuple i j) -> 2*i - j
   logShow $ Tuple (m1 == (fromList2 3 3 [1,0,-1,3,2,1,5,4,3])) m1
+
   log $ "Test getElem"
   let e1 = getElem 3 4 m1
   logShow $ Tuple (e1 == 2) e1
-  log $ "Test diagonal"
-  let d0 = diagonal 0 [1,2,3]
-      d1 = fromList2 3 3 [1,0,0,0,2,0,0,0,3]
-  logShow $ Tuple (d0 == d1) d0
+
+  {-- log $ "Test diagonal" --}
+  {-- let d0 = diagonal 0 [1,2,3] --}
+  {--     d1 = fromList2 3 3 [1,0,0,0,2,0,0,0,3] --}
+  {-- logShow $ Tuple (d0 == d1) d0 --}
+
   log $ "Test fromLists"
   let ll0 :: List (Array Int)
       ll0 = [1,0,0] : [0,2,0] : [0,0,3] : Nil
       ll1 = fromLists ll0
-  logShow $ Tuple (ll1 == d0) ll0
+  logShow $ Tuple (ll1 == diagonal 0 [1,2,3]) ll0
+
   log $ "Test toLists"
   let l0 = diagonal 0 [1,2,3]
       l1 = toLists l0 !! 2
   logShow $ Tuple (l1 == Just [0,0,3]) l1
-  log $ "Test arithmetic"
-  let i5 :: Matrix Number --!!! Int
-      i5 = identity 5
-      d5n = diagonal 0.0 [2.0, 2.0, 2.0, 2.0, 2.0] --}
-      d5 = diagonal 0 [2, 2, 2, 2, 2]
-  logShow $ i5 +. i5 == d5n
-  logShow $ Tuple ((diagonal 0 [1,1,1,1,1]) +. (diagonal 0 [1,1,1,1,1]) == (diagonal 0 [2,2,2,2,2])) i5
-  let iid3 = diagonal 0 [1,1,1]
-  logShow $ iid3 *. iid3
-  let id3 = identity 3
-  logShow $ id3 *. (fromList2 3 3 [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0])
-  logShow $ (fromList2 2 2 [0,1,1,0]) *. (fromList2 2 2 [16, 17,18,19])
 
+  log $ "Test arithmetic"
+  let m35 = fromLists $ [1,2,3,4,5] : [2,3,4,5,6] : [3,4,5,6,7] : Nil
+      m53 = fromLists $ [1,0,0] : [0,1,0] : [0,0,1] : [0,0,0] : [0,0,0] : Nil
+      d5n = diagonal 0.0 [2.0, 2.0, 2.0, 2.0, 2.0]
+      d5 = diagonal 0 [2, 2, 2, 2, 2]
+  logShow $ m35 * m53 == (fromLists $ [1,2,3] : [2,3,4] : [3,4,5] : Nil)
+  logShow $ m35 * m53
+  logShow $ (diagonal 0 [1,1,1,1,1]) + (diagonal 0 [1,1,1,1,1]) == (diagonal 0 [2,2,2,2,2])
+  logShow $ (fromList2 3 3 [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) * one
+  logShow $ (fromList2 3 3 [1,2,3,4,5,6,7,8,9]) * one
+  logShow $ (fromList2 3 3 [0,0,1,0,1,0,1,0,0]) * (fromList2 3 3 [11, 12,13,21,22,23,31,32,33]) * one
+  logShow $ (fromList2 3 3 [11, 12,13,21,22,23,31,32,33]) * fromList 3 [-1,1,1]
+
+  log "Test typeShow"
+  log $ typeShow
   {-- (VHMeas _ hl, _) <- hSlurp "dat/tav-0.dat" --}
   {-- let HMeas _ _ w = head hl --}
   {-- w `shouldBe` 0.0114 --}

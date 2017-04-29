@@ -21,8 +21,8 @@ import Data.String.Utils (words)
 -- import Unsafe.Coerce (unsafeCoerce)
 import Partial.Unsafe (unsafePartial)
 
-import Matrix (sw, fromList, fromList2, V5 (..), M5 (..))
-import Types ( MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
+import Matrix (sw, fromList, fromList2)
+import Types ( V5 (..), M5 (..), MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
 
 -- slurps up a bunch of Doubles from a text data file into VHMeas and MCtruth
 -- and parses them w/ hSlurp' to a vertex and a set of helix measurements
