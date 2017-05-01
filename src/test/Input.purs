@@ -1,12 +1,12 @@
 
-module Test.Input ( hSlurpVHMeas, hSlurpMCtruth ) where
+module Test.Input ( hSlurp, hSlurpMCtruth ) where
 
 import Prelude
 import Control.MonadZero (guard)
---import Data.Number (fromString)
+import Data.Number ( fromString ) as Data.Number
 import Data.Int (fromString, round) as Data.Int
-import Data.Array ( mapMaybe, take, drop, slice, (!!), (..) )
-import Data.Array.Partial (head, tail)
+import Data.Array ( take, drop, (!!), fromFoldable, mapMaybe, range, slice )
+import Data.List ( List (..), head, index, slice, mapMaybe, drop ) as L
 import Data.Tuple (Tuple (..), fst)
 import Data.Maybe ( Maybe (Nothing, Just) )
 import Control.Monad.Eff (Eff)
@@ -20,36 +20,49 @@ import Partial.Unsafe (unsafePartial)
 
 import Matrix (sw, fromList, fromList2)
 import Types ( V5 (..), M5 (..), MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
+import Stuff ( words )
 
 type FilePath = String -- from Node.Path
 
+{-- listToArray :: forall a. List a -> Array a --}
+{-- listToArray = ?whatGoesHere --}
+
 -- slurp in a String of measurements of PU z-positions into MCtruth
 hSlurpMCtruth :: String -> Maybe MCtruth
-hSlurpMCtruth ws = mc where
+hSlurpMCtruth ds = mc where
+  ws = words ds
   npu :: Maybe Int
   npu = do
-              let key = unsafePartial head ws
+              key <- L.head ws
               guard $ key == "PU_zpositions:"
-              snpu <- ws !! 1
+              snpu <- L.index ws 1
               Data.Int.fromString snpu
   mc = case npu of
               Nothing -> Nothing
-              Just n -> let mcArr = slice 2 (2+n) ws
+              Just n -> let
+                            mcList = L.slice 2 (2+n) ws
+                            mcList' = L.mapMaybe Data.Number.fromString $ mcList
+                            mcArr :: Array Number
+                            mcArr = fromFoldable $ mcList'
                         in Just $ MCtruth { pu_zpositions: mcArr }
 
 -- slurps up a String with a bunch of Doubles
 -- and parses them w/ to a vertex and a set of helix measurements
 hSlurp :: String -> Maybe VHMeas
-hSlurp ws = vhm where
+hSlurp ds = vhm where
+  ws = words ds
   npu :: Maybe Int
   npu = do
-              let key = unsafePartial head ws
+              key <- L.head ws
               guard $ key == "PU_zpositions:"
-              snpu <- ws !! 1
+              snpu <- L.index ws 1
               Data.Int.fromString snpu
   vhm = case npu of
-              Nothing -> hSlurp' ws
-              Just n -> hSlurp' (drop (n+2) ws)
+              Nothing -> hSlurp' $ fromFoldable $ L.mapMaybe Data.Number.fromString ws
+              Just n -> let
+                            vList = L.mapMaybe Data.Number.fromString (L.drop (n+2) ws)
+                            vArr = fromFoldable vList
+                        in hSlurp' vArr
 
 -- slurp in the measurements of vertex and helices
 hSlurp' :: Array Number -> Maybe VHMeas
@@ -63,7 +76,7 @@ hSlurp' inp = do
       f     = case w2pt of
                   1.0 -> nxtH'        -- CMS case
                   otherwise -> nxtH   -- Aleph case
-      hl    = mapMaybe (\i -> f w2pt (slice (i*30+14) (i*30+44) inp)) $ 0..(nt-1)
+      hl    = mapMaybe (\i -> f w2pt (slice (i*30+14) (i*30+44) inp)) $ range 0 (nt-1)
 
   pure $ VHMeas { vertex: v, helices: hl }
 
