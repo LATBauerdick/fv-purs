@@ -15,13 +15,13 @@ import Data.Array (
                     range, index, unsafeIndex, cons, concat, fromFoldable, take
                   , mapMaybe, replicate, slice, length , all, singleton
                   ) as A
-import Data.Tuple (Tuple (..))
+import Data.Tuple (Tuple (..), fst, snd)
 import Data.List ( List(..), (:), length, head, range ) as L
 import Data.Maybe ( Maybe(..), fromJust, fromMaybe )
 import Data.Monoid ( class Monoid, mempty )
 import Data.Foldable ( foldr, maximum, sum )
 import Data.String ( length ) as S
-import Data.String.Utils ( fromCharArray ) as S
+--import Data.String.Utils ( fromCharArray ) as S
 import Partial.Unsafe ( unsafePartial )
 
 newtype M0 = M0 (Matrix Number)
@@ -67,7 +67,10 @@ encode m i j = (i-1)*m + j - 1
 
 decode :: Int -> Int -> (Tuple Int Int)
 decode m k = (Tuple (q+1) (r+1))
-  where (Tuple q r) = quotRem k m
+-- where (Tuple q r) = quotRem k m
+  where qr = quotRem k m
+        q = fst qr
+        r = snd qr
 
 instance eqMatrix :: Eq a => Eq (Matrix a) where
   eq m1 m2 | nrows m1 /= nrows m2 || ncols m1 /= ncols m2 = false
@@ -83,15 +86,15 @@ sizeStr n m = show n <> "x" <> show m
 
 -- | Display a matrix as a 'String' using the 'Show' instance of its elements.
 prettyMatrix :: forall a. Show a => Matrix a -> String
---prettyMatrix (M_ m) = show m.values
-prettyMatrix m@(M_ {nrows: r, ncols: c, values: v}) = unlines ls where
-  ls = do
-    i <- L.range 1 r
-    let ws :: L.List String
-        ws = map (\j -> fillBlanks mx (show $ getElem i j m)) (L.range 1 c)
-    pure $ "( " <> unwords ws <> " )"
-  mx = fromMaybe 0 (maximum $ map (S.length <<< show) v)
-  fillBlanks k str = (S.fromCharArray $ A.replicate (k - S.length str) " ") <> str
+prettyMatrix (M_ m) = show m.values
+{-- prettyMatrix m@(M_ {nrows: r, ncols: c, values: v}) = unlines ls where --}
+{--   ls = do --}
+{--     i <- L.range 1 r --}
+{--     let ws :: L.List String --}
+{--         ws = map (\j -> fillBlanks mx (show $ getElem i j m)) (L.range 1 c) --}
+{--     pure $ "( " <> unwords ws <> " )" --}
+{--   mx = fromMaybe 0 (maximum $ map (S.length <<< show) v) --}
+{--   fillBlanks k str = (S.fromCharArray $ A.replicate (k - S.length str) " ") <> str --}
 
 instance showMatrix :: Show a => Show (Matrix a) where
   show = prettyMatrix
