@@ -7,7 +7,8 @@ import Prelude
 import Data.Array (length)
 import Stuff
 import Matrix ( M, nrows, ncols, values, fromList2, diagonal, identity
-              , Matrix (..), elementwiseUnsafePlus, zero_, multStd )
+              , Matrix (..)
+              , elementwiseUnsafePlus, elementwiseUnsafeMinus, zero_, multStd )
 
 newtype Dim3 = Dim3 Int
 newtype Dim5 = Dim5 Int
@@ -18,6 +19,8 @@ instance semiringMM3 :: Semiring (MM Dim3) where
   zero = MM $ zero_ 3 3
   mul (MM m1) (MM m2) = MM $ multStd m1 m2
   one = MM $ identity 3
+instance ringMM3 :: Ring (MM Dim3) where
+  sub (MM m1) (MM m2) = MM $ elementwiseUnsafeMinus m1 m2
 instance showMM3 :: Show (MM Dim3) where
   show (MM m) = "Show (MM Dim3) " <> show m 
 
@@ -26,7 +29,8 @@ instance semiringMM5 :: Semiring (MM Dim5) where
   zero = MM $ zero_ 5 5
   mul (MM m1) (MM m2) = MM $ multStd m1 m2
   one = MM $ identity 5
-
+instance ringMM5 :: Ring (MM Dim5) where
+  sub (MM m1) (MM m2) = MM $ elementwiseUnsafeMinus m1 m2
 instance showMM5 :: Show (MM Dim5) where
   show (MM m) = "Show (MM Dim5) " <> show m 
 
