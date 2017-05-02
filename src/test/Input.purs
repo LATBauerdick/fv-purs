@@ -5,8 +5,7 @@ import Prelude
 import Control.MonadZero (guard)
 import Data.Number ( fromString ) as Data.Number
 import Data.Int (fromString, round) as Data.Int
-import Data.Array ( take, drop, (!!), fromFoldable, mapMaybe, range, slice )
-import Data.List ( List (..), head, index, slice, mapMaybe, drop ) as L
+import Data.Array ( take, drop, (!!), fromFoldable, mapMaybe, range, slice, head )
 import Data.Tuple (Tuple (..), fst)
 import Data.Maybe ( Maybe (Nothing, Just) )
 import Control.Monad.Eff (Eff)
@@ -33,17 +32,14 @@ hSlurpMCtruth ds = mc where
   ws = words ds
   npu :: Maybe Int
   npu = do
-              key <- L.head ws
+              key <- head ws
               guard $ key == "PU_zpositions:"
-              snpu <- L.index ws 1
+              snpu <- ws !! 1
               Data.Int.fromString snpu
   mc = case npu of
               Nothing -> Nothing
               Just n -> let
-                            mcList = L.slice 2 (2+n) ws
-                            mcList' = L.mapMaybe Data.Number.fromString $ mcList
-                            mcArr :: Array Number
-                            mcArr = fromFoldable $ mcList'
+                            mcArr = mapMaybe Data.Number.fromString $ slice 2 (2+n) ws
                         in Just $ MCtruth { pu_zpositions: mcArr }
 
 -- slurps up a String with a bunch of Doubles
@@ -53,15 +49,14 @@ hSlurp ds = vhm where
   ws = words ds
   npu :: Maybe Int
   npu = do
-              key <- L.head ws
+              key <- head ws
               guard $ key == "PU_zpositions:"
-              snpu <- L.index ws 1
+              snpu <- ws !! 1
               Data.Int.fromString snpu
   vhm = case npu of
-              Nothing -> hSlurp' $ fromFoldable $ L.mapMaybe Data.Number.fromString ws
+              Nothing -> hSlurp' $ mapMaybe Data.Number.fromString ws
               Just n -> let
-                            vList = L.mapMaybe Data.Number.fromString (L.drop (n+2) ws)
-                            vArr = fromFoldable vList
+                            vArr = mapMaybe Data.Number.fromString (drop (n+2) ws)
                         in hSlurp' vArr
 
 -- slurp in the measurements of vertex and helices
