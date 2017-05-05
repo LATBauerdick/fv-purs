@@ -14,17 +14,19 @@ import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 --import Data.String.Utils (words)
 
 import Data.Tuple ( Tuple(..) )
-import Data.Array ( (!!) )
+import Data.Array ( (!!), mapMaybe )
 import Data.Maybe (Maybe (..) )
 import Data.List ( List(..),  (:) )
 
 import Types (typeShow)
-import Test.Input ( hSlurp )
+import Test.Input ( hSlurp, hSlurpMCtruth )
 import Matrix ( Matrix, identity, zero_, matrix, fromList2, getElem, diagonal 
               , multStd
               , toLists, fromLists, fromList
               , nrows, ncols
               )
+
+import Data.Number ( fromString )
 import Stuff
 
 main :: forall e.  Eff ( console :: CONSOLE
@@ -39,13 +41,13 @@ main = do
   {-- ds <- readTextFile UTF8 "dat/tr05129e001412.dat" --}
   {-- let ws = mapMaybe fromString $ words ds --}
   let ws = tr05129e001412
-  logShow $ hSlurp ws
-  logShow $ words ws
   log "Test hSlurp dat/tav-4.dat"
+  logShow $ mapMaybe fromString $ words tav4
   logShow $ hSlurp tav4
-  {-- logShow =<< hSlurp tav4
-  let vhm = hSlurp tr05129e001412
-  logShow vhm
+  logShow $ hSlurp ws
+  --logShow =<< hSlurp tav4
+  let mc = hSlurpMCtruth tav4
+  logShow mc
   log $ "Test identity 3"
   logShow $ identity 3
   log $ "Test zero 3 3"

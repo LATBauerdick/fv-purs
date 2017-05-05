@@ -15,10 +15,10 @@
     "purescript-stringutils": "^0.0.6",
     "purescript-node-fs-aff": "^4.0.0",
     "purescript-psci-support": "^3.0.0",
-    "purescript-numbers": "^4.2.0",
     "purescript-folds": "^3.1.0",
     "purescript-typelevel": "^3.0.0",
-    "purescript-unicode": "^3.0.1"
+    "purescript-unicode": "^3.0.1",
+    "purescript-numbers": "^5.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"

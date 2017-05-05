@@ -15,7 +15,7 @@
 # You can also edit the generated version of this file directly.
 #
 PCC    := /usr/local/bin/pcc
-SRC    := src
+SRC    := src, Data, Global
 OUTPUT := output
 BIN    := main
 

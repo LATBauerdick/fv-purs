@@ -3,7 +3,7 @@ module Test.Input ( hSlurp, hSlurpMCtruth ) where
 
 import Prelude
 import Control.MonadZero (guard)
-import Data.Number ( fromString ) as Data.Number
+import Data.Number ( fromString )
 import Data.Int (fromString, round) as Data.Int
 import Data.Array ( take, drop, (!!), fromFoldable, mapMaybe, range, slice, head )
 import Data.Tuple (Tuple (..), fst)
@@ -20,6 +20,7 @@ import Partial.Unsafe (unsafePartial)
 import Matrix (sw, fromList, fromList2)
 import Types ( V5 (..), M5 (..), MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
 import Stuff ( words )
+
 
 type FilePath = String -- from Node.Path
 
@@ -39,7 +40,7 @@ hSlurpMCtruth ds = mc where
   mc = case npu of
               Nothing -> Nothing
               Just n -> let
-                            mcArr = mapMaybe Data.Number.fromString $ slice 2 (2+n) ws
+                            mcArr = mapMaybe fromString $ slice 2 (2+n) ws
                         in Just $ MCtruth { pu_zpositions: mcArr }
 
 -- slurps up a String with a bunch of Doubles
@@ -54,9 +55,8 @@ hSlurp ds = vhm where
               snpu <- ws !! 1
               Data.Int.fromString snpu
   vhm = case npu of
-              Nothing -> hSlurp' $ mapMaybe Data.Number.fromString ws
-              Just n -> let
-                            vArr = mapMaybe Data.Number.fromString (drop (n+2) ws)
+              Nothing -> hSlurp' $ mapMaybe fromString ws
+              Just n -> let vArr = mapMaybe fromString (drop (n+2) ws)
                         in hSlurp' vArr
 
 -- slurp in the measurements of vertex and helices
