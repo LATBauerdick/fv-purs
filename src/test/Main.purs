@@ -17,17 +17,23 @@ import Data.Tuple ( Tuple(..) )
 import Data.Array ( (!!), mapMaybe )
 import Data.Maybe (Maybe (..) )
 import Data.List ( List(..),  (:) )
+import Data.Foldable ( traverse_ )
 
-import Types (typeShow)
+import FV.Types ( HMeas (..), VHMeas (..), vertex, helices, typeShow )
 import Test.Input ( hSlurp, hSlurpMCtruth )
-import Matrix ( Matrix, identity, zero_, matrix, fromList2, getElem, diagonal 
-              , multStd
-              , toLists, fromLists, fromList
-              , nrows, ncols
-              )
+import Data.Matrix  ( Matrix, identity, zero_, matrix, fromList2, getElem, diagonal 
+                    , multStd
+                    , toLists, fromLists, fromList
+                    , nrows, ncols
+                    )
 
 import Data.Number ( fromString )
 import Stuff
+
+showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
+showMomentum h = log $ "pt,pz,fi,E ->" -- <> (show <<< h2q) h
+showHelix :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
+showHelix h = log $ "Helix ->" <> (show h)
 
 main :: forall e.  Eff ( console :: CONSOLE
                        --, exception :: EXCEPTION
@@ -36,7 +42,27 @@ main :: forall e.  Eff ( console :: CONSOLE
 --main = void $ launchAff do
 main = do
   log "FVT Test Suite"
+  log "--Test hSlurp"
+  testHSlurp
+  log "--Test Matrix"
+  testMatrix
+  log "--Test FVT"
+  testFVT
 
+testFVT :: forall e. Eff (console :: CONSOLE | e) Unit
+testFVT = do
+  let vm = hSlurp tr05129e001412
+  let hel = case vm of
+              Just v -> helices v
+              Nothing -> []
+  traverse_ showHelix hel
+  traverse_ showMomentum hel
+  {-- let l5 = [0,2,3,4,5] -- these are the tracks supposedly from the tau --}
+  {-- doFitTest vm l5 --}
+  {-- _ <- showProng <<< fitw <<< hFilter l5 <<< vBlowup 10000.0 $ vm --}
+
+testHSlurp :: forall e. Eff (console :: CONSOLE | e) Unit
+testHSlurp = do
   log "Test hSlurp dat/tr05129e001412.dat"
   {-- ds <- readTextFile UTF8 "dat/tr05129e001412.dat" --}
   {-- let ws = mapMaybe fromString $ words ds --}
@@ -48,6 +74,9 @@ main = do
   --logShow =<< hSlurp tav4
   let mc = hSlurpMCtruth tav4
   logShow mc
+
+testMatrix :: forall e. Eff (console :: CONSOLE | e) Unit
+testMatrix = do
   log $ "Test identity 3"
   logShow $ identity 3
   log $ "Test zero 3 3"

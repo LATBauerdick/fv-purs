@@ -13,6 +13,11 @@ import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 import Data.Char.Unicode ( isSpace )
 import Data.List (fromFoldable)
+import Data.Int (round, toNumber)
+
+-- | round to 3 decimal
+roundDec :: Number -> Number
+roundDec x = (toNumber (round ( 1000.0 * x )))/1000.0
 
 -- | simultaneous 'quot' and 'rem'
 quotRem :: Int -> Int -> (Tuple Int Int)

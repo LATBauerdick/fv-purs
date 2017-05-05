@@ -17,8 +17,8 @@ import Math ( sin, cos )
 -- import Unsafe.Coerce (unsafeCoerce)
 import Partial.Unsafe (unsafePartial)
 
-import Matrix (sw, fromList, fromList2)
-import Types ( V5 (..), M5 (..), MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
+import Data.Matrix (sw, fromList, fromList2)
+import FV.Types ( V5 (..), M5 (..), MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
 import Stuff ( words )
 
 
