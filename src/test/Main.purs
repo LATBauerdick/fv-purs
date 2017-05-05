@@ -19,7 +19,7 @@ import Data.Maybe (Maybe (..) )
 import Data.List ( List(..),  (:) )
 import Data.Foldable ( traverse_ )
 
-import FV.Types ( HMeas (..), VHMeas (..), vertex, helices, typeShow )
+import FV.Types ( HMeas (..), VHMeas (..), vertex, helices, fromHMeas, typeShow )
 import Test.Input ( hSlurp, hSlurpMCtruth )
 import Data.Matrix  ( Matrix, identity, zero_, matrix, fromList2, getElem, diagonal 
                     , multStd
@@ -31,7 +31,7 @@ import Data.Number ( fromString )
 import Stuff
 
 showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
-showMomentum h = log $ "pt,pz,fi,E ->" -- <> (show <<< h2q) h
+showMomentum h = log $ "pt,pz,fi,E ->" <> (show <<< fromHMeas) h
 showHelix :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
 showHelix h = log $ "Helix ->" <> (show h)
 
