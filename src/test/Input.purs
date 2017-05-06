@@ -18,7 +18,8 @@ import Math ( sin, cos )
 import Partial.Unsafe (unsafePartial)
 
 import Data.Matrix (sw, fromList, fromList2)
-import FV.Types ( V5 (..), M5 (..), MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
+import FV.Types ( V3 (..), M3 (..), V5 (..), M5 (..)
+                , MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
 import Stuff ( words )
 
 
@@ -64,7 +65,7 @@ hSlurp' :: Array Number -> Maybe VHMeas
 hSlurp' inp = do
   let v0    = fromList 3 $ take 3 inp       -- initial vertex pos
       cv0   = fromList2 3 3 (take 9 $ drop 3 inp) -- cov matrix
-      v     = XMeas v0 cv0
+      v     = XMeas (V3 v0) (M3 cv0)
   w2pt      <- inp !! 12  -- how to calc pt from w; 1 in case of CMS
   mnt       <- inp !! 13  -- number of helices to follow --}
   let nt    = Data.Int.round mnt

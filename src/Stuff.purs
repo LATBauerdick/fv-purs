@@ -1,23 +1,77 @@
 module Stuff where
 
 import Prelude
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Math ( sqrt )
 import Data.Ord (signum)
 import Data.List ( List(..), (:))
 import Data.String ( takeWhile, dropWhile, toCharArray, fromCharArray, split, Pattern (..) )
-import Data.Array ( mapMaybe )
+import Data.Array ( mapMaybe, unsafeIndex, range, length )
 import Data.Tuple ( Tuple(..), fst, snd )
 import Data.Maybe ( Maybe(..), fromMaybe' )
 import Data.Foldable ( class Foldable, foldr )
 import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 import Data.Char.Unicode ( isSpace )
-import Data.List (fromFoldable)
-import Data.Int (round, toNumber)
+import Data.List ( fromFoldable )
+import Data.Int ( round, toNumber, floor )
+import Data.Number.Format ( toStringWith, fixed )
+import Text.Format ( format, precision, width )
+import Data.Enum ( class Enum )
+import Control.MonadZero ( guard )
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
+
+trace :: forall a. String -> a -> a
+trace s a = const a (unsafePerformEff (log s))
+debug = flip trace
+{-- unsafePerformEff :: forall eff a. Eff eff a -> a --}
+{-- log :: forall eff. String -> Eff (console :: CONSOLE | eff) Unit --}
+
+
+-- | generalisation of 'div' to any instance of Real
+div' :: Number -> Number -> Int
+div' n d = floor ( n /  d)
+
+-- | generalisation of 'divMod' to any instance of Real
+divMod' :: Number -> Number -> (Tuple Int Number)
+divMod' n d = (Tuple f (n - (toNumber f) * d)) where
+    f = div' n d
+
+-- | generalisation of 'mod' to any instance of Real
+mod' :: Number -> Number -> Number
+mod' n d = n - (toNumber f) * d where
+    f = div' n d
+
+-- | unsafe index to Array
+uidx :: forall a. Array a -> Int -> a
+uidx = unsafePartial unsafeIndex
+
+-- | filter list of objects given list of indices in [a]
+-- | return list with only those b that have  indices that  are in rng [a]
+iflt :: forall a. Array Int -> Array a  -> Array a
+iflt rng hl = do
+  i <- rng
+  pure $ uidx hl i
+
+-- | remove element at index
+irem :: forall a. Int -> Array a -> Array a
+irem indx hl = do
+  i <- range 0 ((length hl)-1)
+  guard $ i /= indx
+  pure $ uidx hl i
+
 
 -- | round to 3 decimal
 roundDec :: Number -> Number
 roundDec x = (toNumber (round ( 1000.0 * x )))/1000.0
+
+to1fix :: Number -> String
+to1fix = format (width 6 <> precision 1)
+to3fix :: Number -> String
+to3fix = format (width 8 <> precision 3)
+to5fix :: Number -> String
+to5fix = format (width 10 <> precision 5)
 
 -- | simultaneous 'quot' and 'rem'
 quotRem :: Int -> Int -> (Tuple Int Int)
