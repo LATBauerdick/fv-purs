@@ -1,4 +1,6 @@
 .psci
 .psci_modules
+.pulp-cache
+.psc-package
 output
 bower_components
