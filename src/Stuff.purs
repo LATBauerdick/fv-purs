@@ -5,22 +5,37 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Math ( sqrt )
 import Data.Ord (signum)
-import Data.List ( List(..), (:))
 import Data.String ( takeWhile, dropWhile, toCharArray, fromCharArray, split, Pattern (..) )
+import Data.Char (toCharCode)
+import Data.List ( List(..), (:))
 import Data.Array ( mapMaybe, unsafeIndex, range, length )
 import Data.Tuple ( Tuple(..), fst, snd )
 import Data.Maybe ( Maybe(..), fromMaybe' )
 import Data.Foldable ( class Foldable, foldr )
 import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
-import Data.Char.Unicode ( isSpace )
 import Data.List ( fromFoldable )
 import Data.Int ( round, toNumber, floor )
-import Data.Number.Format ( toStringWith, fixed )
 import Text.Format ( format, precision, width )
 import Data.Enum ( class Enum )
 import Control.MonadZero ( guard )
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
+
+-- | Returns `True` for any Unicode space character, and the control
+-- | characters `\t`, `\n`, `\r`, `\f`, `\v`.
+-- |
+-- | `isSpace` includes non-breaking space.
+-- avoiding to include unicode which increases make time
+isSpace :: Char -> Boolean
+-- The magic 0x377 used in the code below isn't really that magical. As of
+-- 2014, all the codepoints at or below 0x377 have been assigned, so we
+-- shouldn't have to worry about any new spaces appearing below there.
+isSpace c = if uc <= 0x337
+               then uc == 32 || (uc >= 9 && uc <= 13) || uc == 0xa0
+               else false
+  where
+    uc :: Int
+    uc = toCharCode c
 
 trace :: forall a. String -> a -> a
 trace s a = const a (unsafePerformEff (log s))
@@ -67,11 +82,11 @@ roundDec :: Number -> Number
 roundDec x = (toNumber (round ( 1000.0 * x )))/1000.0
 
 to1fix :: Number -> String
-to1fix = format (width 6 <> precision 1)
+to1fix = show --format (width 6 <> precision 1)
 to3fix :: Number -> String
-to3fix = format (width 8 <> precision 3)
+to3fix = show --format (width 8 <> precision 3)
 to5fix :: Number -> String
-to5fix = format (width 10 <> precision 5)
+to5fix = show --format (width 10 <> precision 5)
 
 -- | simultaneous 'quot' and 'rem'
 quotRem :: Int -> Int -> (Tuple Int Int)
@@ -90,12 +105,12 @@ divMod n d = (Tuple (n `div` d) (n `mod` d))
 
 -- | 'words' breaks a string up into a list of words, which were delimited
 -- | by white space.
-words :: String -> Array String
-words s = mapMaybe (\str -> case (dropWhile isSpace) str of
-                                "" -> Nothing
-                                str' -> Just (takeWhile (not isSpace) str')
-                                )
-                   $ split (Pattern " ") s
+words :: String -> List String
+words s = case dropWhile isSpace s of
+                                "" -> Nil
+                                str' -> let s0 = takeWhile (not isSpace) str'
+                                            s1 = dropWhile (not isSpace) str'
+                                        in s0 : words s1
 
 -- | 'break', applied to a predicate @p@ and a list @xs@, returns a tuple where
 -- | first element is longest prefix (possibly empty) of @xs@ of elements that

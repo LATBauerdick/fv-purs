@@ -15,8 +15,9 @@
 # You can also edit the generated version of this file directly.
 #
 PCC    := /usr/local/bin/pcc
-SRC    := src, Data, Global
-OUTPUT := output
+SRC    := src
+SRC-PCC    := src-pcc
+OUTPUT := output-pcc
 BIN    := main
 
 override PCCFLAGS += --comments
@@ -54,7 +55,7 @@ debug: codegen
 	@$(MAKE) $(BIN) CXXFLAGS+=$(DEBUG)
 
 codegen: PURESCRIPT_PKG_SRCS=$(foreach d,$(PACKAGE_SOURCES),$(call rwildcard,$(firstword $(subst *, ,$(d))),*.purs))
-codegen: PURESCRIPT_SRCS=$(call rwildcard,$(SRC)/,*.purs)
+codegen: PURESCRIPT_SRCS=$(call rwildcard,$(SRC)/,*.purs) $(call rwildcard,$(SRC-PCC)/,*.purs)
 #
 codegen: $(PURESCRIPT_PKGS)
 	@$(PCC) $(PCCFLAGS) --output $(OUTPUT) $(PURESCRIPT_PKG_SRCS) $(PURESCRIPT_SRCS)

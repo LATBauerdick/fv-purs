@@ -14,10 +14,10 @@ import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 --import Data.String.Utils (words)
 
 import Data.Tuple ( Tuple(..) )
-import Data.Array ( (!!), mapMaybe, length )
+import Data.Array ( (!!), length )
 import Data.Maybe (Maybe (..), fromJust )
 import Partial.Unsafe ( unsafePartial )
-import Data.List ( List(..),  (:) )
+import Data.List ( List(..),  (:), mapMaybe )
 import Data.Foldable ( traverse_ )
 
 import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), PMeas (..), XMeas (..)

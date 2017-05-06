@@ -3,7 +3,7 @@ module FV.Fit ( fit ) where
 import Prelude
 import Data.Array ( foldl, unzip, mapMaybe, length )
 import Data.Maybe ( Maybe (..) )
-import Data.Tuple ( Tuple (..) )
+import Data.Tuple ( Tuple (..), fst, snd )
 import Math ( abs )
 
 import Stuff
@@ -37,7 +37,10 @@ goodEnough c0 c i = abs (c - c0) < chi2cut || i > iterMax where
 -- | if we can't invert, don't update vertex
 kAdd' :: XMeas -> HMeas -> V3 -> V3 -> Number -> Int -> XMeas
 kAdd' (XMeas (V3 v0) (M3 uu0)) (HMeas (V5 h) (M5 gg) w0) x_e q_e 𝜒2_0 iter = x_k where
-  Jaco aa bb (V5 h0) = Coeff.expand x_e q_e
+  jj    = Coeff.expand x_e q_e
+  aa    = jj.aa
+  bb    = jj.bb
+  h0    = jj.h0
   aaT   = tr aa
   bbT   = tr bb
   x_k   = case invMaybe (sw bb gg) of
@@ -60,19 +63,26 @@ kAdd' (XMeas (V3 v0) (M3 uu0)) (HMeas (V5 h) (M5 gg) w0) x_e q_e 𝜒2_0 iter = 
 kSmooth :: VHMeas -> XMeas -> Prong
 --kSmooth vm v | trace ("kSmooth " ++ (show . length . view helicesLens $ vm) ++ ", vertex at " ++ (show v) ) False = undefined
 kSmooth (VHMeas {vertex: v0, helices: hl}) v = pr' where
-  (Tuple ql chi2l) = unzip $ mapMaybe (ksm v) hl
+  {-- (Tuple ql chi2l) = unzip $ mapMaybe (ksm v) hl --}
+  xx = unzip $ mapMaybe (ksm v) hl
+  ql = fst xx
+  chi2l = snd xx
   hl' = hl
-  (Tuple n n') = (Tuple (length hl) (length ql))
+  n = length hl
+  n' = length ql
   n'' = if n == n' then n else n' `debug` "kSmooth killed helices"
   pr' = Prong { fitVertex: v, fitMomenta: ql, fitChi2s: chi2l, nProng: n'', measurements: VHMeas {vertex: v0, helices: hl'} }
 
 -- kalman smoother step: calculate 3-mom q and chi2 at kalman filter'ed vertex
 -- if we can't invert, return Nothing and this track will not be included
 ksm :: XMeas -> HMeas -> Maybe (Tuple QMeas Chi2)
-ksm (XMeas (V3 x) (M3 cc)) hm = do
+ksm (XMeas (V3 x) (M3 cc)) (HMeas (V5 h) (M5 hh) w0) = do
   let
-      HMeas (V5 h) (M5 hh) w0 = hm
-      Jaco aa bb (V5 h0) = Coeff.expand (V3 x) (Coeff.hv2q (V5 h) (V3 x))
+      {-- HMeas (V5 h) (M5 hh) w0 = hm --}
+      jj = Coeff.expand (V3 x) (Coeff.hv2q (V5 h) (V3 x))
+      aa = jj.aa
+      bb = jj.bb
+      h0 = jj.h0
       gg   = inv hh
   ww <- invMaybe (sw bb gg)
   let
@@ -100,3 +110,4 @@ ksm (XMeas (V3 x) (M3 cc)) hm = do
                                         else cx'
       chi2 = cx + ch
   pure (Tuple (QMeas q dd w0) chi2)
+

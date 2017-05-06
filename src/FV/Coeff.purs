@@ -35,7 +35,7 @@ hv2q (V5 h) (V3 v) = q where
                     gamma = atan r*cxi/(oow0-r*sxi)
 
 expand :: V3 -> V3 -> Jaco
-expand (V3 v) (V3 q) = Jaco aa bb (V5 h0) where
+expand (V3 v) (V3 q) = {aa: aa, bb: bb, h0: h0} where
   v_  = toList v
   xx  = uidx v_ 0
   yy  = uidx v_ 1
@@ -134,10 +134,10 @@ expand (V3 v) (V3 q) = Jaco aa bb (V5 h0) where
       z0 - a51*v01 - a52*v02 - a53*v03 - b51*q01 - b52*q02 - b53*q03]
   aa = fromList2 5 3 [a11,a12,a13,a21,a22,a23,a31,a32,a33,a41,a42,a43,a51,a52,a53]
   bb = fromList2 5 3 [b11,b12,b13,b21,b22,b23,b31,b32,b33,b41,b42,b43,b51,b52,b53]
-  aaT = tr aa `debug` ( "v0 --->> " <> (show v) <>
-                         "q0 --->> " <> (show q) <>
-                         "aa --->> " <> prettyMatrix aa <>
-                         "bb --->> " <> prettyMatrix bb <>
-                         "h0 --->> " <> (show h0)
-                         )
+  {-- aaT = tr aa `debug` ( "v0 --->> " <> (show v) <> --}
+  {--                        "q0 --->> " <> (show q) <> --}
+  {--                        "aa --->> " <> prettyMatrix aa <> --}
+  {--                        "bb --->> " <> prettyMatrix bb <> --}
+  {--                        "h0 --->> " <> (show h0) --}
+  {--                        ) --}
 

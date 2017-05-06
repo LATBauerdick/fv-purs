@@ -24,7 +24,6 @@ import Data.List ( List (..), (:) )
 import Partial.Unsafe ( unsafePartial )
 import Data.Int (round, toNumber)
 import Math ( sqrt, abs, pi, sin, cos )
-import Data.Number.Format ( toStringWith, fixed )
 
 import Stuff
 import Data.Matrix  ( M, nrows, ncols, values, fromList2, fromList, fromLists
@@ -75,7 +74,7 @@ newtype M3 = M3 M
 newtype V5 = V5 M
 newtype M5 = M5 M
 
-data Jaco = Jaco M M V5
+type Jaco = { aa :: M, bb :: M, h0:: M }
 -----------------------------------------------
 -- Prong
 -- a prong results from a vertex fit of N helices

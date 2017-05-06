@@ -5,7 +5,8 @@ import Prelude
 import Control.MonadZero (guard)
 import Data.Number ( fromString )
 import Data.Int (fromString, round) as Data.Int
-import Data.Array ( take, drop, (!!), fromFoldable, mapMaybe, range, slice, head )
+import Data.Array ( take, drop, (!!), fromFoldable, mapMaybe, range, slice )
+import Data.List ( head, index, slice, mapMaybe, drop ) as L
 import Data.Tuple (Tuple (..), fst)
 import Data.Maybe ( Maybe (Nothing, Just) )
 import Control.Monad.Eff (Eff)
@@ -34,14 +35,14 @@ hSlurpMCtruth ds = mc where
   ws = words ds
   npu :: Maybe Int
   npu = do
-              key <- head ws
+              key <- L.head ws
               guard $ key == "PU_zpositions:"
-              snpu <- ws !! 1
+              snpu <- L.index ws 1
               Data.Int.fromString snpu
   mc = case npu of
               Nothing -> Nothing
               Just n -> let
-                            mcArr = mapMaybe fromString $ slice 2 (2+n) ws
+                            mcArr = fromFoldable $ L.mapMaybe fromString $ L.slice 2 (2+n) ws
                         in Just $ MCtruth { pu_zpositions: mcArr }
 
 -- slurps up a String with a bunch of Doubles
@@ -51,13 +52,13 @@ hSlurp ds = vhm where
   ws = words ds
   npu :: Maybe Int
   npu = do
-              key <- head ws
+              key <- L.head ws
               guard $ key == "PU_zpositions:"
-              snpu <- ws !! 1
+              snpu <- L.index ws 1
               Data.Int.fromString snpu
   vhm = case npu of
-              Nothing -> hSlurp' $ mapMaybe fromString ws
-              Just n -> let vArr = mapMaybe fromString (drop (n+2) ws)
+              Nothing -> hSlurp' $ fromFoldable $ L.mapMaybe fromString ws
+              Just n -> let vArr = fromFoldable $ L.mapMaybe fromString (L.drop (n+2) ws)
                         in hSlurp' vArr
 
 -- slurp in the measurements of vertex and helices
