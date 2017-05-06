@@ -3,4 +3,5 @@
 .pulp-cache
 .psc-package
 output
+output-pcc
 bower_components
