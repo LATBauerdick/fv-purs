@@ -151,7 +151,7 @@ instance showHMeas :: Show HMeas where
 -- 3-vector and covariance matrix for momentum measurement
 --
 mπ :: Number
-mπ = 0.1395675E0
+mπ = 0.1395675
 data QMeas = QMeas M M Number
 instance showAMeas :: Show QMeas where
   show = showQMeas
@@ -208,22 +208,21 @@ instance showPMeasInst :: Show PMeas where
 -- print PMeas as a 4-momentum vector px,py,pz,E with errors
 showPMeas :: PMeas -> String
 showPMeas (PMeas p cp) = s' where
-  s' = "PMeas -----------"
-  {-- sp         = Data.Vector.map sqrt $ Data.Matrix.getDiag cp --}
-  {-- f s (x, dx)  = s ++ printf "%8.3f +- %8.3f" (x::Double) (dx::Double) -- \xc2b1 ±±±±± --}
-  {-- s' = (foldl f "" $ Data.Vector.zip (Data.Matrix.getCol 1 p) sp) ++ " GeV" --}
+  sp         = map sqrt $ getDiag cp
+  f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx -- \xc2b1 ±±±±±
+  s' = (foldl f "" $ zip (toList p) sp) <> " GeV"
 
 invMass :: Array PMeas -> MMeas
 invMass ps = pmass <<< fold $ ps
 
 pmass :: PMeas -> MMeas
 pmass (PMeas p cp) = mm  where
-  ps    = toList p
+  ps    = toList p `debug` (show p)
   px    = uidx ps 0
   py    = uidx ps 1
   pz    = uidx ps 2
   e     = uidx ps 3
-  cps   = toList cp
+  cps   = toList cp `debug` (show cp)
   c11   = uidx cps 0
   c12   = uidx cps 1
   c13   = uidx cps 2
@@ -239,8 +238,16 @@ pmass (PMeas p cp) = mm  where
             2.0*(px*(c12*py + c13*pz - c14*e)
                + py*(c23*pz - c24*e)
                - pz*c34*e)
-  dm    =  sqrt ( max sigm0 0.0 ) / m
-  mm    = MMeas {m, dm}
+  sigm1 = px*c11*px + py*c22*py + pz*c33*pz +
+            2.0*(px*(c12*py + c13*pz)
+               + py*(c23*pz)
+               )
+  sigm2 = e*c44*e 
+  sigm3 = -2.0*(px*c14*e
+               + py*c24*e
+               + pz*c34*e)
+  dm    =  sqrt ( max sigm0 0.0 ) / m `debug` (show sigm1 <> "xx" <> show sigm2 <> "xx" <> show sigm3 )
+  mm    = MMeas {m, dm} `debug` (show sigm0)
 
 fromQMeas :: QMeas -> PMeas
 fromQMeas (QMeas q0 cq0 w2pt) = PMeas p0 cp0 where

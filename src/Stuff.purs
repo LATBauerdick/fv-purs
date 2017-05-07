@@ -82,11 +82,11 @@ roundDec :: Number -> Number
 roundDec x = (toNumber (round ( 1000.0 * x )))/1000.0
 
 to1fix :: Number -> String
-to1fix = show --format (width 6 <> precision 1)
+to1fix = format (width 6 <> precision 1)
 to3fix :: Number -> String
-to3fix = show --format (width 8 <> precision 3)
+to3fix = format (width 8 <> precision 3)
 to5fix :: Number -> String
-to5fix = show --format (width 10 <> precision 5)
+to5fix = format (width 10 <> precision 5)
 
 -- | simultaneous 'quot' and 'rem'
 quotRem :: Int -> Int -> (Tuple Int Int)

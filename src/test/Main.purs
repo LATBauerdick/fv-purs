@@ -15,6 +15,7 @@ import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 
 import Data.Tuple ( Tuple(..) )
 import Data.Array ( (!!), length )
+import Data.Foldable ( fold )
 import Data.Maybe (Maybe (..), fromJust )
 import Partial.Unsafe ( unsafePartial )
 import Data.List ( List(..),  (:), mapMaybe )
@@ -24,7 +25,8 @@ import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), PMeas (..), XMeas (..)
   , vertex, helices, hFilter, fromHMeas, fromQMeas, vBlowup, invMass
   , typeShow )
 import Test.Input ( hSlurp, hSlurpMCtruth )
-import Data.Matrix  ( Matrix, identity, zero_, matrix, fromList2, getElem, diagonal 
+import Data.Matrix  ( Matrix, identity, zero_, matrix, fromList2
+                    , getElem, diagonal, subm2, submatrix
                     , multStd
                     , toLists, fromLists, fromList
                     , nrows, ncols
@@ -78,8 +80,14 @@ doFitTest vm' l5 = do
   log $ "initial vertex position -> " <> show ((vertex vm)::XMeas)
 
   let pl              = map (fromQMeas <<< fromHMeas) $ helices vm
+  log $ "px,py,pz,E ->" <> (show $ fold pl)
   log $ ("Inv Mass " <> showLen pl <> " helix") <> show (invMass pl)
-  let pl5             = map (fromQMeas <<< fromHMeas) <<< helices <<< hFilter l5 $ vm
+  let h5              = (helices <<< hFilter l5 $ vm)
+  let pl5             = map (fromQMeas <<< fromHMeas) h5
+  traverse_ (\h -> log $ "pt,pz,fi,E ->" <> show (fromHMeas h)) h5
+  {-- let xxx (QMeas _ qq _) = show qq --}
+  {-- traverse_ (\h -> log $ "->" <> (xxx $ fromHMeas h)) (helices vm) --}
+  log $ "px,py,pz,E ->" <> (show $ fold pl5)
   log $ ("Inv Mass " <> showLen pl5 <> " helix") <> show (invMass pl5)
 
   log             "Fitting Vertex --------------------"
@@ -155,6 +163,10 @@ testMatrix = do
   logShow $ (fromList2 3 3 [1,2,3,4,5,6,7,8,9]) * one
   logShow $ (fromList2 3 3 [0,0,1,0,1,0,1,0,0]) * (fromList2 3 3 [11, 12,13,21,22,23,31,32,33]) * one
   logShow $ (fromList2 3 3 [11, 12,13,21,22,23,31,32,33]) * fromList 3 [-1,1,1]
+
+  {-- log "Test submatrix" --}
+  {-- let xxms = fromList2 5 5 [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25] --}
+  {-- logShow $ submatrix 2 3 1 3 $ subm2 4 xxms --}
 
   log "Test typeShow"
   log $ typeShow

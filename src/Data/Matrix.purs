@@ -5,12 +5,12 @@ module Data.Matrix (
   , identity, matrix, diagonal, zero_
   , toList, toLists, getElem
   , nrows, ncols, values
-  , getDiag, subm, subm2, scalar
+  , getDiag, subm, subm2, scaleDiag, scalar
   , (+.), (-.), elementwiseUnsafePlus, elementwiseUnsafeMinus
   , inv, invMaybe, det
-  , scaleDiag
   , multStd
   , prettyMatrix
+  , submatrix
   ) where
 
 import Prelude
@@ -27,10 +27,6 @@ import Data.Foldable ( foldr, maximum, sum )
 import Data.String ( length, fromCharArray ) as S
 import Partial.Unsafe ( unsafePartial )
 
-newtype M0 = M0 (Matrix Number)
-instance showM0 :: Show M0 where
-  show (M0 m) = prettyMatrix m
-
 type M = Matrix Number
 -- | sandwich a matrix: a^T * b * a
 sw :: M -> M -> M
@@ -39,24 +35,30 @@ sw a b = (tr a) * b * a
 tr :: M -> M
 tr = transpose
 -- vectors are column-wise, represented as matrix of dimension nx1
-subm :: Int -> M -> M
-subm n v = submatrix 1 n 1 1 v
-subm2 :: Int -> M -> M
-subm2 n m = submatrix 1 n 1 n m
+subm :: forall a. Int -> Matrix a -> Matrix a
+subm n vec = submatrix 1 n 1 1 vec
+subm2 :: forall a. Int -> Matrix a -> Matrix a
+subm2 n mat = submatrix 1 n 1 n mat
 
 scaleDiag :: Number -> M -> M
 scaleDiag s = (diagonal 0.0 <<< getDiag <<< scaleMatrix s)
 
 scalar :: M -> Number
-scalar m = getElem 1 1 m
-
-{-- fromList :: Int -> Array Number -> M0 --}
-{-- fromList r ds = M0 (unsafePartial $ fromJust $ fromArray r 1 ds) --}
-{-- fromList2 :: Int -> Int -> Array Number -> M0 --}
-{-- fromList2 r c ds = M0 (unsafePartial $ fromJust $ fromArray r c ds) --}
+scalar m@(M_ {nrows: r, ncols: c}) 
+  | r == 1 && c == 1    = getElem 1 1 m
+  | otherwise           = error $ "Data.Matrix.scalar on "
+                                  <> (sizeStr r c) <> "matrix."
 
 det :: M -> Number
 det m = 1.0-- M.detLU m
+
+{-- -- This is the type of our Inv error representation. --}
+{-- data InvError = Err { quality::Number, reason::String } --}
+
+{-- -- We make it an instance of the Error class --}
+{-- instance efforInvError :: Error InvError where --}
+{--   noMsg    = Err 0 "Inversion Error" --}
+{--   strMsg s = Err 0 s --}
 
 invMaybe :: M -> Maybe M
 invMaybe m = Just m
@@ -66,16 +68,72 @@ invMaybe m = Just m
 
 inv :: M -> M
 inv m = m
-{-- inv m =  let (Right m') = do { invm m } `catchError` printError --}
-{--           in m' --}
-{--          where --}
-{--            one = (M.identity $ M.nrows m) --}
-{--            printError :: InvError -> InvMonad M --}
-{--            printError e = return one `debug` ("Error in Matrix.inv: " ++ (show (quality e)) ++ ": " ++ (reason e)) --}
+{-- inv m =  im' where --}
+{--   (Right m') = do --}
+{--              catchError (invm m) printError --}
+{--   one = (M.identity $ M.nrows m) --}
+{--   printError :: InvError -> InvMonad M --}
+{--   printError e = return one `debug` ("Error in Matrix.inv: " ++ (show (quality e)) ++ ": " ++ (reason e)) --}
 
--- | Dense Vector implementation
-type Vector = Array
+{-- -- For our monad type constructor, we use Either InvError --}
+{-- -- which represents failure using Left InvError or a --}
+{-- -- successful result of type a using Right a. --}
+{-- type InvMonad = Either InvError --}
 
+{-- invm :: M -> InvMonad M --}
+{-- invm m = case invsm m of --}
+{--             Right m'  -> return m' --}
+{--             Left s    -> throwError (Err 0 ("In Matrix.invm: " ++ s)) -- `debug` "yyyyyyyy" --}
+
+{-- -- inverse of a square matrix, from Data.Matrix with fix --}
+{-- --   Uses naive Gaussian elimination formula. --}
+{-- invsm ::  M -> Either String M --}
+{-- invsm m = rref'd >>= return <<< submatrix 1 n (n + 1) (n * 2) where --}
+{--             n = nrows m --}
+{--             adjoinedWId = m <|> identity n --}
+{--             rref'd = rref adjoinedWId --}
+
+{-- rref :: M -> Either String M --}
+{-- rref m = rm where --}
+{--     rm = case ref m of --}
+{--            Right r -> rrefRefd r --}
+{--            Left s -> Left s --}
+{--     rrefRefd mtx --}
+{--       | nrows mtx == 1    = Right mtx --}
+{--       | otherwise = --}
+{--             let --}
+{--                 resolvedRight = foldr (<<<) id (map resolveRow (1..col-1)) mtx --}
+{--                     where --}
+{--                     col = nrows mtx --}
+{--                     resolveRow n = combineRows n (-getElem n col mtx) col --}
+{--                 top = submatrix 1 (nrows resolvedRight - 1) 1 (ncols resolvedRight) resolvedRight --}
+{--                 top' = rrefRefd top --}
+{--                 bot = submatrix (nrows resolvedRight) (nrows resolvedRight) 1 (ncols resolvedRight) resolvedRight --}
+{--             in top' >>= return <<< (<-> bot) --}
+
+{-- ref :: M -> Either String M --}
+{-- ref mtx --}
+{--         | nrows mtx == 1 --}
+{--             = Right clearedLeft --}
+{--         | goodRow == 0 --}
+{--             = Left ("In Matrix.ref: Attempt to invert a non-invertible matrix") -- `debug` "xxxxxxxx" --}
+{--         | otherwise = --}
+{--             let --}
+{--                 (tl, tr, bl, br) = M.splitBlocks 1 1 clearedLeft --}
+{--                 br' = ref br --}
+{--             in case br' of --} 
+{--                   Right br'' -> Right ((tl <|> tr) <-> (bl <|> br'')) --}
+{--                   Left s -> Left s --}
+{--     where --}
+{--       goodRow = case listToMaybe (filter (\i -> getElem i 1 mtx /= 0) (1..nrows mtx)) of -- ERROR in orig: ncols --}
+{--                   Nothing   -> 0 --}
+{--                   Just x -> x --}
+{--       sigAtTop = switchRows 1 goodRow mtx --}
+{--       normalizedFirstRow = scaleRow (1 / getElem 1 1 mtx) 1 sigAtTop --}
+{--       clearedLeft = foldr (<<<) id (map combinator (2..nrows mtx)) normalizedFirstRow where --}
+{--         combinator n = combineRows n (-getElem n 1 normalizedFirstRow) 1 --}
+
+------------------------------------------------------------------------
 -- | Dense Matrix implementation
 -- | Type of matrices.
 --
@@ -84,9 +142,9 @@ type Vector = Array
 --   @i,j :: Int@, then @m ! (i,j)@ is the element in the @i@-th row and
 --   @j@-th column of @m@.
 data Matrix a = M_
-  { nrows :: Int
-  , ncols :: Int
-  , values :: Array a
+  { nrows     :: Int
+  , ncols     :: Int
+  , values    :: Array a
   }
 nrows :: forall a. Matrix a -> Int
 nrows (M_ {nrows: r}) = r
@@ -118,19 +176,22 @@ sizeStr :: Int -> Int -> String
 sizeStr n m = show n <> "x" <> show m
 
 -- | Display a matrix as a 'String' using the 'Show' instance of its elements.
-prettyMatrix :: forall a. Show a => Matrix a -> String
+prettyMatrix :: Matrix Number -> String
 {-- prettyMatrix (M_ m) = show m.values --}
 prettyMatrix m@(M_ {nrows: r, ncols: c, values: v}) = unlines ls where
   ls = do
     i <- L.range 1 r
     let ws :: L.List String
-        ws = map (\j -> fillBlanks mx (show $ getElem i j m)) (L.range 1 c)
+        ws = map (\j -> fillBlanks mx (to3fix $ getElem i j m)) (L.range 1 c)
     pure $ "( " <> unwords ws <> " )"
-  mx = fromMaybe 0 (maximum $ map (S.length <<< show) v)
-  fillBlanks k str = (S.fromCharArray $ A.replicate (k - S.length str) ' ') <> str
+  mx = fromMaybe 0 (maximum $ map (S.length <<< to3fix) v)
+  fillBlanks k str =
+    (S.fromCharArray $ A.replicate (k - S.length str) ' ') <> str
 
-instance showMatrix :: Show a => Show (Matrix a) where
+instance showMatrixNumber :: Show (Matrix Number) where
   show = prettyMatrix
+instance showMatrixInt :: Show (Matrix Int) where
+  show (M_ m) = show m.values
 
 -- | /O(rows*cols)/. Similar to 'V.force'. It copies the matrix content
 --   dropping any extra memory.
@@ -280,7 +341,7 @@ identityInt n = M_ {nrows: n, ncols: n, values: val} where
 -- | Similar to 'diagonalList' but with A.Array, which
 --   should be more efficient.
 diagonal :: forall a. a -- ^ Default element
-         -> Array a  -- ^ Diagonal vector
+         -> Array a  -- ^ vector of values from the diagonal
          -> Matrix a
 diagonal e v = matrix n n $ \(Tuple i j) -> if i == j
                                                then unsafePartial $ A.unsafeIndex v (i - 1)
@@ -414,12 +475,6 @@ getElem i j m =
       <> sizeStr (nrows m) (ncols m)
       <> " matrix."
 
--- | Variant of 'getElem' that returns Maybe instead of an error.
-safeGet :: forall a. Int -> Int -> Matrix a -> Maybe a
-safeGet i j a@(M_ {nrows: r, ncols: c, values: v})
- | i > r || j > c || r < 1 || c < 1 = Nothing
- | otherwise = Just $ unsafeGet i j a
-
 -- | /O(1)/. Unsafe variant of 'getElem', without bounds checking.
 unsafeGet :: forall a.
              Int      -- ^ Row
@@ -442,7 +497,42 @@ unsafeGet i j (M_ {ncols: c, values: v}) = unsafePartial $ A.unsafeIndex v $ enc
 {-- unsafeGet_ m [i,j] = unsafeGet i j m --}
 {-- infixl 8 unsafeGet_ as !. --}
 
+-- | Variant of 'getElem' that returns Maybe instead of an error.
+safeGet :: forall a. Int -> Int -> Matrix a -> Maybe a
+safeGet i j a@(M_ {nrows: r, ncols: c, values: v})
+ | i > r || j > c || i < 1 || j < 1 = Nothing
+ | otherwise = Just $ unsafeGet i j a
 
+{-- -- | Variant of 'setElem' that returns Maybe instead of an error. --}
+{-- safeSet:: a -> (Int, Int) -> Matrix a -> Maybe (Matrix a) --}
+{-- safeSet x p@(i,j) a@(M n m _ _ _ _) --}
+{--   | i > n || j > m || i < 1 || j < 1 = Nothing --}
+{--   | otherwise = Just $ unsafeSet x p a --}
+
+{-- -- | /O(1)/. Get a row of a matrix as a vector. --}
+{-- getRow :: Int -> Matrix a -> V.Vector a --}
+{-- {-# INLINE getRow #-} --}
+{-- getRow i (M _ m ro co w v) = V.slice (w*(i-1+ro) + co) m v --}
+
+{-- -- | /O(rows)/. Get a column of a matrix as a vector. --}
+{-- getCol :: Int -> Matrix a -> V.Vector a --}
+{-- {-# INLINE getCol #-} --}
+{-- getCol j (M n _ ro co w v) = V.generate n $ \i -> v V.! encode w (i+1+ro,j+co) --}
+
+-- | /O(min rows cols)/. Diagonal of a /not necessarily square/ matrix.
+getDiag :: forall a. Matrix a -> Array a
+{-- getDiag m = V.generate k $ \i -> m ! (i+1,i+1) --}
+getDiag m@(M_ {nrows: r, ncols: c}) = v where
+  k = min r c
+  v = do
+    i <- A.range 1 k
+    pure $ getElem i i m
+
+-- | /O(rows*cols)/. Transform a 'Matrix' to a 'V.Vector' of size /rows*cols/.
+--  This is equivalent to get all the rows of the matrix using 'getRow'
+--  and then append them, but far more efficient.
+getMatrixAsVector :: forall a. Matrix a -> Array a
+getMatrixAsVector = values <<< forceMatrix
 --
 ----
 ----
@@ -466,6 +556,139 @@ transpose m = matrix (ncols m) (nrows m) $ \(Tuple i j) -> getElem  j i m
 ----
 --
 --
+
+-------------------------------------------------------
+-------------------------------------------------------
+---- WORKING WITH BLOCKS
+
+-- | /O(1)/. Extract a submatrix given row and column limits.
+--   Example:
+--
+-- >                   ( 1 2 3 )
+-- >                   ( 4 5 6 )   ( 2 3 )
+-- > submatrix 1 2 2 3 ( 7 8 9 ) = ( 5 6 )
+submatrix :: forall a.  Int    -- ^ Starting row
+                        -> Int -- ^ Ending row
+                        -> Int -- ^ Starting column
+                        -> Int -- ^ Ending column
+                        -> Matrix a
+                        -> Matrix a
+submatrix r1 r2 c1 c2 a@(M_ {nrows: n, ncols: m, values: v})
+  | r1 < 1  || r1 > n = error $ "submatrix: starting row (" <> show r1 <> ") is out of range. Matrix has " <> show n <> " rows."
+  | c1 < 1  || c1 > m = error $ "submatrix: starting column (" <> show c1 <> ") is out of range. Matrix has " <> show m <> " columns."
+  | r2 < r1 || r2 > n = error $ "submatrix: ending row (" <> show r2 <> ") is out of range. Matrix has " <> show n <> " rows, and starting row is " <> show r1 <> "."
+  | c2 < c1 || c2 > m = error $ "submatrix: ending column (" <> show c2 <> ") is out of range. Matrix has " <> show m <> " columns, and starting column is " <> show c1 <> "."
+  | r1 == 1 && c1 == 1 = M_ {nrows: (r2-r1+1), ncols: (c2-c1+1), values: v'} where
+    v' = do
+      i <- A.range r1 r2
+      j <- A.range c1 c2
+      pure $ getElem i j a
+  | otherwise = error $ "submatrix: cannot do it" --M (r2-r1+1) (c2-c1+1) (ro+r1-1) (co+c1-1) w v
+
+{-- -- | /O(rows*cols)/. Remove a row and a column from a matrix. --}
+{-- --   Example: --}
+{-- -- --}
+{-- -- >                 ( 1 2 3 ) --}
+{-- -- >                 ( 4 5 6 )   ( 1 3 ) --}
+{-- -- > minorMatrix 2 2 ( 7 8 9 ) = ( 7 9 ) --}
+{-- minorMatrix :: Int -- ^ Row @r@ to remove. --}
+{--             -> Int -- ^ Column @c@ to remove. --}
+{--             -> Matrix a -- ^ Original matrix. --}
+{--             -> Matrix a -- ^ Matrix with row @r@ and column @c@ removed. --}
+{-- minorMatrix r0 c0 (M n m ro co w v) = --}
+{--   let r = r0 + ro --}
+{--       c = c0 + co --}
+{--   in  M (n-1) (m-1) ro co (w-1) $ V.ifilter (\k _ -> let (i,j) = decode w k in i /= r && j /= c) v --}
+
+{-- -- | /O(1)/. Make a block-partition of a matrix using a given element as reference. --}
+{-- --   The element will stay in the bottom-right corner of the top-left corner matrix. --}
+{-- -- --}
+{-- -- >                 (             )   (      |      ) --}
+{-- -- >                 (             )   ( ...  | ...  ) --}
+{-- -- >                 (    x        )   (    x |      ) --}
+{-- -- > splitBlocks i j (             ) = (-------------) , where x = a_{i,j} --}
+{-- -- >                 (             )   (      |      ) --}
+{-- -- >                 (             )   ( ...  | ...  ) --}
+{-- -- >                 (             )   (      |      ) --}
+{-- -- --}
+{-- --   Note that some blocks can end up empty. We use the following notation for these blocks: --}
+{-- -- --}
+{-- -- > ( TL | TR ) --}
+{-- -- > (---------) --}
+{-- -- > ( BL | BR ) --}
+{-- -- --}
+{-- --   Where T = Top, B = Bottom, L = Left, R = Right. --}
+{-- -- --}
+{-- splitBlocks :: Int      -- ^ Row of the splitting element. --}
+{--             -> Int      -- ^ Column of the splitting element. --}
+{--             -> Matrix a -- ^ Matrix to split. --}
+{--             -> (Matrix a,Matrix a --}
+{--                ,Matrix a,Matrix a) -- ^ (TL,TR,BL,BR) --}
+{-- {-# INLINE[1] splitBlocks #-} --}
+{-- splitBlocks i j a@(M n m _ _ _ _) = --}
+{--     ( submatrix    1  i 1 j a , submatrix    1  i (j+1) m a --}
+{--     , submatrix (i+1) n 1 j a , submatrix (i+1) n (j+1) m a ) --}
+
+{-- -- | Join blocks of the form detailed in 'splitBlocks'. Precisely: --}
+{-- -- --}
+{-- -- > joinBlocks (tl,tr,bl,br) = --}
+{-- -- >   (tl <|> tr) --}
+{-- -- >       <-> --}
+{-- -- >   (bl <|> br) --}
+{-- joinBlocks :: (Matrix a,Matrix a,Matrix a,Matrix a) -> Matrix a --}
+{-- {-# INLINE[1] joinBlocks #-} --}
+{-- joinBlocks (tl,tr,bl,br) = --}
+{--   let n  = nrows tl --}
+{--       nb = nrows bl --}
+{--       n' = n + nb --}
+{--       m  = ncols tl --}
+{--       mr = ncols tr --}
+{--       m' = m + mr --}
+{--       en = encode m' --}
+{--   in  M n' m' 0 0 m' $ V.create $ do --}
+{--         v <- MV.new (n'*m') --}
+{--         let wr = MV.write v --}
+{--         numLoop 1 n  $ \i -> do --}
+{--           numLoop 1 m  $ \j -> wr (en (i ,j  )) $ tl ! (i,j) --}
+{--           numLoop 1 mr $ \j -> wr (en (i ,j+m)) $ tr ! (i,j) --}
+{--         numLoop 1 nb $ \i -> do --}
+{--           let i' = i+n --}
+{--           numLoop 1 m  $ \j -> wr (en (i',j  )) $ bl ! (i,j) --}
+{--           numLoop 1 mr $ \j -> wr (en (i',j+m)) $ br ! (i,j) --}
+{--         return v --}
+
+{-- {-# RULES --}
+{-- "matrix/splitAndJoin" --}
+{--    forall i j m. joinBlocks (splitBlocks i j m) = m --}
+{--   #-} --}
+
+{-- -- | Horizontally join two matrices. Visually: --}
+{-- -- --}
+{-- -- > ( A ) <|> ( B ) = ( A | B ) --}
+{-- -- --}
+{-- -- Where both matrices /A/ and /B/ have the same number of rows. --}
+{-- -- /This condition is not checked/. --}
+{-- (<|>) :: Matrix a -> Matrix a -> Matrix a --}
+{-- {-# INLINE (<|>) #-} --}
+{-- m <|> m' = --}
+{--   let c = ncols m --}
+{--   in  matrix (nrows m) (c + ncols m') $ \(i,j) -> --}
+{--         if j <= c then m ! (i,j) else m' ! (i,j-c) --}
+
+{-- -- | Vertically join two matrices. Visually: --}
+{-- -- --}
+{-- -- >                   ( A ) --}
+{-- -- > ( A ) <-> ( B ) = ( - ) --}
+{-- -- >                   ( B ) --}
+{-- -- --}
+{-- -- Where both matrices /A/ and /B/ have the same number of columns. --}
+{-- -- /This condition is not checked/. --}
+{-- (<->) :: Matrix a -> Matrix a -> Matrix a --}
+{-- {-# INLINE (<->) #-} --}
+{-- m <-> m' = --}
+{--   let r = nrows m --}
+{--   in  matrix (r + nrows m') (ncols m) $ \(i,j) -> --}
+{--         if i <= r then m ! (i,j) else m' ! (i-r,j) --}
 
 -------------------------------------------------------
 -------------------------------------------------------
@@ -803,42 +1026,6 @@ scaleMatrix = map <<< (*)
 
 
 
--- | /O(min rows cols)/. Diagonal of a /not necessarily square/ matrix.
-getDiag :: forall a. Matrix a -> Array a
-getDiag a@(M_ {nrows: n, ncols: m}) = v where
-  k = min n m
-  v = do
-    i <- A.range 1 k
-    pure $ getElem i i a
-
--------------------------------------------------------
--------------------------------------------------------
----- WORKING WITH BLOCKS
-
--- | /O(1)/. Extract a submatrix given row and column limits.
---   Example:
---
--- >                   ( 1 2 3 )
--- >                   ( 4 5 6 )   ( 2 3 )
--- > submatrix 1 2 2 3 ( 7 8 9 ) = ( 5 6 )
-submatrix :: forall a. Int    -- ^ Starting row
-          -> Int -- ^ Ending row
-          -> Int    -- ^ Starting column
-          -> Int -- ^ Ending column
-          -> Matrix a
-          -> Matrix a
-submatrix r1 r2 c1 c2 a@(M_ {nrows: n, ncols: m, values: v})
-  | r1 < 1  || r1 > n = error $ "submatrix: starting row (" <> show r1 <> ") is out of range. Matrix has " <> show n <> " rows."
-  | c1 < 1  || c1 > m = error $ "submatrix: starting column (" <> show c1 <> ") is out of range. Matrix has " <> show m <> " columns."
-  | r2 < r1 || r2 > n = error $ "submatrix: ending row (" <> show r2 <> ") is out of range. Matrix has " <> show n <> " rows, and starting row is " <> show r1 <> "."
-  | c2 < c1 || c2 > m = error $ "submatrix: ending column (" <> show c2 <> ") is out of range. Matrix has " <> show m <> " columns, and starting column is " <> show c1 <> "."
-  | r1 == 1 && c1 == 1 = M_ {nrows: (r2-r1+1), ncols: (c2-c1+1), values: v'} where
-    v' = do
-      i <- A.range r1 r2
-      j <- A.range c1 c2
-      pure $ getElem i j a
-  | otherwise = error $ "submatrix: cannot do it" --M (r2-r1+1) (c2-c1+1) (ro+r1-1) (co+c1-1) w v
-
 --------------------------------------------------------------------------------
 
 -- | Create array of given dimmension containing replicated value
@@ -854,19 +1041,20 @@ zeros r c = replicate r c 0.0
 
 -- | Create Matrix from Array
 fromArray :: ∀ a. Int -> Int -> Array a -> Maybe (Matrix a)
-fromArray r c vs | r > 0 && c > 0 && r*c == A.length vs = Just $ M_ {nrows: r, ncols: c, values: vs}
+fromArray r c vs | r > 0 && c > 0 && r*c == A.length vs =
+  Just $ M_ {nrows: r, ncols: c, values: vs}
                  | otherwise = Nothing
 
 
 -- | Get specific column as a vector. Index is 0 based
 -- | If the index is out of range then return empty vector
-column :: ∀ a. Int -> Matrix a -> Vector a
+column :: ∀ a. Int -> Matrix a -> Array a
 column c (M_ mat) = A.mapMaybe (\i -> A.index mat.values (i*mat.ncols+c)) (A.range 0 (mat.nrows-1))
 
 
 -- | Get specific row as a vector. Index is 0 based
 -- | If the index is out of range then return empty vector
-row :: ∀ a. Int -> Matrix a -> Vector a
+row :: ∀ a. Int -> Matrix a -> Array a
 row r (M_ mat) = A.slice i j mat.values
   where
     i = if r >=0 && r < mat.nrows then r*mat.ncols else 0
@@ -879,14 +1067,14 @@ element r c (M_ mat) = A.index mat.values ((r*mat.ncols) + c)
 
 
 -- | Return list of rows
-rows :: ∀ a. Matrix a -> Array (Vector a)
+rows :: ∀ a. Matrix a -> Array (Array a)
 rows (M_ mat) = do 
   i <- A.range 0 (mat.nrows - 1)
   pure $ row i (M_ mat)
 
 
 -- | List of columns
-columns :: ∀ a. Matrix a -> Array (Vector a)
+columns :: ∀ a. Matrix a -> Array (Array a)
 columns (M_ mat) = do 
   i <- A.range 0 (mat.ncols - 1)
   pure $ column i (M_ mat)
@@ -900,93 +1088,4 @@ columns (M_ mat) = do
 
 {-- chol :: M -> M --}
 {-- chol a = M.cholDecomp a --}
-
-
-{-- -- This is the type of our Inv error representation. --}
-{-- data InvError = Err { quality::Double, reason::String } --}
-
-{-- -- We make it an instance of the Error class --}
-{-- instance Error InvError where --}
-{--   noMsg    = Err 0 "Inversion Error" --}
-{--   strMsg s = Err 0 s --}
-
-
-{-- -- For our monad type constructor, we use Either InvError --}
-{-- -- which represents failure using Left InvError or a --}
-{-- -- successful result of type a using Right a. --}
-{-- type InvMonad = Either InvError --}
-
-{-- invm :: M -> InvMonad M --}
-{-- invm m = case invsm m of --}
-{--             Right m'  -> return m' --}
-{--             Left s    -> throwError (Err 0 ("In Matrix.invm: " ++ s)) -- `debug` "yyyyyyyy" --}
-
-{-- -- inverse of a square matrix, from Data.Matrix with fix --}
-{-- --   Uses naive Gaussian elimination formula. --}
-{-- invsm ::  M -> Either String M --}
-{-- invsm m = rref'd >>= return . M.submatrix 1 n (n + 1) (n * 2) where --}
-{--             n = M.nrows m --}
-{--             adjoinedWId = m M.<|> M.identity n --}
-{--             rref'd = rref adjoinedWId --}
-
-{-- rref :: M -> Either String M --}
-{-- rref m = rm where --}
-{--     rm = case ref m of --}
-{--            Right r -> rrefRefd r --}
-{--            Left s -> Left s --}
-{--     rrefRefd mtx --}
-{--       | M.nrows mtx == 1    = Right mtx --}
-{--       | otherwise = --}
-{--             let --}
-{--                 resolvedRight = foldr (.) id (map resolveRow [1..col-1]) mtx --}
-{--                     where --}
-{--                     col = M.nrows mtx --}
-{--                     resolveRow n = M.combineRows n (-M.getElem n col mtx) col --}
-{--                 top = M.submatrix 1 (M.nrows resolvedRight - 1) 1 (M.ncols resolvedRight) resolvedRight --}
-{--                 top' = rrefRefd top --}
-{--                 bot = M.submatrix (M.nrows resolvedRight) (M.nrows resolvedRight) 1 (M.ncols resolvedRight) resolvedRight --}
-{--             in top' >>= return . (M.<-> bot) --}
-
-{-- ref :: M -> Either String M --}
-{-- ref mtx --}
-{--         | M.nrows mtx == 1 --}
-{--             = Right clearedLeft --}
-{--         | goodRow == 0 --}
-{--             = Left ("In Matrix.ref: Attempt to invert a non-invertible matrix") -- `debug` "xxxxxxxx" --}
-{--         | otherwise = --}
-{--             let --}
-{--                 (tl, tr, bl, br) = M.splitBlocks 1 1 clearedLeft --}
-{--                 br' = ref br --}
-{--             in case br' of --} 
-{--                   Right br'' -> Right ((tl M.<|> tr) M.<-> (bl M.<|> br'')) --}
-{--                   Left s -> Left s --}
-{--     where --}
-{--       goodRow = case listToMaybe (filter (\i -> M.getElem i 1 mtx /= 0) [1..M.nrows mtx]) of -- ERROR in orig: ncols --}
-{--                   Nothing   -> 0 --}
-{--                   Just x -> x --}
-{--       sigAtTop = M.switchRows 1 goodRow mtx --}
-{--       normalizedFirstRow = M.scaleRow (1 / M.getElem 1 1 mtx) 1 sigAtTop --}
-{--       clearedLeft = foldr (.) id (map combinator [2..M.nrows mtx]) normalizedFirstRow where --}
-{--         combinator n = M.combineRows n (-M.getElem n 1 normalizedFirstRow) 1 --}
-
-
-{-- inv' :: M -> M --}
-{-- inv' m = either invErr id (M.inverse m) --}
-{--   where invErr s = (M.identity $ M.nrows m) `debug` ("🚩" ++ s) --}
-
-{-- inv''' :: M -> M --}
-{-- inv''' m = f e where --}
-{--   e = M.inverse m --}
-{--   f :: Either String M -> M --}
-{--   f (Left s) = (M.identity $ M.nrows m) `debug` ("🚩" ++ s) -- can't invert --}
-{--   f (Right m') = fdeb mx where --}
-{--     mxx = M.elementwise (/) --}
-{--                       (M.elementwise (-) (M.multStd2 m m') (M.identity (M.nrows m))) --}
-{--                       m --}
-{--     mx = (* 1000.0) . maximum  . M.getMatrixAsVector $ mxx --}
-{--     fdeb mx --}
-{--       | mx < 1.0 = m' --}
-{--       | otherwise = let --}
-{--                         sx :: String; sx = printf "%8.3f" (mx :: Double) --}
-{--                     in m' `debug` ("^" ++ "inv: max " ++ sx ++ " permille" ) --}
 
