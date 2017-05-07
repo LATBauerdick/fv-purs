@@ -29,7 +29,7 @@ import Stuff
 import Data.Matrix  ( M, nrows, ncols, values, fromList2, fromList, fromLists
                     , diagonal, identity, zero_
                     , Matrix (..)
-                    , getDiag, toList, subm, subm2
+                    , getDiag, toArray, subm, subm2
                     , sw, tr, scaleDiag
                     , elementwiseUnsafePlus, elementwiseUnsafeMinus, multStd )
 
@@ -139,7 +139,7 @@ data HMeas = HMeas V5 M5 Number
 instance showHMeas :: Show HMeas where
   show (HMeas (V5 h) (M5 ch) w0) = s' where
     sh = map sqrt $ getDiag ch
-    hs = toList h
+    hs = toArray h
     s00 = to5fix x <> " +-" <> to5fix dx where
       x  = unsafePartial $ head hs
       dx = unsafePartial $ head sh
@@ -163,7 +163,7 @@ showQMeas (QMeas q cq w2pt) = s' where
   m          = mπ
   wp         = w2pt
   qs :: Array Number
-  qs         = toList q
+  qs         = toArray q
   w          = uidx qs 0
   tl         = uidx qs 1
   psi0       = uidx qs 2
@@ -210,19 +210,19 @@ showPMeas :: PMeas -> String
 showPMeas (PMeas p cp) = s' where
   sp         = map sqrt $ getDiag cp
   f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx -- \xc2b1 ±±±±±
-  s' = (foldl f "" $ zip (toList p) sp) <> " GeV"
+  s' = (foldl f "" $ zip (toArray p) sp) <> " GeV"
 
 invMass :: Array PMeas -> MMeas
 invMass ps = pmass <<< fold $ ps
 
 pmass :: PMeas -> MMeas
 pmass (PMeas p cp) = mm  where
-  ps    = toList p `debug` (show p)
+  ps    = toArray p `debug` (show p)
   px    = uidx ps 0
   py    = uidx ps 1
   pz    = uidx ps 2
   e     = uidx ps 3
-  cps   = toList cp `debug` (show cp)
+  cps   = toArray cp `debug` (show cp)
   c11   = uidx cps 0
   c12   = uidx cps 1
   c13   = uidx cps 2
@@ -252,7 +252,7 @@ pmass (PMeas p cp) = mm  where
 fromQMeas :: QMeas -> PMeas
 fromQMeas (QMeas q0 cq0 w2pt) = PMeas p0 cp0 where
   m = mπ
-  q0s = toList q0
+  q0s = toArray q0
   w    = uidx q0s 0
   tl   = uidx q0s 1
   psi0 = uidx q0s 2
@@ -266,7 +266,7 @@ fromQMeas (QMeas q0 cq0 w2pt) = PMeas p0 cp0 where
   e    = sqrt(px*px + py*py + pz*pz + m*m)
   ps   = w2pt / w
   dpdk = ps*ps/w2pt
-  cq0s = toList cq0
+  cq0s = toArray cq0
   c11  = uidx cq0s 0
   c12  = uidx cq0s 1
   c13  = uidx cq0s 2
@@ -319,7 +319,7 @@ instance showXMeasinst :: Show XMeas where
 -- return a string showing vertex position vector with errors
 showXMeas :: XMeas -> String
 showXMeas (XMeas (V3 v) (M3 cv)) = s' where
-  vv         = toList v
+  vv         = toArray v
   x          = unsafePartial $ unsafeIndex vv 0
   y          = unsafePartial $ unsafeIndex vv 1
   z          = unsafePartial $ unsafeIndex vv 2

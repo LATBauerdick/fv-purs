@@ -3,7 +3,7 @@ module Data.Matrix (
   , M (..), sw, tr
   , fromList, fromList2, fromLists
   , identity, matrix, diagonal, zero_
-  , toList, toLists, getElem
+  , toArray, toLists, getElem
   , nrows, ncols, values
   , getDiag, subm, subm2, scaleDiag, scalar
   , (+.), (-.), elementwiseUnsafePlus, elementwiseUnsafeMinus
@@ -144,6 +144,9 @@ inv m = m
 data Matrix a = M_
   { nrows     :: Int
   , ncols     :: Int
+  , roff      :: Int
+  , coff      :: Int
+  , vcols     :: Int -- ^ Number of columns of the matrix without offset
   , values    :: Array a
   }
 nrows :: forall a. Matrix a -> Int
@@ -205,7 +208,8 @@ forceMatrix m = matrix (nrows m) (ncols m) $ \(Tuple i j) -> unsafeGet i j m
 ---- FUNCTOR INSTANCE
 
 instance functorMatrix :: Functor Matrix where
-  map f (M_ {nrows: r, ncols: c, values: v}) = M_ {nrows: r, ncols: c, values: map f v}
+  map f (M_ {nrows: r, ncols: c, roff: ro, coff: co, vcols: w, values: v}) = 
+    M_ {nrows: r, ncols: c, roff: ro, coff: co, vcols: w, values: map f v}
 
 -------------------------------------------------------
 -------------------------------------------------------
@@ -289,12 +293,12 @@ zero_ ::
      Int -- ^ Rows
   -> Int -- ^ Columns
   -> Matrix Number
-zero_ n m = M_ { nrows: n, ncols: m, values: (A.replicate (n*m) 0.0)}
+zero_ n m = M_ { nrows: n, ncols: m, roff: 0, coff: 0, vcols: m, values: (A.replicate (n*m) 0.0)}
 zeroInt_ ::
      Int -- ^ Rows
   -> Int -- ^ Columns
   -> Matrix Int
-zeroInt_ n m = M_ { nrows: n, ncols: m, values: (A.replicate (n*m) 0)}
+zeroInt_ n m = M_ { nrows: n, ncols: m, roff: 0, coff: 0, vcols: m, values: (A.replicate (n*m) 0)}
 
 -- | /O(rows*cols)/. Generate a matrix from a generator function.
 --   Example of usage:
@@ -307,7 +311,7 @@ matrix :: forall a. Int -- ^ Rows
        -> Int -- ^ Columns
        -> ((Tuple Int Int) -> a) -- ^ Generator function
        -> Matrix a
-matrix n m f = M_ {nrows: n, ncols: m, values: val} where
+matrix n m f = M_ {nrows: n, ncols: m, roff: 0, coff: 0, vcols: m, values: val} where
 --  val = undefined
   val = do
     i <- A.range 1 n
@@ -325,14 +329,14 @@ matrix n m f = M_ {nrows: n, ncols: m, values: val} where
 -- >   n ( 0 0 ... 0 1 )
 --
 identity :: Int -> Matrix Number
-identity n = M_ {nrows: n, ncols: n, values: val} where
+identity n = M_ {nrows: n, ncols: n, roff: 0, coff: 0, vcols: n, values: val} where
   val = do
     i <- A.range 0 (n-1)
     j <- A.range 0 (n-1)
     pure $ if i==j then 1.00 else 0.0
 
 identityInt :: Int -> Matrix Int
-identityInt n = M_ {nrows: n, ncols: n, values: val} where
+identityInt n = M_ {nrows: n, ncols: n, roff: 0, coff: 0, vcols: n, values: val} where
   val = do
     i <- A.range 0 (n-1)
     j <- A.range 0 (n-1)
@@ -359,30 +363,29 @@ diagonal e v = matrix n n $ \(Tuple i j) -> if i == j
 --
 -- | Create column vector from array
 fromList :: forall a. Int -> Array a -> Matrix a
-fromList r vs = M_ {nrows: r, ncols: 1, values: vs}
+fromList r vs = M_ {nrows: r, ncols: 1, roff: 0, coff: 0, vcols: 1, values: vs}
 -- | Create matrix from array
 fromList2 :: forall a. Int -> Int -> Array a -> Matrix a
-fromList2 r c vs = M_ {nrows: r, ncols: c, values: vs}
+fromList2 r c vs = M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: vs}
 
--- | Get the elements of a matrix stored in a list.
+-- | Get the elements of a matrix stored in an Array.
 --
--- >        ( 1 2 3 )
--- >        ( 4 5 6 )
--- > toList ( 7 8 9 ) = [1,2,3,4,5,6,7,8,9]
+-- >         ( 1 2 3 )
+-- >         ( 4 5 6 )
+-- > toArray ( 7 8 9 ) = [1,2,3,4,5,6,7,8,9]
 --
-toList :: forall a. Matrix a -> Array a
-toList m = values m
-  {-- do --}
-  {--   i <- A.range 1 (nrows m) --}
-  {--   j <- A.range 1 (ncols m) --}
-  {--   pure $ unsafeGet i j m --}
+toArray :: forall a. Matrix a -> Array a
+toArray m@(M_ {nrows: r, ncols: c}) = do
+    i <- A.range 1 r
+    j <- A.range 1 c
+    pure $ unsafeGet i j m
 
--- | Get the elements of a matrix stored in a list of lists,
+-- | Get the elements of a matrix stored in a list of Arrays,
 --   where each list contains the elements of a single row.
 --
--- >         ( 1 2 3 )   [ [1,2,3]
--- >         ( 4 5 6 )   , [4,5,6]
--- > toLists ( 7 8 9 ) = , [7,8,9] ]
+-- >         ( 1 2 3 )   ( [1,2,3]
+-- >         ( 4 5 6 )   : [4,5,6]
+-- > toLists ( 7 8 9 ) = : [7,8,9] : Nil )
 --
 toLists :: forall a. Matrix a -> Array (Array a)
 toLists m = do
@@ -417,11 +420,12 @@ fromLists xss = fromList2 n m $ foldr (<>) [] xss
 
 -- | /O(1)/. Represent a vector as a one row matrix.
 rowVector :: forall a. Array a -> Matrix a
-rowVector v = M_ {nrows: 1, ncols: A.length v, values: v}
+rowVector v = M_ {nrows: 1, ncols: m, roff: 0, coff: 0, vcols: m, values: v} where
+  m = A.length v
 
 -- | /O(1)/. Represent a vector as a one column matrix.
 colVector :: forall a. Array a -> Matrix a
-colVector v = M_ { nrows: (A.length v), ncols: 1, values: v }
+colVector v = M_ { nrows: (A.length v), ncols: 1, roff: 0, coff: 0, vcols: 1, values: v }
 
 -- | /O(rows*cols)/. Permutation matrix.
 --
@@ -481,11 +485,7 @@ unsafeGet :: forall a.
              -> Int      -- ^ Column
              -> Matrix a -- ^ Matrix
              -> a
-
-unsafeGet i j (M_ {ncols: c, values: v}) = unsafePartial $ A.unsafeIndex v $ encode w (i+ro) (j+co)
-  where w = c
-        ro = 0
-        co = 0
+unsafeGet i j (M_ {roff: ro, coff: co, vcols: w, values: v}) = unsafePartial $ A.unsafeIndex v $ encode w (i+ro) (j+co)
 
 {-- -- | Short alias for 'getElem'. --}
 {-- getElem_ :: forall a. Matrix a -> Array Int -> a --}
@@ -573,17 +573,12 @@ submatrix :: forall a.  Int    -- ^ Starting row
                         -> Int -- ^ Ending column
                         -> Matrix a
                         -> Matrix a
-submatrix r1 r2 c1 c2 a@(M_ {nrows: n, ncols: m, values: v})
+submatrix r1 r2 c1 c2 a@(M_ {nrows: n, ncols: m, roff: ro, coff: co, vcols: w, values: v})
   | r1 < 1  || r1 > n = error $ "submatrix: starting row (" <> show r1 <> ") is out of range. Matrix has " <> show n <> " rows."
   | c1 < 1  || c1 > m = error $ "submatrix: starting column (" <> show c1 <> ") is out of range. Matrix has " <> show m <> " columns."
   | r2 < r1 || r2 > n = error $ "submatrix: ending row (" <> show r2 <> ") is out of range. Matrix has " <> show n <> " rows, and starting row is " <> show r1 <> "."
   | c2 < c1 || c2 > m = error $ "submatrix: ending column (" <> show c2 <> ") is out of range. Matrix has " <> show m <> " columns, and starting column is " <> show c1 <> "."
-  | r1 == 1 && c1 == 1 = M_ {nrows: (r2-r1+1), ncols: (c2-c1+1), values: v'} where
-    v' = do
-      i <- A.range r1 r2
-      j <- A.range c1 c2
-      pure $ getElem i j a
-  | otherwise = error $ "submatrix: cannot do it" --M (r2-r1+1) (c2-c1+1) (ro+r1-1) (co+c1-1) w v
+  | otherwise = M_ {nrows: (r2-r1+1), ncols: (c2-c1+1),  roff: (ro+r1-1), coff: (co+c1-1), vcols: w, values: v}
 
 {-- -- | /O(rows*cols)/. Remove a row and a column from a matrix. --}
 {-- --   Example: --}
@@ -800,44 +795,44 @@ multStd2 a1@(M_ {nrows: n, ncols: m}) a2@(M_ {nrows: n', ncols: m'})
 
 -- | Standard matrix multiplication by definition, without checking if sizes match.
 multStd_ :: forall a. Semiring a => Matrix a -> Matrix a -> Matrix a
-multStd_ a@(M_ {nrows: 1, ncols: 1, values: av}) b@(M_ {nrows: 1, ncols: 1, values: bv}) =
-  M_ {nrows: 1, ncols: 1, values: v} where
-   v = A.singleton $ (unsafePartial $ A.unsafeIndex av 0) * (unsafePartial $ A.unsafeIndex bv 0)
-multStd_ a@(M_ {nrows: 2, ncols: 2, values: av})
-         b@(M_ {nrows: 2, ncols:  2, values: bv}) =
-  M_ {nrows: 2, ncols: 2, values: v} where
-    a11 = unsafePartial $ A.unsafeIndex av 0
-    a12 = unsafePartial $ A.unsafeIndex av 1
-    a21 = unsafePartial $ A.unsafeIndex av 2
-    a22 = unsafePartial $ A.unsafeIndex av 3
-    b11 = unsafePartial $ A.unsafeIndex bv 0
-    b12 = unsafePartial $ A.unsafeIndex bv 1
-    b21 = unsafePartial $ A.unsafeIndex bv 2
-    b22 = unsafePartial $ A.unsafeIndex bv 3
+multStd_ a@(M_ {nrows: 1, ncols: 1}) b@(M_ {nrows: 1, ncols: 1}) =
+  M_ {nrows: 1, ncols: 1, roff: 0, coff: 0, vcols: 1, values: v} where
+    v = A.singleton $ (unsafeGet 1 1 a) * (unsafeGet 1 1 b)
+multStd_ a@(M_ {nrows: 2, ncols: 2})
+         b@(M_ {nrows: 2, ncols:  2}) =
+  M_ {nrows: 2, ncols: 2, roff: 0, coff: 0, vcols: 2, values: v} where
+    a11 = unsafeGet 1 1 a
+    a12 = unsafeGet 1 2 a
+    a21 = unsafeGet 2 1 a
+    a22 = unsafeGet 2 2 a
+    b11 = unsafeGet 1 1 b
+    b12 = unsafeGet 1 2 b
+    b21 = unsafeGet 2 1 b
+    b22 = unsafeGet 2 2 b
     v = [ a11*b11 + a12*b21 , a11*b12 + a12*b22
          , a21*b11 + a22*b21 , a21*b12 + a22*b22
         ]
-multStd_ a@(M_ {nrows: 3, ncols: 3, values: av})
-         b@(M_ {nrows: 3, ncols: 3, values: bv}) =
-  M_ {nrows: 3, ncols: 3, values: v} where
-    a11 = unsafePartial $ A.unsafeIndex av 0
-    a12 = unsafePartial $ A.unsafeIndex av 1
-    a13 = unsafePartial $ A.unsafeIndex av 2
-    a21 = unsafePartial $ A.unsafeIndex av 3
-    a22 = unsafePartial $ A.unsafeIndex av 4
-    a23 = unsafePartial $ A.unsafeIndex av 5
-    a31 = unsafePartial $ A.unsafeIndex av 6
-    a32 = unsafePartial $ A.unsafeIndex av 7
-    a33 = unsafePartial $ A.unsafeIndex av 8
-    b11 = unsafePartial $ A.unsafeIndex bv 0
-    b12 = unsafePartial $ A.unsafeIndex bv 1
-    b13 = unsafePartial $ A.unsafeIndex bv 2
-    b21 = unsafePartial $ A.unsafeIndex bv 3
-    b22 = unsafePartial $ A.unsafeIndex bv 4
-    b23 = unsafePartial $ A.unsafeIndex bv 5
-    b31 = unsafePartial $ A.unsafeIndex bv 6
-    b32 = unsafePartial $ A.unsafeIndex bv 7
-    b33 = unsafePartial $ A.unsafeIndex bv 8
+multStd_ a@(M_ {nrows: 3, ncols: 3})
+         b@(M_ {nrows: 3, ncols: 3}) =
+  M_ {nrows: 3, ncols: 3, roff: 0, coff: 0, vcols: 3, values: v} where
+    a11 = unsafeGet 1 1 a
+    a12 = unsafeGet 1 2 a
+    a13 = unsafeGet 1 3 a
+    a21 = unsafeGet 2 1 a
+    a22 = unsafeGet 2 2 a
+    a23 = unsafeGet 2 3 a
+    a31 = unsafeGet 3 1 a
+    a32 = unsafeGet 3 2 a
+    a33 = unsafeGet 3 3 a
+    b11 = unsafeGet 1 1 b
+    b12 = unsafeGet 1 2 b
+    b13 = unsafeGet 1 3 b
+    b21 = unsafeGet 2 1 b
+    b22 = unsafeGet 2 2 b
+    b23 = unsafeGet 2 3 b
+    b31 = unsafeGet 3 1 b
+    b32 = unsafeGet 3 2 b
+    b33 = unsafeGet 3 3 b
     v = [ a11*b11 + a12*b21 + a13*b31
         , a11*b12 + a12*b22 + a13*b32
         , a11*b13 + a12*b23 + a13*b33
@@ -851,8 +846,7 @@ multStd_ a@(M_ {nrows: 3, ncols: 3, values: av})
 multStd_ a@(M_ {nrows: n, ncols: m}) b@(M_ {ncols: m'}) =
   matrix n m' \(Tuple i j) -> sum do
                                     k <- A.range 1 m
-                                    pure $ (getElem i k a ) * (getElem k j b)
-multStd_ a b = undefined
+                                    pure $ (unsafeGet i k a ) * (unsafeGet k j b)
 
 multStd__ :: forall a. Matrix a -> Matrix a -> Matrix a
 multStd__ a b = undefined
@@ -1026,11 +1020,12 @@ scaleMatrix = map <<< (*)
 
 
 
+
 --------------------------------------------------------------------------------
 
 -- | Create array of given dimmension containing replicated value
 replicate :: ∀ a. Int -> Int -> a -> Maybe (Matrix a )
-replicate r c v | r > 0 && c > 0 = Just $ M_ {nrows: r, ncols: c, values: A.replicate (r * c) v}
+replicate r c v | r > 0 && c > 0 = Just $ M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: A.replicate (r * c) v}
                 | otherwise = Nothing
 
 
@@ -1042,7 +1037,7 @@ zeros r c = replicate r c 0.0
 -- | Create Matrix from Array
 fromArray :: ∀ a. Int -> Int -> Array a -> Maybe (Matrix a)
 fromArray r c vs | r > 0 && c > 0 && r*c == A.length vs =
-  Just $ M_ {nrows: r, ncols: c, values: vs}
+  Just $ M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: vs}
                  | otherwise = Nothing
 
 

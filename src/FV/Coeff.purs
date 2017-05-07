@@ -1,4 +1,4 @@
-module FV.Coeff 
+module FV.Coeff
   ( expand
   , hv2q
   ) where
@@ -7,17 +7,17 @@ import Prelude
 import Math ( sqrt, atan2, cos, sin, atan, pi )
 
 import Stuff
-import Data.Matrix ( toList, fromList, fromList2, tr, prettyMatrix )
+import Data.Matrix ( toArray, fromList, fromList2, tr, prettyMatrix )
 import FV.Types ( V5 (..), V3 (..), Jaco (..))
 
 hv2q :: V5 -> V3 -> V3
 hv2q (V5 h) (V3 v) = q where
-  v_   = toList v
+  v_   = toArray v
   xx   = uidx v_ 0
   yy   = uidx v_ 1
   r    = sqrt $ xx*xx + yy*yy
   phi  = atan2 yy xx
-  h_   = toList h
+  h_   = toArray h
   w0   = uidx h_ 0
   tl0  = uidx h_ 1
   psi0 = uidx h_ 2
@@ -36,13 +36,13 @@ hv2q (V5 h) (V3 v) = q where
 
 expand :: V3 -> V3 -> Jaco
 expand (V3 v) (V3 q) = {aa: aa, bb: bb, h0: h0} where
-  v_  = toList v
+  v_  = toArray v
   xx  = uidx v_ 0
   yy  = uidx v_ 1
   z   = uidx v_ 2
   r   = sqrt $ xx*xx + yy*yy
   phi = atan2 yy xx
-  q_  = toList q
+  q_  = toArray q
   w   = uidx q_ 0
   tl  = uidx q_ 1
   psi = uidx q_ 2
