@@ -217,12 +217,12 @@ invMass ps = pmass <<< fold $ ps
 
 pmass :: PMeas -> MMeas
 pmass (PMeas p cp) = mm  where
-  ps    = toArray p `debug` (show p)
+  ps    = toArray p
   px    = uidx ps 0
   py    = uidx ps 1
   pz    = uidx ps 2
   e     = uidx ps 3
-  cps   = toArray cp `debug` (show cp)
+  cps   = toArray cp
   c11   = uidx cps 0
   c12   = uidx cps 1
   c13   = uidx cps 2
@@ -238,16 +238,8 @@ pmass (PMeas p cp) = mm  where
             2.0*(px*(c12*py + c13*pz - c14*e)
                + py*(c23*pz - c24*e)
                - pz*c34*e)
-  sigm1 = px*c11*px + py*c22*py + pz*c33*pz +
-            2.0*(px*(c12*py + c13*pz)
-               + py*(c23*pz)
-               )
-  sigm2 = e*c44*e 
-  sigm3 = -2.0*(px*c14*e
-               + py*c24*e
-               + pz*c34*e)
-  dm    =  sqrt ( max sigm0 0.0 ) / m `debug` (show sigm1 <> "xx" <> show sigm2 <> "xx" <> show sigm3 )
-  mm    = MMeas {m, dm} `debug` (show sigm0)
+  dm    =  sqrt ( max sigm0 0.0 ) / m
+  mm    = MMeas {m, dm}
 
 fromQMeas :: QMeas -> PMeas
 fromQMeas (QMeas q0 cq0 w2pt) = PMeas p0 cp0 where

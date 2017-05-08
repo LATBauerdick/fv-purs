@@ -12,6 +12,7 @@ import FV.Coeff ( expand, hv2q ) as Coeff
 import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), XMeas (..)
                 , Prong (..), Chi2
                 , V3 (..), M3 (..), V5 (..), M5 (..), Jaco (..)
+                , helices
                 )
 
 fit :: VHMeas -> Prong
@@ -28,7 +29,7 @@ kAdd (XMeas v (M3 vv)) (HMeas h (M5 hh) w0) = kAdd' x_km1 p_k x_e q_e 1e6 0 wher
   q_e   = Coeff.hv2q h v
 
 goodEnough :: Number -> Number -> Int -> Boolean
---goodEnough c0 c i | trace ("."++show i ++ "|" ++ printf "%8.1f" (abs (c-c0)) ++ printf "%8.1f" c) False = undefined
+goodEnough c0 c i | i < 3 && trace ("." <> show i <> "|" <> to1fix (abs (c-c0)) <> to1fix c) false = undefined
 goodEnough c0 c i = abs (c - c0) < chi2cut || i > iterMax where
   chi2cut = 0.5
   iterMax = 99 :: Int
@@ -61,7 +62,7 @@ kAdd' (XMeas (V3 v0) (M3 uu0)) (HMeas (V5 h) (M5 gg) w0) x_e q_e 𝜒2_0 iter = 
               in x_k'
 
 kSmooth :: VHMeas -> XMeas -> Prong
---kSmooth vm v | trace ("kSmooth " ++ (show . length . view helicesLens $ vm) ++ ", vertex at " ++ (show v) ) False = undefined
+kSmooth vm v | trace ("kSmooth " <> (show <<< length <<< helices $ vm) <> ", vertex at " <> (show v) ) false = undefined
 kSmooth (VHMeas {vertex: v0, helices: hl}) v = pr' where
   {-- (Tuple ql chi2l) = unzip $ mapMaybe (ksm v) hl --}
   xx = unzip $ mapMaybe (ksm v) hl

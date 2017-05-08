@@ -22,6 +22,7 @@ import Data.Array (
 import Data.Tuple (Tuple (..), fst, snd)
 import Data.List ( List(..), (:), length, head, range ) as L
 import Data.Maybe ( Maybe(..), fromJust, fromMaybe )
+import Data.Either ( Either (..) )
 import Data.Monoid ( class Monoid, mempty )
 import Data.Foldable ( foldr, maximum, sum )
 import Data.String ( length, fromCharArray ) as S
@@ -53,27 +54,20 @@ det :: M -> Number
 det m = 1.0-- M.detLU m
 
 {-- -- This is the type of our Inv error representation. --}
-{-- data InvError = Err { quality::Number, reason::String } --}
+{-- data InvError = Err { quality::Double, reason::String } --}
 
 {-- -- We make it an instance of the Error class --}
-{-- instance efforInvError :: Error InvError where --}
+{-- instance Error InvError where --}
 {--   noMsg    = Err 0 "Inversion Error" --}
 {--   strMsg s = Err 0 s --}
 
-invMaybe :: M -> Maybe M
-invMaybe m = Just m
-{-- invMaybe m = case invsm m of --}
-{--                Right im -> Just im --}
-{--                Left s -> Nothing `debug` ("Error in Matrix.invsm: " ++ s) --}
-
-inv :: M -> M
-inv m = m
-{-- inv m =  im' where --}
-{--   (Right m') = do --}
-{--              catchError (invm m) printError --}
-{--   one = (M.identity $ M.nrows m) --}
-{--   printError :: InvError -> InvMonad M --}
-{--   printError e = return one `debug` ("Error in Matrix.inv: " ++ (show (quality e)) ++ ": " ++ (reason e)) --}
+{-- inv :: M -> M --}
+{-- inv m =  let (Right m') = do { invm m } `catchError` printError --}
+{--           in m' --}
+{--          where --}
+{--            one = (M.identity $ M.nrows m) --}
+{--            printError :: InvError -> InvMonad M --}
+{--            printError e = return one `debug` ("Error in Matrix.inv: " ++ (show (quality e)) ++ ": " ++ (reason e)) --}
 
 {-- -- For our monad type constructor, we use Either InvError --}
 {-- -- which represents failure using Left InvError or a --}
@@ -85,9 +79,26 @@ inv m = m
 {--             Right m'  -> return m' --}
 {--             Left s    -> throwError (Err 0 ("In Matrix.invm: " ++ s)) -- `debug` "yyyyyyyy" --}
 
-{-- -- inverse of a square matrix, from Data.Matrix with fix --}
-{-- --   Uses naive Gaussian elimination formula. --}
-{-- invsm ::  M -> Either String M --}
+invMaybe :: M -> Maybe M
+invMaybe m = case invsm m of
+               Right im -> Just im
+               Left  s  -> Nothing `debug` ("Error in Matrix.invsm: " <> s)
+
+inv :: M -> M
+inv = invm
+
+invm :: M -> M
+invm m = case invsm m of
+            Right m'  -> m'
+            Left s    -> error ("In Matrix.invm: " <> s)
+invm m = case invsm m of
+               Right im -> im
+               Left  s  -> error ("Error in Data.Matrix.invsm: " <> s)
+
+-- inverse of a square matrix, from Data.Matrix with fix
+--   Uses naive Gaussian elimination formula.
+invsm ::  M -> Either String M
+invsm m = Right m
 {-- invsm m = rref'd >>= return <<< submatrix 1 n (n + 1) (n * 2) where --}
 {--             n = nrows m --}
 {--             adjoinedWId = m <|> identity n --}

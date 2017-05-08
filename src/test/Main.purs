@@ -21,7 +21,9 @@ import Partial.Unsafe ( unsafePartial )
 import Data.List ( List(..),  (:), mapMaybe )
 import Data.Foldable ( traverse_ )
 
-import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), PMeas (..), XMeas (..)
+import FV.Types
+  ( VHMeas (..), HMeas (..), QMeas (..), PMeas (..)
+  , XMeas (..), Prong (..)
   , vertex, helices, hFilter, fromHMeas, fromQMeas, vBlowup, invMass
   , typeShow )
 import Test.Input ( hSlurp, hSlurpMCtruth )
@@ -79,20 +81,15 @@ doFitTest vm' l5 = do
 
   log $ "initial vertex position -> " <> show ((vertex vm)::XMeas)
 
-  let pl              = map (fromQMeas <<< fromHMeas) $ helices vm
-  log $ "px,py,pz,E ->" <> (show $ fold pl)
+  let pl         = map (fromQMeas <<< fromHMeas) $ helices vm
   log $ ("Inv Mass " <> showLen pl <> " helix") <> show (invMass pl)
-  let h5              = (helices <<< hFilter l5 $ vm)
-  let pl5             = map (fromQMeas <<< fromHMeas) h5
-  traverse_ (\h -> log $ "pt,pz,fi,E ->" <> show (fromHMeas h)) h5
-  {-- let xxx (QMeas _ qq _) = show qq --}
-  {-- traverse_ (\h -> log $ "->" <> (xxx $ fromHMeas h)) (helices vm) --}
-  log $ "px,py,pz,E ->" <> (show $ fold pl5)
+  let pl5        = map (fromQMeas <<< fromHMeas) (helices <<< hFilter l5 $ vm)
   log $ ("Inv Mass " <> showLen pl5 <> " helix") <> show (invMass pl5)
 
   log             "Fitting Vertex --------------------"
   let pr = fit vm
-  {-- putStrLn $ "Fitted vertex -> " ++ show vf --}
+      {-- Prong {fitVertex: vf, fitMomenta: ql, fitChi2s: cl} = fit vm --}
+  {-- log $ "Fitted vertex -> " <> show vf --}
   {-- mapM_ showQChi2 $ zip3 ql cl [0..] --}
   {-- putStrLn $ "Inv Mass " ++ showLen ql ++ " fit" ++ show (invMass $map q2p ql) --}
 
