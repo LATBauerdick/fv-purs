@@ -103,36 +103,36 @@ instance formatString :: Format String where
    where
      padChar = fromMaybe ' ' rec.padChar
 
-{-- instance formatInt :: Format Int where --}
-{--   format prop@(Properties rec) num | fromMaybe 0 rec.precision > 0 = --}
-{--     format prop (Int.toNumber num) --}
+instance formatInt :: Format Int where
+  format prop@(Properties rec) num | fromMaybe 0 rec.precision > 0 =
+    format prop (Int.toNumber num)
 
-{--   format (Properties rec) num = --}
-{--     case rec.width of --}
-{--       Just len -> --}
-{--         if padChar == ' ' --}
-{--           then --}
-{--             padLeft padChar len (numSgn <> show numAbs) --}
-{--           else --}
-{--             numSgn <> padLeft padChar (len - length numSgn) (show numAbs) --}
-{--       Nothing -> numSgn <> show numAbs --}
+  format (Properties rec) num =
+    case rec.width of
+      Just len ->
+        if padChar == ' '
+          then
+            padLeft padChar len (numSgn <> show numAbs)
+          else
+            numSgn <> padLeft padChar (len - length numSgn) (show numAbs)
+      Nothing -> numSgn <> show numAbs
 
-{--    where --}
-{--      isSigned = fromMaybe false rec.signed --}
-{--      padChar = fromMaybe ' ' rec.padChar --}
-{--      nonNegative = num >= 0 --}
-{--      numAbs = if nonNegative then num else (-num) --}
-{--      numSgn = if nonNegative --}
-{--                 then (if isSigned then "+" else "") --}
-{--                 else "-" --}
+   where
+     isSigned = fromMaybe false rec.signed
+     padChar = fromMaybe ' ' rec.padChar
+     nonNegative = num >= 0
+     numAbs = if nonNegative then num else (-num)
+     numSgn = if nonNegative
+                then (if isSigned then "+" else "")
+                else "-"
 
 instance formatNumber :: Format Number where
   -- Format as an integer if the precision is set to 0
-  {-- format prop@(Properties rec) num | rec.precision == Just 0 = --}
-  {--   format prop (Int.round num) --}
+  format prop@(Properties rec) num | rec.precision == Just 0 =
+    format prop (Int.round num)
 
   format (Properties rec) num' =
-    case Nothing of -- rec.width of
+    case rec.width of
       Just len ->
         if padChar == ' '
           then
@@ -140,6 +140,7 @@ instance formatNumber :: Format Number where
           else
             numSgn <> padLeft padChar (len - length numSgn) numAbsStr
       Nothing -> numSgn <> numAbsStr
+
    where
      num = case rec.precision of
              Nothing -> num'

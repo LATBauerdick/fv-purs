@@ -18,7 +18,7 @@ import Math ( sin, cos )
 -- import Unsafe.Coerce (unsafeCoerce)
 import Partial.Unsafe (unsafePartial)
 
-import Data.Matrix (sw, fromList, fromList2)
+import Data.Matrix (sw, fromArray, fromArray2)
 import FV.Types ( V3 (..), M3 (..), V5 (..), M5 (..)
                 , MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
 import Stuff ( words )
@@ -64,8 +64,8 @@ hSlurp ds = vhm where
 -- slurp in the measurements of vertex and helices
 hSlurp' :: Array Number -> Maybe VHMeas
 hSlurp' inp = do
-  let v0    = fromList 3 $ take 3 inp       -- initial vertex pos
-      cv0   = fromList2 3 3 (take 9 $ drop 3 inp) -- cov matrix
+  let v0    = fromArray 3 $ take 3 inp       -- initial vertex pos
+      cv0   = fromArray2 3 3 (take 9 $ drop 3 inp) -- cov matrix
       v     = XMeas (V3 v0) (M3 cv0)
   w2pt      <- inp !! 12  -- how to calc pt from w; 1 in case of CMS
   mnt       <- inp !! 13  -- number of helices to follow --}
@@ -82,8 +82,8 @@ nxtH :: Number -> Array Number -> Maybe HMeas
 nxtH w0 ds = do
   let ih    = take 5 ds
       ich   = take 25 $ drop 5 ds
-      h'    = fromList 5 ih
-      ch'   = fromList2 5 5 ich
+      h'    = fromArray 5 ih
+      ch'   = fromArray2 5 5 ich
   pure $ HMeas (V5 h') (M5 ch') w0
 
 -- get the next helix, CMS case
@@ -115,15 +115,15 @@ nxtH' _ ds = do
       j01               = h0 * w0 * st/ct/ct
       j11               = 1.0 / ct / ct
       j10               = 0.0
-      jj                = fromList2 5 5 [  j00, j01, 0.0, 0.0, 0.0
+      jj                = fromArray2 5 5 [  j00, j01, 0.0, 0.0, 0.0
                                           , j10, j11, 0.0, 0.0, 0.0
                                           , 0.0, 0.0, 1.0, 0.0, 0.0
                                           , 0.0, 0.0, 0.0, 1.0, 0.0
                                           , 0.0, 0.0, 0.0, 0.0, 1.0 ]
-      h'                = fromList 5 [w, tl, h2, h3, h4]
+      h'                = fromArray 5 [w, tl, h2, h3, h4]
 
   let ich               = take 25 $ drop 5 ds
-      ch'               = fromList2 5 5 ich
+      ch'               = fromArray2 5 5 ich
       ch''              = sw (jj) (ch')
 
   pure $ HMeas (V5 (h')) (M5 ch'') w0

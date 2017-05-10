@@ -1,7 +1,12 @@
+
+-- | Matrix datatype and operations.
+--
+--   Every provided example has been tested.
+--   Run @cabal test@ for further tests.
 module Data.Matrix (
     Matrix (..)
   , M (..), sw, tr
-  , fromList, fromList2, fromLists
+  , fromArray, fromArray2, fromArrays
   , identity, matrix, diagonal, zero_
   , toArray, toLists, getElem
   , nrows, ncols, values
@@ -17,7 +22,8 @@ import Prelude
 import Stuff
 import Data.Array (
                     range, index, unsafeIndex, cons, concat, fromFoldable, take
-                  , mapMaybe, replicate, slice, length , all, singleton
+                  , mapMaybe, replicate, slice, length , all, singleton, head
+                  , filter, findIndex
                   ) as A
 import Data.Tuple (Tuple (..), fst, snd)
 import Data.List ( List(..), (:), length, head, range ) as L
@@ -77,7 +83,7 @@ det m = 1.0-- M.detLU m
 {-- invm :: M -> InvMonad M --}
 {-- invm m = case invsm m of --}
 {--             Right m'  -> return m' --}
-{--             Left s    -> throwError (Err 0 ("In Matrix.invm: " ++ s)) -- `debug` "yyyyyyyy" --}
+{--             Left s    -> throwError (Err 0 ("In Matrix.invm: " ++ s)) --}
 
 invMaybe :: M -> Maybe M
 invMaybe m = case invsm m of
@@ -122,27 +128,33 @@ invsm m = Right m
 {--                 bot = submatrix (nrows resolvedRight) (nrows resolvedRight) 1 (ncols resolvedRight) resolvedRight --}
 {--             in top' >>= return <<< (<-> bot) --}
 
-{-- ref :: M -> Either String M --}
+{-- ref :: Matrix Number -> Either String (Matrix Number) --}
 {-- ref mtx --}
 {--         | nrows mtx == 1 --}
-{--             = Right clearedLeft --}
-{--         | goodRow == 0 --}
-{--             = Left ("In Matrix.ref: Attempt to invert a non-invertible matrix") -- `debug` "xxxxxxxx" --}
+{--             = Right $ clearedLeft mtx --}
+{--         | goodRow mtx == 0 --}
+{--             = Left ("In Matrix.ref: Attempt to invert a non-invertible matrix") --}
 {--         | otherwise = --}
 {--             let --}
-{--                 (tl, tr, bl, br) = M.splitBlocks 1 1 clearedLeft --}
+{--                 (Tuple (Tuple tl tr) (Tuple bl br)) = splitBlocks 1 1 (clearedLeft mtx) --}
 {--                 br' = ref br --}
-{--             in case br' of --} 
-{--                   Right br'' -> Right ((tl <|> tr) <-> (bl <|> br'')) --}
+{--             in case br' of --}
+{--                   Right br'' -> Right $ joinBlocks tl tr bl br'' --((tl <|> tr) <-> (bl <|> br'')) --}
 {--                   Left s -> Left s --}
-{--     where --}
-{--       goodRow = case listToMaybe (filter (\i -> getElem i 1 mtx /= 0) (1..nrows mtx)) of -- ERROR in orig: ncols --}
+
+{-- goodRow :: Matrix Number -> Int --}
+{-- goodRow mtx = inx where --}
+{--   minx :: Maybe Int --}
+{--   minx = A.findIndex (\i -> getElem i 1 mtx /= 0.0) $ A.range 1 (nrows mtx) --}
+{--   inx = case minx of --}
 {--                   Nothing   -> 0 --}
-{--                   Just x -> x --}
-{--       sigAtTop = switchRows 1 goodRow mtx --}
-{--       normalizedFirstRow = scaleRow (1 / getElem 1 1 mtx) 1 sigAtTop --}
-{--       clearedLeft = foldr (<<<) id (map combinator (2..nrows mtx)) normalizedFirstRow where --}
+{--                   Just x    -> x+1 --}
+
+{-- clearedLeft :: Matrix Number -> Matrix Number --}
+{-- clearedLeft mtx = --}
+{--   foldr (<<<) id (map combinator (A.range 2 (nrows mtx))) normalizedFirstRow where --}
 {--         combinator n = combineRows n (-getElem n 1 normalizedFirstRow) 1 --}
+{--         normalizedFirstRow = scaleRow (1.0 / (getElem 1 1 mtx)) 1 (switchRows 1 (goodRow mtx) mtx) --}
 
 ------------------------------------------------------------------------
 -- | Dense Matrix implementation
@@ -196,7 +208,7 @@ prettyMatrix m@(M_ {nrows: r, ncols: c, values: v}) = unlines ls where
   ls = do
     i <- L.range 1 r
     let ws :: L.List String
-        ws = map (\j -> fillBlanks mx (to3fix $ getElem i j m)) (L.range 1 c)
+        ws = map (\j -> fillBlanks mx (to0fix $ getElem i j m)) (L.range 1 c)
     pure $ "( " <> unwords ws <> " )"
   mx = fromMaybe 0 (maximum $ map (S.length <<< to3fix) v)
   fillBlanks k str =
@@ -250,15 +262,16 @@ instance functorMatrix :: Functor Matrix where
 -- >                          ( 4 5 6 )   ( 5 6 7 )
 -- > mapRow (\_ x -> x + 1) 2 ( 7 8 9 ) = ( 7 8 9 )
 --
-{-- mapRow :: (Int -> a -> a) -- ^ Function takes the current column as additional argument. --}
-{--         -> Int            -- ^ Row to map. --}
-{--         -> Matrix a -> Matrix a --}
-{-- mapRow f r m = --}
-{--   matrix (nrows m) (ncols m) $ \(i,j) -> --}
-{--     let a = unsafeGet i j m --}
-{--     in  if i == r --}
-{--            then f j a --}
-{--            else a --}
+mapRow :: forall a.
+          (Int -> a -> a)   -- ^ Function takes the current column as additional argument.
+          -> Int            -- ^ Row to map.
+          -> Matrix a -> Matrix a
+mapRow f r m =
+  matrix (nrows m) (ncols m) $ \(Tuple i j) ->
+    let a = unsafeGet i j m
+    in  if i == r
+           then f j a
+           else a
 
 -- | /O(rows*cols)/. Map a function over a column.
 --   Example:
@@ -370,14 +383,14 @@ diagonal e v = matrix n n $ \(Tuple i j) -> if i == j
 --
 -- >                           ( 1 2 3 )
 -- >                           ( 4 5 6 )
--- > fromList2 3 3 (1 .. 9) =  ( 7 8 9 )
+-- > fromArray2 3 3 (1 .. 9) =  ( 7 8 9 )
 --
 -- | Create column vector from array
-fromList :: forall a. Int -> Array a -> Matrix a
-fromList r vs = M_ {nrows: r, ncols: 1, roff: 0, coff: 0, vcols: 1, values: vs}
+fromArray :: forall a. Int -> Array a -> Matrix a
+fromArray r vs = M_ {nrows: r, ncols: 1, roff: 0, coff: 0, vcols: 1, values: vs}
 -- | Create matrix from array
-fromList2 :: forall a. Int -> Int -> Array a -> Matrix a
-fromList2 r c vs = M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: vs}
+fromArray2 :: forall a. Int -> Int -> Array a -> Matrix a
+fromArray2 r c vs = M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: vs}
 
 -- | Get the elements of a matrix stored in an Array.
 --
@@ -422,9 +435,21 @@ diagonalList n e xs = matrix n n $ \(Tuple i j) -> if i == j
                                                       then unsafePartial $ A. unsafeIndex xs (i - 1)
                                                       else e
 
-fromLists :: forall a. L.List (Array a) -> Matrix a
-fromLists L.Nil = error "fromLists: empty list."
-fromLists xss = fromList2 n m $ foldr (<>) [] xss
+-- | Create a matrix from a non-empty list of non-empty lists.
+--   /Each list must have at least as many elements as the first list/.
+--   Examples:
+--
+-- > fromArrays [ [1,2,3]      ( 1 2 3 )
+-- >           , [4,5,6]      ( 4 5 6 )
+-- >           , [7,8,9] ] =  ( 7 8 9 )
+--
+-- > fromArrays [ [1,2,3  ]     ( 1 2 3 )
+-- >           , [4,5,6,7]     ( 4 5 6 )
+-- >           , [8,9,0  ] ] = ( 8 9 0 )
+--
+fromArrays :: forall a. L.List (Array a) -> Matrix a
+fromArrays L.Nil = error "fromArrays: empty list."
+fromArrays xss = fromArray2 n m $ foldr (<>) [] xss
   where
     n = L.length xss
     m = A.length $ unsafePartial $ fromJust $ L.head xss
@@ -454,11 +479,11 @@ colVector v = M_ { nrows: (A.length v), ncols: 1, roff: 0, coff: 0, vcols: 1, va
 --
 -- When @i == j@ it reduces to 'identity' @n@.
 --
-permMatrix :: forall a. Int -- ^ Size of the matrix.
-           -> Int -- ^ Permuted row 1.
-           -> Int -- ^ Permuted row 2.
-           -> Matrix a -- ^ Permutation matrix.
-permMatrix n r1 r2 = undefined
+{-- permMatrix :: forall a. Int -- ^ Size of the matrix. --}
+{--            -> Int -- ^ Permuted row 1. --}
+{--            -> Int -- ^ Permuted row 2. --}
+{--            -> Matrix a -- ^ Permutation matrix. --}
+{-- permMatrix n r1 r2 = undefined --}
 {-- permMatrix n r1 r2 | r1 == r2 = identity n --}
 {-- permMatrix n r1 r2 = matrix n n f --}
 {--  where --}
@@ -521,13 +546,13 @@ safeGet i j a@(M_ {nrows: r, ncols: c, values: v})
 {--   | otherwise = Just $ unsafeSet x p a --}
 
 {-- -- | /O(1)/. Get a row of a matrix as a vector. --}
-{-- getRow :: Int -> Matrix a -> V.Vector a --}
-{-- {-# INLINE getRow #-} --}
+{-- getRow :: forall a. Int -> Matrix a -> Array a --}
+{-- getRow = undefined --}
 {-- getRow i (M _ m ro co w v) = V.slice (w*(i-1+ro) + co) m v --}
 
 {-- -- | /O(rows)/. Get a column of a matrix as a vector. --}
-{-- getCol :: Int -> Matrix a -> V.Vector a --}
-{-- {-# INLINE getCol #-} --}
+{-- getCol :: forall a. Int -> Matrix a -> Array a --}
+{-- getCol = undefined --}
 {-- getCol j (M n _ ro co w v) = V.generate n $ \i -> v V.! encode w (i+1+ro,j+co) --}
 
 -- | /O(min rows cols)/. Diagonal of a /not necessarily square/ matrix.
@@ -544,12 +569,48 @@ getDiag m@(M_ {nrows: r, ncols: c}) = v where
 --  and then append them, but far more efficient.
 getMatrixAsVector :: forall a. Matrix a -> Array a
 getMatrixAsVector = values <<< forceMatrix
---
-----
-----
------
---
 
+-------------------------------------------------------
+-------------------------------------------------------
+---- MANIPULATING MATRICES
+
+{-- msetElem :: PrimMonad m --}
+{--          => a -- ^ New element --}
+{--          -> Int -- ^ Number of columns of the matrix --}
+{--          -> Int -- ^ Row offset --}
+{--          -> Int -- ^ Column offset --}
+{--          -> (Int,Int) -- ^ Position to set the new element --}
+{--          -> MV.MVector (PrimState m) a -- ^ Mutable vector --}
+{--          -> m () --}
+{-- {-# INLINE msetElem #-} --}
+{-- msetElem x w ro co (i,j) v = MV.write v (encode w (i+ro,j+co)) x --}
+
+{-- unsafeMset :: PrimMonad m --}
+{--          => a -- ^ New element --}
+{--          -> Int -- ^ Number of columns of the matrix --}
+{--          -> Int -- ^ Row offset --}
+{--          -> Int -- ^ Column offset --}
+{--          -> (Int,Int) -- ^ Position to set the new element --}
+{--          -> MV.MVector (PrimState m) a -- ^ Mutable vector --}
+{--          -> m () --}
+{-- {-# INLINE unsafeMset #-} --}
+{-- unsafeMset x w ro co (i,j) v = MV.unsafeWrite v (encode w (i+ro,j+co)) x --}
+
+{-- -- | Replace the value of a cell in a matrix. --}
+{-- setElem :: a -- ^ New value. --}
+{--         -> (Int,Int) -- ^ Position to replace. --}
+{--         -> Matrix a -- ^ Original matrix. --}
+{--         -> Matrix a -- ^ Matrix with the given position replaced with the given value. --}
+{-- {-# INLINE setElem #-} --}
+{-- setElem x p (M n m ro co w v) = M n m ro co w $ V.modify (msetElem x w ro co p) v --}
+
+{-- -- | Unsafe variant of 'setElem', without bounds checking. --}
+{-- unsafeSet :: a -- ^ New value. --}
+{--         -> (Int,Int) -- ^ Position to replace. --}
+{--         -> Matrix a -- ^ Original matrix. --}
+{--         -> Matrix a -- ^ Matrix with the given position replaced with the given value. --}
+{-- {-# INLINE unsafeSet #-} --}
+{-- unsafeSet x p (M n m ro co w v) = M n m ro co w $ V.modify (unsafeMset x w ro co p) v --}
 
 -- | /O(rows*cols)/. The transpose of a matrix.
 --   Example:
@@ -606,62 +667,62 @@ submatrix r1 r2 c1 c2 a@(M_ {nrows: n, ncols: m, roff: ro, coff: co, vcols: w, v
 {--       c = c0 + co --}
 {--   in  M (n-1) (m-1) ro co (w-1) $ V.ifilter (\k _ -> let (i,j) = decode w k in i /= r && j /= c) v --}
 
-{-- -- | /O(1)/. Make a block-partition of a matrix using a given element as reference. --}
-{-- --   The element will stay in the bottom-right corner of the top-left corner matrix. --}
-{-- -- --}
-{-- -- >                 (             )   (      |      ) --}
-{-- -- >                 (             )   ( ...  | ...  ) --}
-{-- -- >                 (    x        )   (    x |      ) --}
-{-- -- > splitBlocks i j (             ) = (-------------) , where x = a_{i,j} --}
-{-- -- >                 (             )   (      |      ) --}
-{-- -- >                 (             )   ( ...  | ...  ) --}
-{-- -- >                 (             )   (      |      ) --}
-{-- -- --}
-{-- --   Note that some blocks can end up empty. We use the following notation for these blocks: --}
-{-- -- --}
-{-- -- > ( TL | TR ) --}
-{-- -- > (---------) --}
-{-- -- > ( BL | BR ) --}
-{-- -- --}
-{-- --   Where T = Top, B = Bottom, L = Left, R = Right. --}
-{-- -- --}
-{-- splitBlocks :: Int      -- ^ Row of the splitting element. --}
-{--             -> Int      -- ^ Column of the splitting element. --}
-{--             -> Matrix a -- ^ Matrix to split. --}
-{--             -> (Matrix a,Matrix a --}
-{--                ,Matrix a,Matrix a) -- ^ (TL,TR,BL,BR) --}
-{-- {-# INLINE[1] splitBlocks #-} --}
-{-- splitBlocks i j a@(M n m _ _ _ _) = --}
-{--     ( submatrix    1  i 1 j a , submatrix    1  i (j+1) m a --}
-{--     , submatrix (i+1) n 1 j a , submatrix (i+1) n (j+1) m a ) --}
+-- | /O(1)/. Make a block-partition of a matrix using a given element as reference.
+--   The element will stay in the bottom-right corner of the top-left corner matrix.
+--
+-- >                 (             )   (      |      )
+-- >                 (             )   ( ...  | ...  )
+-- >                 (    x        )   (    x |      )
+-- > splitBlocks i j (             ) = (-------------) , where x = a_{i,j}
+-- >                 (             )   (      |      )
+-- >                 (             )   ( ...  | ...  )
+-- >                 (             )   (      |      )
+--
+--   Note that some blocks can end up empty. We use the following notation for these blocks:
+--
+-- > ( TL | TR )
+-- > (---------)
+-- > ( BL | BR )
+--
+--   Where T = Top, B = Bottom, L = Left, R = Right.
+--
+splitBlocks :: forall a. Int      -- ^ Row of the splitting element.
+            -> Int      -- ^ Column of the splitting element.
+            -> Matrix a -- ^ Matrix to split.
+            -> (Tuple (Tuple (Matrix a) (Matrix a))
+                      (Tuple (Matrix a) (Matrix a))) -- ^ (TL,TR,BL,BR)
+{-# INLINE[1] splitBlocks #-}
+splitBlocks i j a@(M_ {nrows: n, ncols: m}) =
+    (Tuple (Tuple (submatrix    1  i 1 j a) (submatrix    1  i (j+1) m a))
+           (Tuple (submatrix (i+1) n 1 j a) (submatrix (i+1) n (j+1) m a)))
 
-{-- -- | Join blocks of the form detailed in 'splitBlocks'. Precisely: --}
-{-- -- --}
-{-- -- > joinBlocks (tl,tr,bl,br) = --}
-{-- -- >   (tl <|> tr) --}
-{-- -- >       <-> --}
-{-- -- >   (bl <|> br) --}
-{-- joinBlocks :: (Matrix a,Matrix a,Matrix a,Matrix a) -> Matrix a --}
-{-- {-# INLINE[1] joinBlocks #-} --}
-{-- joinBlocks (tl,tr,bl,br) = --}
-{--   let n  = nrows tl --}
-{--       nb = nrows bl --}
-{--       n' = n + nb --}
-{--       m  = ncols tl --}
-{--       mr = ncols tr --}
-{--       m' = m + mr --}
-{--       en = encode m' --}
-{--   in  M n' m' 0 0 m' $ V.create $ do --}
-{--         v <- MV.new (n'*m') --}
-{--         let wr = MV.write v --}
-{--         numLoop 1 n  $ \i -> do --}
-{--           numLoop 1 m  $ \j -> wr (en (i ,j  )) $ tl ! (i,j) --}
-{--           numLoop 1 mr $ \j -> wr (en (i ,j+m)) $ tr ! (i,j) --}
-{--         numLoop 1 nb $ \i -> do --}
-{--           let i' = i+n --}
-{--           numLoop 1 m  $ \j -> wr (en (i',j  )) $ bl ! (i,j) --}
-{--           numLoop 1 mr $ \j -> wr (en (i',j+m)) $ br ! (i,j) --}
-{--         return v --}
+-- | Join blocks of the form detailed in 'splitBlocks'. Precisely:
+--
+-- > joinBlocks (tl,tr,bl,br) =
+-- >   (tl <|> tr)
+-- >       <->
+-- >   (bl <|> br)
+joinBlocks :: forall a. Matrix a -> Matrix a -> Matrix a -> Matrix a -> Matrix a
+{-# INLINE[1] joinBlocks #-}
+joinBlocks tl tr bl br = undefined
+  {-- let n  = nrows tl --}
+  {--     nb = nrows bl --}
+  {--     n' = n + nb --}
+  {--     m  = ncols tl --}
+  {--     mr = ncols tr --}
+  {--     m' = m + mr --}
+  {--     en = encode m' --}
+  {-- in  M n' m' 0 0 m' $ V.create $ do --}
+  {--       v <- MV.new (n'*m') --}
+  {--       let wr = MV.write v --}
+  {--       numLoop 1 n  $ \i -> do --}
+  {--         numLoop 1 m  $ \j -> wr (en (i ,j  )) $ tl ! (i,j) --}
+  {--         numLoop 1 mr $ \j -> wr (en (i ,j+m)) $ tr ! (i,j) --}
+  {--       numLoop 1 nb $ \i -> do --}
+  {--         let i' = i+n --}
+  {--         numLoop 1 m  $ \j -> wr (en (i',j  )) $ bl ! (i,j) --}
+  {--         numLoop 1 mr $ \j -> wr (en (i',j+m)) $ br ! (i,j) --}
+  {--       return v --}
 
 {-- {-# RULES --}
 {-- "matrix/splitAndJoin" --}
@@ -722,32 +783,12 @@ elementwiseUnsafe f m m' = matrix (nrows m) (ncols m) $
 elementwiseUnsafePlus :: forall a. Ring a => Matrix a -> Matrix a -> Matrix a
 elementwiseUnsafePlus a b = elementwiseUnsafe (+) a b
 infixl 6 elementwiseUnsafePlus as +.
+
 -- | Internal unsafe substraction.
 elementwiseUnsafeMinus :: forall a. Ring a => Matrix a -> Matrix a -> Matrix a
 elementwiseUnsafeMinus a b = elementwiseUnsafe (-) a b
 infixl 6 elementwiseUnsafeMinus as -.
 
--------------------------------------------------------
--------------------------------------------------------
---
-instance semiringMatrixiNumber ∷ Semiring (Matrix Number) where
-  add  = elementwiseUnsafePlus
-  mul  = multStd
-  zero = zero_ 3 3
-  one  = identity 3
-
-instance semiringMatrixInt ∷ Semiring (Matrix Int) where
-  add  = elementwiseUnsafePlus
-  mul  = multStd
-  zero = zeroInt_ 3 3
-  one  = identityInt 3
-
-instance ringMatrixNumber ∷ Ring (Matrix Number) where
-  sub = elementwiseUnsafeMinus
-instance ringMatrixInt ∷ Ring (Matrix Int) where
-  sub = elementwiseUnsafeMinus
-
---
 -------------------------------------------------------
 -------------------------------------------------------
 ---- MATRIX MULTIPLICATION
@@ -1017,6 +1058,54 @@ multStd__ a b = undefined
 
 -------------------------------------------------------
 -------------------------------------------------------
+---- NUMERICAL INSTANCE
+
+{-- instance numMatrixNum :: Num a => Num (Matrix a) where --}
+{--   fromInteger = --}
+{--     M_ {nrows: 1, ncols: 1, roff: 0, coff: 0, vcols: 1, values: A.singleton} --}
+{--     <<< fromInteger --}
+{--   negate = fmap negate --}
+{--   abs = fmap abs --}
+{--   signum = fmap signum --}
+
+{--  -- Addition of matrices. --}
+{--  {-# SPECIALIZE (+) :: Matrix Double -> Matrix Double -> Matrix Double #-} --}
+{--  {-# SPECIALIZE (+) :: Matrix Int -> Matrix Int -> Matrix Int #-} --}
+{--  {-# SPECIALIZE (+) :: Matrix Rational -> Matrix Rational -> Matrix Rational #-} --}
+{--   {1-- (+) = elementwise (+) --1} --}
+
+{--  -- Substraction of matrices. --}
+{--  {-# SPECIALIZE (-) :: Matrix Double -> Matrix Double -> Matrix Double #-} --}
+{--  {-# SPECIALIZE (-) :: Matrix Int -> Matrix Int -> Matrix Int #-} --}
+{--  {-# SPECIALIZE (-) :: Matrix Rational -> Matrix Rational -> Matrix Rational #-} --}
+{--  {1-- (-) = elementwise (-) --1} --}
+
+{--  -- Multiplication of matrices. --}
+{--  {-# INLINE (*) #-} --}
+{--  {1-- (*) = multStrassenMixed --1} --}
+
+-------------------------------------------------------
+-------------------------------------------------------
+--
+instance semiringMatrixiNumber ∷ Semiring (Matrix Number) where
+  add  = elementwiseUnsafePlus
+  mul  = multStd
+  zero = zero_ 3 3
+  one  = identity 3
+
+instance semiringMatrixInt ∷ Semiring (Matrix Int) where
+  add  = elementwiseUnsafePlus
+  mul  = multStd
+  zero = zeroInt_ 3 3
+  one  = identityInt 3
+
+instance ringMatrixNumber ∷ Ring (Matrix Number) where
+  sub = elementwiseUnsafeMinus
+instance ringMatrixInt ∷ Ring (Matrix Int) where
+  sub = elementwiseUnsafeMinus
+
+-------------------------------------------------------
+-------------------------------------------------------
 ---- TRANSFORMATIONS
 
 -- | Scale a matrix by a given factor.
@@ -1029,10 +1118,54 @@ scaleMatrix :: forall a. Ring a => a -> Matrix a -> Matrix a
 scaleMatrix = map <<< (*)
 
 
+-- | Scale a row by a given factor.
+--   Example:
+--
+-- >              ( 1 2 3 )   (  1  2  3 )
+-- >              ( 4 5 6 )   (  8 10 12 )
+-- > scaleRow 2 2 ( 7 8 9 ) = (  7  8  9 )
+scaleRow :: forall a. Ring a => a -> Int -> Matrix a -> Matrix a
+scaleRow = mapRow <<< const <<< (*)
 
+-- | Add to one row a scalar multiple of another row.
+--   Example:
+--
+-- >                   ( 1 2 3 )   (  1  2  3 )
+-- >                   ( 4 5 6 )   (  6  9 12 )
+-- > combineRows 2 2 1 ( 7 8 9 ) = (  7  8  9 )
+combineRows :: forall a. Ring a => Int -> a -> Int -> Matrix a -> Matrix a
+combineRows r1 l r2 m = mapRow (\j x -> x + l * getElem r2 j m) r1 m
 
+-- | Switch two rows of a matrix.
+--   Example:
+--
+-- >                ( 1 2 3 )   ( 4 5 6 )
+-- >                ( 4 5 6 )   ( 1 2 3 )
+-- > switchRows 1 2 ( 7 8 9 ) = ( 7 8 9 )
+switchRows :: forall a. Int -- ^ Row 1.
+           -> Int -- ^ Row 2.
+           -> Matrix a -- ^ Original matrix.
+           -> Matrix a -- ^ Matrix with rows 1 and 2 switched.
+switchRows r1 r2 (M_ {nrows: n, ncols: m, roff: ro, coff: co, vcols: w, values: vs}) =
+  (M_ {nrows: n, ncols: m, roff: ro, coff: co, vcols: w, values: vs'}) where
+    vs' = vs     --!!!!!!!!!!!!!!!!!!!!!LATB
+    {-- vs' = A.modify (\mv -> do --}
+    {--       numLoop 1 m $ \j -> --}
+    {--         MV.swap mv (encode w (r1+ro,j+co)) (encode w (r2+ro,j+co))) vs --}
 
---------------------------------------------------------------------------------
+-- | Switch two coumns of a matrix.
+--   Example:
+--
+-- >                ( 1 2 3 )   ( 2 1 3 )
+-- >                ( 4 5 6 )   ( 5 4 6 )
+-- > switchCols 1 2 ( 7 8 9 ) = ( 8 7 9 )
+{-- switchCols :: Int -- ^ Col 1. --}
+{--            -> Int -- ^ Col 2. --}
+{--            -> Matrix a -- ^ Original matrix. --}
+{--            -> Matrix a -- ^ Matrix with cols 1 and 2 switched. --}
+{-- switchCols c1 c2 (M n m ro co w vs) = M n m ro co w $ V.modify (\mv -> do --}
+{--   numLoop 1 n $ \j -> --}
+{--     MV.swap mv (encode m (j+ro,c1+co)) (encode m (j+ro,c2+co))) vs --}
 
 -- | Create array of given dimmension containing replicated value
 replicate :: ∀ a. Int -> Int -> a -> Maybe (Matrix a )
@@ -1045,11 +1178,11 @@ zeros :: Int -> Int -> Maybe (Matrix Number)
 zeros r c = replicate r c 0.0
 
 
--- | Create Matrix from Array
-fromArray :: ∀ a. Int -> Int -> Array a -> Maybe (Matrix a)
-fromArray r c vs | r > 0 && c > 0 && r*c == A.length vs =
-  Just $ M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: vs}
-                 | otherwise = Nothing
+{-- -- | Create Matrix from Array --}
+{-- fromArray :: ∀ a. Int -> Int -> Array a -> Maybe (Matrix a) --}
+{-- fromArray r c vs | r > 0 && c > 0 && r*c == A.length vs = --}
+{--   Just $ M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: vs} --}
+{--                  | otherwise = Nothing --}
 
 
 -- | Get specific column as a vector. Index is 0 based

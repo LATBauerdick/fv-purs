@@ -21,6 +21,35 @@ import Data.Enum ( class Enum )
 import Control.MonadZero ( guard )
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 
+{-- -- | Basic numeric class. --}
+{-- class  Num a  where --}
+{--     {-# MINIMAL (+), (*), abs, signum, fromInteger, (negate | (-)) #-} --}
+
+{--     (+), (-), (*)       :: a -> a -> a --}
+{--     -- | Unary negation. --}
+{--     negate              :: a -> a --}
+{--     -- | Absolute value. --}
+{--     abs                 :: a -> a --}
+{--     -- | Sign of a number. --}
+{--     -- The functions 'abs' and 'signum' should satisfy the law: --}
+{--     -- --}
+{--     -- > abs x * signum x == x --}
+{--     -- --}
+{--     -- For real numbers, the 'signum' is either @-1@ (negative), @0@ (zero) --}
+{--     -- or @1@ (positive). --}
+{--     signum              :: a -> a --}
+{--     -- | Conversion from an 'Integer'. --}
+{--     -- An integer literal represents the application of the function --}
+{--     -- 'fromInteger' to the appropriate value of type 'Integer', --}
+{--     -- so such literals have type @('Num' a) => a@. --}
+{--     fromInteger         :: Integer -> a --}
+
+{--     {-# INLINE (-) #-} --}
+{--     {-# INLINE negate #-} --}
+{--     x - y               = x + negate y --}
+{--     negate x            = 0 - x --}
+
+
 -- | Returns `True` for any Unicode space character, and the control
 -- | characters `\t`, `\n`, `\r`, `\f`, `\v`.
 -- |
@@ -81,6 +110,8 @@ irem indx hl = do
 roundDec :: Number -> Number
 roundDec x = (toNumber (round ( 1000.0 * x )))/1000.0
 
+to0fix :: Number -> String
+to0fix = format (width 4 <> precision 0)
 to1fix :: Number -> String
 to1fix = format (width 6 <> precision 1)
 to3fix :: Number -> String
@@ -162,13 +193,4 @@ undefined = Unsafe.Coerce.unsafeCoerce unit
 
 error :: forall a. String -> a
 error = unsafeCrashWith
-
-diagonal :: Number -> Number -> Number
-diagonal w h = sqrt (w*w + h*h)
-
-gcd' :: Int -> Int -> Int
-gcd' n 0 = n
-gcd' 0 m = m
-gcd' n m | n > m = gcd' (n - m) m
-         | otherwise = gcd' n (m - n)
 

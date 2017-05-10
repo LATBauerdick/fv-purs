@@ -7,17 +7,19 @@ import Prelude
 import Math ( sqrt, atan2, cos, sin, atan, pi )
 
 import Stuff
-import Data.Matrix ( toArray, fromList, fromList2, tr, prettyMatrix )
+import Data.Matrix ( toArray, fromArray, fromArray2 ) as M
+import Data.Cov ()
 import FV.Types ( V5 (..), V3 (..), Jaco (..))
 
+-- | calculate q 3-vector for a given helix parameterization near vertex position
 hv2q :: V5 -> V3 -> V3
 hv2q (V5 h) (V3 v) = q where
-  v_   = toArray v
+  v_   = M.toArray v
   xx   = uidx v_ 0
   yy   = uidx v_ 1
   r    = sqrt $ xx*xx + yy*yy
   phi  = atan2 yy xx
-  h_   = toArray h
+  h_   = M.toArray h
   w0   = uidx h_ 0
   tl0  = uidx h_ 1
   psi0 = uidx h_ 2
@@ -26,7 +28,7 @@ hv2q (V5 h) (V3 v) = q where
   xi = mod' (psi0 - phi + 2.0*pi) (2.0*pi)
   cxi = cos xi
   sxi = sin xi
-  q = V3 $ fromList 3 $
+  q = V3 $ M.fromArray 3 $
             if w0 /= 0.0 
                 then [ w0, tl0, psi0 + gamma ]
                 else [ w0, tl0, psi0 ]
@@ -36,13 +38,13 @@ hv2q (V5 h) (V3 v) = q where
 
 expand :: V3 -> V3 -> Jaco
 expand (V3 v) (V3 q) = {aa: aa, bb: bb, h0: h0} where
-  v_  = toArray v
+  v_  = M.toArray v
   xx  = uidx v_ 0
   yy  = uidx v_ 1
   z   = uidx v_ 2
   r   = sqrt $ xx*xx + yy*yy
   phi = atan2 yy xx
-  q_  = toArray q
+  q_  = M.toArray q
   w   = uidx q_ 0
   tl  = uidx q_ 1
   psi = uidx q_ 2
@@ -126,18 +128,18 @@ expand (V3 v) (V3 q) = {aa: aa, bb: bb, h0: h0} where
   q01                = w
   q02                = tl
   q03                = psi
-  h0                 = fromList 5 [
+  h0                 = M.fromArray 5 [
       0.0,
       0.0,
       psi0 - a31*v01 - a32*v02 - b31*q01 - b33*q03,
       d0 - a41*v01 - a42*v02 - b41*q01 - b43*q03,
       z0 - a51*v01 - a52*v02 - a53*v03 - b51*q01 - b52*q02 - b53*q03]
-  aa = fromList2 5 3 [a11,a12,a13,a21,a22,a23,a31,a32,a33,a41,a42,a43,a51,a52,a53]
-  bb = fromList2 5 3 [b11,b12,b13,b21,b22,b23,b31,b32,b33,b41,b42,b43,b51,b52,b53]
+  aa = M.fromArray2 5 3 [a11,a12,a13,a21,a22,a23,a31,a32,a33,a41,a42,a43,a51,a52,a53]
+  bb = M.fromArray2 5 3 [b11,b12,b13,b21,b22,b23,b31,b32,b33,b41,b42,b43,b51,b52,b53]
   {-- aaT = tr aa `debug` ( "v0 --->> " <> (show v) <> --}
   {--                        "q0 --->> " <> (show q) <> --}
-  {--                        "aa --->> " <> prettyMatrix aa <> --}
-  {--                        "bb --->> " <> prettyMatrix bb <> --}
+  {--                        "aa --->> " <> show aa <> --}
+  {--                        "bb --->> " <> show bb <> --}
   {--                        "h0 --->> " <> (show h0) --}
   {--                        ) --}
 

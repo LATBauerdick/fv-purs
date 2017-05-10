@@ -11,7 +11,6 @@ module FV.Types
   , MMeas (..)
   , M3 (..), V3 (..)
   , M5 (..), V5 (..)
-  , typeShow
   ) where
 
 import Prelude
@@ -26,49 +25,17 @@ import Data.Int (round, toNumber)
 import Math ( sqrt, abs, pi, sin, cos )
 
 import Stuff
-import Data.Matrix  ( M, nrows, ncols, values, fromList2, fromList, fromLists
+import Data.Matrix  ( M, nrows, ncols, values, fromArray2, fromArray, fromArrays
                     , diagonal, identity, zero_
                     , Matrix (..)
                     , getDiag, toArray, subm, subm2
                     , sw, tr, scaleDiag
                     , elementwiseUnsafePlus, elementwiseUnsafeMinus, multStd )
 
-newtype Dim3 = Dim3 Int
-newtype Dim5 = Dim5 Int
-newtype MM a = MM (Matrix Number)
+import Data.Cov
+  (Cov (..)
+  )
 
-instance semiringMM3 :: Semiring (MM Dim3) where
-  add (MM m1) (MM m2) = MM $ elementwiseUnsafePlus m1 m2
-  zero = MM $ zero_ 3 3
-  mul (MM m1) (MM m2) = MM $ multStd m1 m2
-  one = MM $ identity 3
-instance ringMM3 :: Ring (MM Dim3) where
-  sub (MM m1) (MM m2) = MM $ elementwiseUnsafeMinus m1 m2
-instance showMM3 :: Show (MM Dim3) where
-  show (MM m) = "Show (MM Dim3) " <> show m
-
-instance semiringMM5 :: Semiring (MM Dim5) where
-  add (MM m1) (MM m2) = MM $ elementwiseUnsafePlus m1 m2
-  zero = MM $ zero_ 5 5
-  mul (MM m1) (MM m2) = MM $ multStd m1 m2
-  one = MM $ identity 5
-instance ringMM5 :: Ring (MM Dim5) where
-  sub (MM m1) (MM m2) = MM $ elementwiseUnsafeMinus m1 m2
-instance showMM5 :: Show (MM Dim5) where
-  show (MM m) = "Show (MM Dim5) " <> show m
-
-newtype MD = MakeMD {m3 :: (MM Dim3), m5 :: MM Dim5}
-instance showMD :: Show MD where
-  show (MakeMD {m3, m5}) = "Show MD, m3=" <> show m3 <> "\nm5=" <> show m5  
-
-typeShow = "testShow: " <> show md where
-  mm3 :: MM Dim3
-  mm3 = MM $ fromList2 3 3 [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]
-  m5 :: MM Dim5
-  m5 = one
-  md = MakeMD {m3: (mm3+mm3)*mm3, m5}
-
------------------------------------------------
 newtype V3 = V3 M
 newtype M3 = M3 M
 newtype V5 = V5 M
@@ -171,7 +138,7 @@ showQMeas (QMeas q cq w2pt) = s' where
   pz         = pt*tl
   psi        = psi0*180.0/pi
   e          = sqrt(pt*pt  + pz*pz + m*m)
-  jj         = fromLists $
+  jj         = fromArrays $
               [-wp/w/w, -wp/w/w*tl,0.0, -(pz*pz + pt*pt)/w/e]
               : [0.0, wp/w, 0.0, pt*pt*tl/e]
               : [0.0, 0.0, 1.0, 0.0]
@@ -284,8 +251,8 @@ fromQMeas (QMeas q0 cq0 w2pt) = PMeas p0 cp0 where
   see  = (px*px*sxx + py*py*syy + pz*pz*szz +
          2.0*(px*(py*sxy + pz*sxz) + py*pz*syz))/e/e
 
-  p0   = fromList 4 [px,py,pz,e]
-  cp0  = fromList2 4 4 [ sxx, sxy, sxz, sxe,
+  p0   = fromArray 4 [px,py,pz,e]
+  cp0  = fromArray2 4 4 [ sxx, sxy, sxz, sxe,
                          sxy, syy, syz, sye,
                          sxz, syz, szz, sze,
                          sxe, sye, sze, see]
