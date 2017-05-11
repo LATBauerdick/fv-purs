@@ -10,10 +10,12 @@ module Data.Cov
 
 import Prelude
 import Data.Array
-  ( replicate, unsafeIndex, zipWith, length, singleton
+  ( replicate, unsafeIndex, zipWith, length, singleton, foldl
   ) as A
+import Data.Array.Partial ( head ) as AP
 import Partial.Unsafe ( unsafePartial )
 import Data.Maybe (Maybe (..))
+import Data.Monoid.Additive (Additive)
 import Data.Matrix
   ( Matrix (..)
   , multStd
@@ -114,7 +116,7 @@ sw5 j c = one
 sw3 :: Jac53 -> Cov5 -> Cov3
 sw3 j c = one
 swv5 :: Jac53 -> Vec3 -> Vec5
-swv5 j v = one
+swv5 j v = zeroVec5
 
 
 sw1 :: Vec3 -> Cov3 -> Number
@@ -260,66 +262,39 @@ cov5Matrix v = M.fromArray2 5 5 m where
       , a15, a25, a35, a45, a55
       ]
 
-instance semiringVec3 :: Semiring (Vec Dim3) where
-  add (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
-  zero = Vec {v: A.replicate 3 0.0 }
-  mul (Vec {v: v1}) (Vec {v: v2}) = Vec {v: vec3StdMult v1 v2}
-  one = Vec { v: A.replicate 3 1.0 }
-instance ringVec3 :: Ring (Vec Dim3) where
-  sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
+type Veccc = Additive (Vec Dim3)
+{-- instance additiveVec3 :: Additive (Vec Dim3) where --}
+{--   mempty = Vec { v: A.replicate 3 0.0 } --}
+{-- instance semiringVec3 :: Semiring (Vec Dim3) where --}
+addVec :: forall a.  Vec a -> Vec a -> Vec a
+addVec (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
+zeroVec3 :: Vec3
+zeroVec3 = Vec {v: A.replicate 3 0.0 }
+zeroVec5 :: Vec5
+zeroVec5 = Vec {v: A.replicate 5 0.0 }
+mulVec :: forall a. Vec a ->  Vec a -> Vec a
+mulVec (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.singleton $ A.foldl (+) zero $ A.zipWith (*) v1 v2}
+scalarVec :: forall a. Vec a -> Number
+scalarVec (Vec {v}) = unsafePartial $ AP.head v
+oneVec3 :: Vec3
+oneVec3 = Vec { v: A.replicate 3 1.0 }
+oneVec5 :: Vec5
+oneVec5 = Vec { v: A.replicate 5 1.0 }
+subVec :: forall a. Vec a -> Vec a -> Vec a
+subVec (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
 instance showVec3 :: Show (Vec Dim3) where
-  show (Vec {v}) = "Show (Vec Dim3) \n" <> (show $ vec3Matrix v)
-vec3Matrix :: Array Number -> M.Matrix Number
-vec3Matrix v = M.fromArray 3 m where
-  a11 = unsafePartial $ A.unsafeIndex v 0
-  a12 = unsafePartial $ A.unsafeIndex v 1
-  a13 = unsafePartial $ A.unsafeIndex v 2
-  m = [a11, a12, a13]
-vec3StdMult :: Array Number -> Array Number -> Array Number
-vec3StdMult a b = c where
-    a11 = unsafePartial $ A.unsafeIndex a 0
-    a12 = unsafePartial $ A.unsafeIndex a 1
-    a13 = unsafePartial $ A.unsafeIndex a 2
-    b11 = unsafePartial $ A.unsafeIndex b 0
-    b12 = unsafePartial $ A.unsafeIndex b 1
-    b13 = unsafePartial $ A.unsafeIndex b 2
-    c = A.singleton $ a11*b11 + a12*b12 + a13*b13
-instance semiringVec5 :: Semiring (Vec Dim5) where
-  add (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
-  zero = Vec {v: A.replicate 5 0.0 }
-  mul (Vec {v: v1}) (Vec {v: v2}) = Vec {v: vec5StdMult v1 v2}
-  one = Vec { v: A.replicate 5 1.0 }
-instance ringVec5 :: Ring (Vec Dim5) where
-  sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
+  show (Vec {v}) = "Show (Vec Dim3) \n" <> (show $ M.fromArray 3 v)
 instance showVec5 :: Show (Vec Dim5) where
-  show (Vec {v}) = "Show (Vec Dim5) \n" <> (show $ vec5Matrix v)
-vec5Matrix :: Array Number -> M.Matrix Number
-vec5Matrix v = M.fromArray 5 m where
-  a11 = unsafePartial $ A.unsafeIndex v 0
-  a12 = unsafePartial $ A.unsafeIndex v 1
-  a13 = unsafePartial $ A.unsafeIndex v 2
-  a14 = unsafePartial $ A.unsafeIndex v 3
-  a15 = unsafePartial $ A.unsafeIndex v 4
-  m = [a11, a12, a13, a14, a15]
-vec5StdMult :: Array Number -> Array Number -> Array Number
-vec5StdMult a b = c where
-    a11 = unsafePartial $ A.unsafeIndex a 0
-    a12 = unsafePartial $ A.unsafeIndex a 1
-    a13 = unsafePartial $ A.unsafeIndex a 2
-    a14 = unsafePartial $ A.unsafeIndex a 3
-    a15 = unsafePartial $ A.unsafeIndex a 4
-    b11 = unsafePartial $ A.unsafeIndex b 0
-    b12 = unsafePartial $ A.unsafeIndex b 1
-    b13 = unsafePartial $ A.unsafeIndex b 2
-    b14 = unsafePartial $ A.unsafeIndex b 3
-    b15 = unsafePartial $ A.unsafeIndex b 4
-    c = A.singleton $ a11*b11 + a12*b12 + a13*b13 + a14*b14 + a15*b15
+  show (Vec {v}) = "Show (Vec Dim5) \n" <> (show $ M.fromArray 5 v)
 
 newtype MD = MakeMD {m3 :: Cov3, m5 :: Cov5}
 instance showMD :: Show MD where
   show (MakeMD {m3, m5}) = "Show MD,\nm3=" <> show m3 <> "\nm5=" <> show m5
 
-testCov = "testCov: " <> show md <> "\n" <> show mm3 <> show mm5 where
+testCov = "testCov: " <> show md <> "\n"
+                      <> show mm3
+                      <> show mm5
+                      <> show (scalarVec (mulVec (addVec v3 v3)  v3))  where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
   m3 :: M.Matrix Number
