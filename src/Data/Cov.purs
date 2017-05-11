@@ -10,7 +10,7 @@ module Data.Cov
 
 import Prelude
 import Data.Array
-  ( replicate, unsafeIndex, zipWith, length, singleton, foldl
+  ( replicate, unsafeIndex, zipWith, length, singleton, foldl, range
   ) as A
 import Data.Array.Partial ( head ) as AP
 import Partial.Unsafe ( unsafePartial )
@@ -28,7 +28,7 @@ newtype Dim5 = Dim5 Int
 newtype Dim53 = Dim53 Int
 
 newtype Cov a = Cov { v :: Array Number }
-newtype Jac a = Jac { v :: Array Number }
+newtype Jac a b = Jac { v :: Array Number }
 newtype Vec a = Vec { v :: Array Number }
 
 class Mat a where
@@ -38,7 +38,7 @@ class Mat a where
 instance matCov3 :: Mat (Cov Dim3) where
   val (Cov {v}) = v
   fromArray a | A.length a /= 6 =
-                  error "Cov3 fromArray: wrong input array length"
+                  error $ "Cov3 fromArray: wrong input array length " <> show (A.length a)
               | otherwise = Cov {v: a}
   toMatrix (Cov {v}) = M.fromArray2 3 3 vv where
     a11 = unsafePartial $ A.unsafeIndex v 0
@@ -84,7 +84,7 @@ instance matVec5 :: Mat (Vec Dim5) where
                   error "Vec5 fromArray: wrong input array length"
               | otherwise = Vec {v: a}
   toMatrix (Vec {v}) = M.fromArray 5 v
-instance matJac53 :: Mat (Jac Dim53) where
+instance matJac53 :: Mat (Jac Dim5 Dim3) where
   val (Jac {v}) = v
   fromArray a | A.length a /= 15 =
                   error "Jac53 fromArray: wrong input array length"
@@ -105,7 +105,7 @@ instance symMatCov5 :: SymMat (Cov Dim5) where
 type Cov3 = Cov Dim3
 type Cov5 = Cov Dim5
 
-type Jac53 = Jac Dim53
+type Jac53 = Jac Dim5 Dim3
 type Jacos = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 
 type Vec3 = Vec Dim3
@@ -262,10 +262,8 @@ cov5Matrix v = M.fromArray2 5 5 m where
       , a15, a25, a35, a45, a55
       ]
 
-type Veccc = Additive (Vec Dim3)
-{-- instance additiveVec3 :: Additive (Vec Dim3) where --}
-{--   mempty = Vec { v: A.replicate 3 0.0 } --}
-{-- instance semiringVec3 :: Semiring (Vec Dim3) where --}
+-- Instances for Vec
+-- almost semiring
 addVec :: forall a.  Vec a -> Vec a -> Vec a
 addVec (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
 zeroVec3 :: Vec3
@@ -287,6 +285,39 @@ instance showVec3 :: Show (Vec Dim3) where
 instance showVec5 :: Show (Vec Dim5) where
   show (Vec {v}) = "Show (Vec Dim5) \n" <> (show $ M.fromArray 5 v)
 
+class Chi2 a where
+  chi2 :: Vec a -> Cov a -> Number
+
+instance chi2Dim5 :: Chi2 Dim5 where
+  chi2 v c = 5.0
+instance chi2Dim3 :: Chi2 Dim3 where
+  chi2 v c = 3.0
+
+class TMat a b where
+  sandwich ::  Jac a b -> Cov a -> Cov b
+infixr 6 sandwich as |*|
+
+instance tmat35 :: TMat Dim3 Dim5 where
+  sandwich j c = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
+  {-- (|*|) c j = c --}
+instance tmat53 :: TMat Dim5 Dim3 where
+  sandwich j c = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
+
+class TVec a b where
+  transvec :: Jac a b -> Vec b -> Vec a
+infixr 6 transvec as *|
+
+instance tvec35 :: TVec Dim3 Dim5 where
+  transvec j v = fromArray [1.0, 2.0, 3.0]
+instance tvec53 :: TVec Dim5 Dim3 where
+  transvec j v = fromArray [1.0, 2.0, 3.0, 4.0, 5.0]
+
+
+class TTVec a where
+  ttransvec :: Cov a -> Vec a -> Vec a
+
+
+
 newtype MD = MakeMD {m3 :: Cov3, m5 :: Cov5}
 instance showMD :: Show MD where
   show (MakeMD {m3, m5}) = "Show MD,\nm3=" <> show m3 <> "\nm5=" <> show m5
@@ -294,16 +325,23 @@ instance showMD :: Show MD where
 testCov = "testCov: " <> show md <> "\n"
                       <> show mm3
                       <> show mm5
-                      <> show (scalarVec (mulVec (addVec v3 v3)  v3))  where
+                      <> show (scalarVec (mulVec (addVec v3 v3)  v3))  
+                      <> show tj3
+                      <> show (chi2 v3 c3) where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
-  m3 :: M.Matrix Number
-  m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]
-  mm3 = (m3+m3)*m3
   c5 :: Cov5
   c5 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
   v3 :: Vec3
   v3 = fromArray [10.0,11.0,12.0]
+  j53 :: Jac53
+  j53 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
+  tj3 :: Cov3
+  tj3 = j53 |*| c5
+
+  m3 :: M.Matrix Number
+  m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]
+  mm3 = (m3+m3)*m3
   m5 :: M.Matrix Number
   m5 = M.fromArray2 5 5 [1.0,2.0,3.0,4.0,5.0, 2.0,6.0,7.0,8.0,9.0
                         ,3.0,7.0,10.0,11.0,12.0, 4.0,8.0,11.0,13.0,14.0
