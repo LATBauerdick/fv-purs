@@ -18,28 +18,33 @@ import Data.Maybe (Maybe (..))
 import Data.Monoid.Additive (Additive)
 import Data.Matrix
   ( Matrix (..)
-  , multStd, tr, scalar
+  , multStd, tr, scalar, scaleDiag
   , fromArray, fromArray2, zero_, identity, toArray
   ) as M
 import Stuff
 
 newtype Dim3 = Dim3 Int
+newtype Dim4 = Dim4 Int
 newtype Dim5 = Dim5 Int
 
 newtype Cov a = Cov { v :: Array Number }
 newtype Jac a b = Jac { v :: Array Number }
 newtype Vec a = Vec { v :: Array Number }
 type Cov3 = Cov Dim3
+type Cov4 = Cov Dim4
 type Cov5 = Cov Dim5
 type Jac53 = Jac Dim5 Dim3
 type Jac35 = Jac Dim3 Dim5
+type Jac55 = Jac Dim5 Dim5
 type Vec3 = Vec Dim3
+type Vec4 = Vec Dim4
 type Vec5 = Vec Dim5
-type Jacos = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
+type Jacs = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 
 class Mat a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
+  toArray :: a -> Array Number
   toMatrix :: a -> M.Matrix Number
 instance matCov3 :: Mat (Cov Dim3) where
   val (Cov {v}) = v
@@ -52,8 +57,9 @@ instance matCov3 :: Mat (Cov Dim3) where
     a23 = unsafePartial $ A.unsafeIndex a 5
     a33 = unsafePartial $ A.unsafeIndex a 8
     a' = [a11,a12,a13,a22,a23,a33]
-              | otherwise = error $ "Cov3 fromArray: wrong input array length " <> show (A.length a)
-  toMatrix (Cov {v}) = M.fromArray2 3 3 vv where
+              | otherwise = error $ "Cov3 fromArray: wrong input array length "
+                                  <> show (A.length a)
+  toArray (Cov {v}) = vv where
     a11 = unsafePartial $ A.unsafeIndex v 0
     a12 = unsafePartial $ A.unsafeIndex v 1
     a13 = unsafePartial $ A.unsafeIndex v 2
@@ -61,6 +67,37 @@ instance matCov3 :: Mat (Cov Dim3) where
     a23 = unsafePartial $ A.unsafeIndex v 4
     a33 = unsafePartial $ A.unsafeIndex v 5
     vv = [a11, a12, a13, a12, a22, a23, a13, a23, a33]
+  toMatrix c = M.fromArray2 3 3 $ toArray c
+instance matCov4 :: Mat (Cov Dim4) where
+  val (Cov {v}) = v
+  fromArray a | A.length a == 10 = Cov {v: a}
+              | A.length a == 16 = Cov {v: a'} where
+    a11 = unsafePartial $ A.unsafeIndex a 0
+    a12 = unsafePartial $ A.unsafeIndex a 1
+    a13 = unsafePartial $ A.unsafeIndex a 2
+    a14 = unsafePartial $ A.unsafeIndex a 3
+    a22 = unsafePartial $ A.unsafeIndex a 4
+    a23 = unsafePartial $ A.unsafeIndex a 5
+    a24 = unsafePartial $ A.unsafeIndex a 6
+    a33 = unsafePartial $ A.unsafeIndex a 7
+    a34 = unsafePartial $ A.unsafeIndex a 8
+    a44 = unsafePartial $ A.unsafeIndex a 9
+    a' = [a11,a12,a13,a14,a22,a23,a24,a33,a34,a44]
+              | otherwise = error $ "Cov4 fromArray: wrong input array length "
+                                  <> show (A.length a)
+  toArray (Cov {v}) = vv where
+    a11 = unsafePartial $ A.unsafeIndex v 0
+    a12 = unsafePartial $ A.unsafeIndex v 1
+    a13 = unsafePartial $ A.unsafeIndex v 2
+    a14 = unsafePartial $ A.unsafeIndex v 3
+    a22 = unsafePartial $ A.unsafeIndex v 4
+    a23 = unsafePartial $ A.unsafeIndex v 5
+    a24 = unsafePartial $ A.unsafeIndex v 6
+    a33 = unsafePartial $ A.unsafeIndex v 7
+    a34 = unsafePartial $ A.unsafeIndex v 8
+    a44 = unsafePartial $ A.unsafeIndex v 9
+    vv = [a11,a12,a13,a14,a12,a22,a23,a24,a13,a23,a33,a34,a14,a24,a34,a44]
+  toMatrix c = M.fromArray2 4 4 $ toArray c
 instance matCov5 :: Mat (Cov Dim5) where
   val (Cov {v}) = v
   fromArray a | A.length a == 15 = Cov {v: a}
@@ -82,7 +119,7 @@ instance matCov5 :: Mat (Cov Dim5) where
     a55 = unsafePartial $ A.unsafeIndex a 24
     a' = [a11,a12,a13,a14,a15,a22,a23,a24,a25,a33,a34,a35,a44,a45,a55]
               | otherwise = error "Cov5 fromArray: wrong input array length"
-  toMatrix (Cov {v}) = M.fromArray2 5 5 vv where
+  toArray (Cov {v}) = vv where
     a11 = unsafePartial $ A.unsafeIndex v 0
     a12 = unsafePartial $ A.unsafeIndex v 1
     a13 = unsafePartial $ A.unsafeIndex v 2
@@ -101,42 +138,84 @@ instance matCov5 :: Mat (Cov Dim5) where
     vv = [a11, a12, a13, a14, a15, a12, a22, a23, a24, a25
          ,a13, a23, a33, a34, a35, a14, a24, a34, a44, a45
          ,a15, a25, a35, a45, a55]
+  toMatrix c = M.fromArray2 5 5 $ toArray c
 instance matVec3 :: Mat (Vec Dim3) where
   val (Vec {v}) = v
   fromArray a | A.length a /= 3 =
                   error "Vec3 fromArray: wrong input array length"
               | otherwise = Vec {v: a}
+  toArray (Vec {v}) = v
   toMatrix (Vec {v}) = M.fromArray 3 v
+instance matVec4 :: Mat (Vec Dim4) where
+  val (Vec {v}) = v
+  fromArray a | A.length a /= 4 =
+                  error "Vec4 fromArray: wrong input array length"
+              | otherwise = Vec {v: a}
+  toArray (Vec {v}) = v
+  toMatrix (Vec {v}) = M.fromArray 4 v
 instance matVec5 :: Mat (Vec Dim5) where
   val (Vec {v}) = v
   fromArray a | A.length a /= 5 =
                   error "Vec5 fromArray: wrong input array length"
               | otherwise = Vec {v: a}
+  toArray (Vec {v}) = v
   toMatrix (Vec {v}) = M.fromArray 5 v
 instance matJac53 :: Mat (Jac Dim5 Dim3) where
   val (Jac {v}) = v
   fromArray a | A.length a /= 15 =
                   error "Jac53 fromArray: wrong input array length"
               | otherwise = Jac {v: a}
+  toArray (Jac {v}) = v
   toMatrix (Jac {v}) = M.fromArray2 5 3 v
 instance matJac35 :: Mat (Jac Dim3 Dim5) where
   val (Jac {v}) = v
   fromArray a | A.length a /= 15 =
                   error "Jac35 fromArray: wrong input array length"
               | otherwise = Jac {v: a}
+  toArray (Jac {v}) = v
   toMatrix (Jac {v}) = M.fromArray2 3 5 v
+instance matJac55 :: Mat (Jac Dim5 Dim5) where
+  val (Jac {v}) = v
+  fromArray a | A.length a /= 25 =
+                  error "Jac55 fromArray: wrong input array length"
+              | otherwise = Jac {v: a}
+  toArray (Jac {v}) = v
+  toMatrix (Jac {v}) = M.fromArray2 5 5 v
 class SymMat a where
   inv :: a -> a
   invMaybe :: a -> Maybe a
   det :: a -> Number
+  diag :: a -> Array Number
 instance symMatCov3 :: SymMat (Cov Dim3) where
   inv a = a
   invMaybe a = Just a
   det a = 1.0
+  diag (Cov {v}) = a where
+    a11 = unsafePartial $ A.unsafeIndex v 0
+    a22 = unsafePartial $ A.unsafeIndex v 4
+    a33 = unsafePartial $ A.unsafeIndex v 8
+    a = [a11,a22,a33]
+instance symMatCov4 :: SymMat (Cov Dim4) where
+  inv a = a
+  invMaybe a = Just a
+  det a = 1.0
+  diag (Cov {v}) = a where
+    a11 = unsafePartial $ A.unsafeIndex v 0
+    a22 = unsafePartial $ A.unsafeIndex v 5
+    a33 = unsafePartial $ A.unsafeIndex v 10
+    a44 = unsafePartial $ A.unsafeIndex v 15
+    a = [a11,a22,a33,a44]
 instance symMatCov5 :: SymMat (Cov Dim5) where
   inv a = a
   invMaybe a = Just a
   det a = 1.0
+  diag (Cov {v}) = a where
+    a11 = unsafePartial $ A.unsafeIndex v 0
+    a22 = unsafePartial $ A.unsafeIndex v 6
+    a33 = unsafePartial $ A.unsafeIndex v 12
+    a44 = unsafePartial $ A.unsafeIndex v 18
+    a55 = unsafePartial $ A.unsafeIndex v 24
+    a = [a11,a22,a33,a44,a55]
 
 
 tr :: Jac53 -> Jac35
@@ -189,6 +268,38 @@ instance ringCov3 :: Ring (Cov Dim3) where
   sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
 instance showCov3 :: Show (Cov Dim3) where
   show c = "Show (Cov Dim3) \n" <> (show $ toMatrix c)
+
+instance semiringCov4 :: Semiring (Cov Dim4) where
+  add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
+  zero = Cov {v: A.replicate 10 0.0 }
+  mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where
+    a11 = unsafePartial $ A.unsafeIndex a 0
+    a12 = unsafePartial $ A.unsafeIndex a 1
+    a13 = unsafePartial $ A.unsafeIndex a 2
+    a22 = unsafePartial $ A.unsafeIndex a 3
+    a23 = unsafePartial $ A.unsafeIndex a 4
+    a33 = unsafePartial $ A.unsafeIndex a 5
+    b11 = unsafePartial $ A.unsafeIndex b 0
+    b12 = unsafePartial $ A.unsafeIndex b 1
+    b13 = unsafePartial $ A.unsafeIndex b 2
+    b22 = unsafePartial $ A.unsafeIndex b 3
+    b23 = unsafePartial $ A.unsafeIndex b 4
+    b33 = unsafePartial $ A.unsafeIndex b 5
+    c = [ a11*b11 + a12*b12 + a13*b13
+        , a11*b12 + a12*b22 + a13*b23
+        , a11*b13 + a12*b23 + a13*b33
+    --  , a12*b11 + a22*b12 + a23*b13
+        , a12*b12 + a22*b22 + a23*b23
+        , a12*b13 + a22*b23 + a23*b33
+    --  , a13*b11 + a23*b12 + a33*b13
+    --  , a13*b12 + a23*b22 + a33*b23
+        , a13*b13 + a23*b23 + a33*b33
+        ]
+  one = Cov { v: [1.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0] }
+instance ringCov4 :: Ring (Cov Dim4) where
+  sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
+instance showCov4 :: Show (Cov Dim4) where
+  show c = "Show (Cov Dim4) \n" <> (show $ toMatrix c)
 
 instance semiringCov5 :: Semiring (Cov Dim5) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
@@ -267,18 +378,34 @@ instance showJac :: Show (Jac a b) where
   show (Jac {v}) = "Show Jac \n" <> (show $ v)
 
 -- Instances for Vec -- these are always column vectors
-instance semiringVec :: Semiring (Vec a) where
+instance semiringVec3 :: Semiring (Vec Dim3) where
 add (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
-zero = undefined -- Vec {v: A.replicate 3 0.0 }
-                 -- Vec {v: A.replicate 5 0.0 }
+zero = Vec {v: A.replicate 3 0.0 }
 mul (Vec {v: v1}) (Vec {v: v2}) = undefined --Vec {v: A.singleton $ A.foldl (+) zero $ A.zipWith (*) v1 v2}
---scalarVec :: forall a. Vec a -> Number
---scalarVec (Vec {v}) = unsafePartial $ AP.head v
-one = undefined -- Vec { v: A.replicate 3 1.0 }
-                -- Vec { v: A.replicate 5 1.0 }
-instance ringVec :: Ring (Vec a) where
+one = Vec { v: A.replicate 3 1.0 }
+instance ringVec3 :: Ring (Vec Dim3) where
 sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
 instance showVec3 :: Show (Vec Dim3) where
+  show (Vec {v}) = "Show Vec\n" <> (show $ M.fromArray (A.length v) v)
+
+instance semiringVec4 :: Semiring (Vec Dim4) where
+add (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
+zero = Vec {v: A.replicate 4 0.0 }
+mul (Vec {v: v1}) (Vec {v: v2}) = undefined
+one = Vec { v: A.replicate 4 1.0 }
+instance ringVec4 :: Ring (Vec Dim4) where
+sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
+instance showVec4 :: Show (Vec Dim4) where
+  show (Vec {v}) = "Show Vec\n" <> (show $ M.fromArray (A.length v) v)
+
+instance semiringVec5 :: Semiring (Vec Dim5) where
+add (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
+zero = Vec {v: A.replicate 5 0.0 }
+mul (Vec {v: v1}) (Vec {v: v2}) = undefined
+one = Vec { v: A.replicate 5 1.0 }
+instance ringVec5 :: Ring (Vec Dim5) where
+sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
+instance showVec5 :: Show (Vec Dim5) where
   show (Vec {v}) = "Show Vec\n" <> (show $ M.fromArray (A.length v) v)
 
 
@@ -369,6 +496,32 @@ instance tmat53 :: TMat Dim5 Dim3 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
+instance tmat55 :: TMat Dim5 Dim5 where
+  sandwich j c = c' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mc' = M.tr mj * mc * mj
+    c' = fromArray $ M.toArray mc'
+  transcov j c = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mj * mc
+    j' = fromArray $ M.toArray mj'
+  transvoc c j = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mc * mj
+    j' = fromArray $ M.toArray mj'
+  transvec j v = v' where
+    mj = toMatrix j
+    mv = toMatrix v
+    mv' = mj * mv
+    v' = fromArray $ M.toArray mv'
+  sandwichjj j1 j2 = c' where
+    mj1 = toMatrix j1
+    mj2 = toMatrix j2
+    mc' = mj1 * mj2
+    c' = fromArray $ M.toArray mc'
 
 class TVec a where
   ttransvec :: Cov a -> Vec a -> Vec a
@@ -386,9 +539,28 @@ instance tvec5 :: TVec Dim5 where
     mv' = mc * mv
     v' = fromArray $ M.toArray mv'
 
+scaleDiag :: Number -> Cov3 -> Cov3
+scaleDiag s c = c' where
+  mc = toMatrix c
+  mc' = M.scaleDiag s mc
+  c' = fromArray $ M.toArray mc'
 
+subm :: Int -> Vec5 -> Vec3
+subm n (Vec {v:v5}) = Vec {v: v'} where
+  a1 = unsafePartial $ A.unsafeIndex v5 0
+  a2 = unsafePartial $ A.unsafeIndex v5 1
+  a3 = unsafePartial $ A.unsafeIndex v5 2
+  v' = [a1,a2,a3]
 
-
+subm2 :: Int -> Cov5 -> Cov3
+subm2 n (Cov {v:v}) = Cov {v: v'} where
+  a11 = unsafePartial $ A.unsafeIndex v 0
+  a12 = unsafePartial $ A.unsafeIndex v 1
+  a13 = unsafePartial $ A.unsafeIndex v 2
+  a22 = unsafePartial $ A.unsafeIndex v 6
+  a23 = unsafePartial $ A.unsafeIndex v 7
+  a33 = unsafePartial $ A.unsafeIndex v 13
+  v' = [a11,a12,a13,a22,a23,a33]
 
 
 newtype MD = MakeMD {m3 :: Cov3, m5 :: Cov5}

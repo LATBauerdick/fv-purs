@@ -15,11 +15,10 @@ import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 
 import Data.Tuple ( Tuple(..) )
 import Data.Array ( (!!), length )
-import Data.Foldable ( fold )
+import Data.Foldable ( fold, traverse_ )
 import Data.Maybe (Maybe (..), fromJust )
 import Partial.Unsafe ( unsafePartial )
 import Data.List ( List(..),  (:), mapMaybe )
-import Data.Foldable ( traverse_ )
 
 import FV.Types
   ( VHMeas (..), HMeas (..), QMeas (..), PMeas (..)
@@ -61,10 +60,10 @@ main = do
   testHSlurp
   log "--Test Matrix"
   testMatrix
-  log "--Test FVT"
---  testFVT
   log "--Test Cov"
   log $ testCov
+  log "--Test FVT"
+  testFVT
   {-- (VHMeas _ hl, _) <- hSlurp "dat/tav-0.dat" --}
   {-- let HMeas _ _ w = head hl --}
   {-- w `shouldBe` 0.0114 --}

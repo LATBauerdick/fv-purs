@@ -7,7 +7,7 @@ import Prelude
 import Math ( sqrt, atan2, cos, sin, atan, pi )
 
 import Stuff (mod', uidx)
-import Data.Cov (Jacos, Vec3, Vec5, fromArray, val)
+import Data.Cov (Jacs, Vec3, Vec5, fromArray, val)
 
 -- | calculate q 3-vector for a given helix parameterization near vertex position
 hv2q :: Vec5 -> Vec3 -> Vec3
@@ -34,7 +34,7 @@ hv2q h v = q where
                     oow0 = 1.0/w0
                     gamma = atan r*cxi/(oow0-r*sxi)
 
-expand :: Vec3 -> Vec3 -> Jacos
+expand :: Vec3 -> Vec3 -> Jacs
 expand v q = {aa: aa, bb: bb, h0: h0} where
   v_  = val v
   xx  = uidx v_ 0

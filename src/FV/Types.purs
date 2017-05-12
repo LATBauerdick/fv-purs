@@ -2,15 +2,12 @@ module FV.Types
   ( MCtruth (..)
   , Prong (..)
   , Chi2
-  , Jaco (..)
   , VHMeas (..), vertex, helices, hFilter
   , XMeas (..), vBlowup
   , HMeas (..)
   , QMeas (..), fromHMeas
   , PMeas (..), fromQMeas, invMass
   , MMeas (..)
-  , M3 (..), V3 (..)
-  , M5 (..), V5 (..)
   ) where
 
 import Prelude
@@ -25,23 +22,17 @@ import Data.Int (round, toNumber)
 import Math ( sqrt, abs, pi, sin, cos )
 
 import Stuff
-import Data.Matrix  ( M, nrows, ncols, values, fromArray2, fromArray, fromArrays
-                    , diagonal, identity, zero_
-                    , Matrix (..)
-                    , getDiag, toArray, subm, subm2
-                    , sw, tr, scaleDiag
-                    , elementwiseUnsafePlus, elementwiseUnsafeMinus, multStd )
+import Data.Matrix 
+  ( M, nrows, ncols, values, fromArray2, fromArray, fromArrays
+  , diagonal, identity, zero_
+  , Matrix (..)
+  , getDiag, toArray, subm, subm2
+  , sw, tr, scaleDiag
+  , elementwiseUnsafePlus, elementwiseUnsafeMinus, multStd
+  ) as M
 
 import Data.Cov
-  (Cov (..)
-  )
 
-newtype V3 = V3 M
-newtype M3 = M3 M
-newtype V5 = V5 M
-newtype M5 = M5 M
-
-type Jaco = { aa :: M, bb :: M, h0:: M }
 -----------------------------------------------
 -- Prong
 -- a prong results from a vertex fit of N helices
@@ -55,6 +46,7 @@ data Prong = Prong
           }
 instance showProng :: Show Prong where
   show _ = "Prong!!!!!!!!"
+
 -----------------------------------------------
 -- VHMeas
 --
@@ -78,7 +70,7 @@ vBlowup :: Number -> VHMeas -> VHMeas
 {-- vBlowup scale vm = over vertexLens (blowup scale) vm where --}
 vBlowup scale (VHMeas {vertex: v, helices: hs}) = VHMeas {vertex: (blowup scale v), helices: hs} where
   blowup :: Number -> XMeas -> XMeas -- blow up diag of cov matrix
-  blowup s (XMeas v (M3 cv)) = XMeas v (M3 cv') where
+  blowup s (XMeas v cv) = XMeas v cv' where
     cv' = scaleDiag s cv
 
 hFilter :: Array Int -> VHMeas -> VHMeas
@@ -102,10 +94,10 @@ instance showMCtruth :: Show MCtruth where
 -- HMeas
 -- 5-vector and covariance matrix for helix measurement
 --
-data HMeas = HMeas V5 M5 Number
+data HMeas = HMeas Vec5 Cov5 Number
 instance showHMeas :: Show HMeas where
-  show (HMeas (V5 h) (M5 ch) w0) = s' where
-    sh = map sqrt $ getDiag ch
+  show (HMeas h ch w0) = s' where
+    sh = map sqrt $ diag ch
     hs = toArray h
     s00 = to5fix x <> " +-" <> to5fix dx where
       x  = unsafePartial $ head hs
@@ -119,42 +111,43 @@ instance showHMeas :: Show HMeas where
 --
 mπ :: Number
 mπ = 0.1395675
-data QMeas = QMeas M M Number
+data QMeas = QMeas Vec3 Cov3 Number
 instance showAMeas :: Show QMeas where
   show = showQMeas
 -- print QMeas as a 4-momentum vector with errors, use pt and pz
 showQMeas :: QMeas -> String
 showQMeas (QMeas q cq w2pt) = s' where
-  f :: String -> (Tuple Number Number) -> String
-  f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx
-  m          = mπ
-  wp         = w2pt
-  qs :: Array Number
-  qs         = toArray q
-  w          = uidx qs 0
-  tl         = uidx qs 1
-  psi0       = uidx qs 2
-  pt         = wp / abs w
-  pz         = pt*tl
-  psi        = psi0*180.0/pi
-  e          = sqrt(pt*pt  + pz*pz + m*m)
-  jj         = fromArrays $
-              [-wp/w/w, -wp/w/w*tl,0.0, -(pz*pz + pt*pt)/w/e]
-              : [0.0, wp/w, 0.0, pt*pt*tl/e]
-              : [0.0, 0.0, 1.0, 0.0]
-              : Nil
-  cq'        = (tr jj) * cq* jj
-  p'         = [pt, pz, psi, e]
-  dp         = map sqrt $ getDiag cq'
-  d1         = uidx dp 0
-  d2         = uidx dp 1
-  d3         = uidx dp 2
-  d4         = uidx dp 3
-  dp'        = [d1, d2, d3*180.0/pi, d4]
-  s'         = (foldl f "" $ zip p' dp' ) <> " GeV"
+  s' = "QMeas ..."
+  {-- f :: String -> (Tuple Number Number) -> String --}
+  {-- f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx --}
+  {-- m          = mπ --}
+  {-- wp         = w2pt --}
+  {-- qs :: Array Number --}
+  {-- qs         = toArray q --}
+  {-- w          = uidx qs 0 --}
+  {-- tl         = uidx qs 1 --}
+  {-- psi0       = uidx qs 2 --}
+  {-- pt         = wp / abs w --}
+  {-- pz         = pt*tl --}
+  {-- psi        = psi0*180.0/pi --}
+  {-- e          = sqrt(pt*pt  + pz*pz + m*m) --}
+  {-- jj         = fromArrays $ --}
+  {--             [-wp/w/w, -wp/w/w*tl,0.0, -(pz*pz + pt*pt)/w/e] --}
+  {--             : [0.0, wp/w, 0.0, pt*pt*tl/e] --}
+  {--             : [0.0, 0.0, 1.0, 0.0] --}
+  {--             : Nil --}
+  {-- cq'        = (tr jj) * cq* jj --}
+  {-- p'         = [pt, pz, psi, e] --}
+  {-- dp         = map sqrt $ getDiag cq' --}
+  {-- d1         = uidx dp 0 --}
+  {-- d2         = uidx dp 1 --}
+  {-- d3         = uidx dp 2 --}
+  {-- d4         = uidx dp 3 --}
+  {-- dp'        = [d1, d2, d3*180.0/pi, d4] --}
+  {-- s'         = (foldl f "" $ zip p' dp' ) <> " GeV" --}
 
 fromHMeas :: HMeas -> QMeas -- just drop the d0, z0 part... fix!!!!
-fromHMeas (HMeas (V5 h) (M5 ch) w2pt) = QMeas q cq w2pt where
+fromHMeas (HMeas h ch w2pt) = QMeas q cq w2pt where
   q = subm 3 h
   cq = subm2 3 ch
 
@@ -165,17 +158,17 @@ h2p = fromQMeas <<< fromHMeas
 -- PMeas
 -- 4-vector and coavariance matrix for momentum px,py,pz and energy
 --
-data PMeas = PMeas M M
+data PMeas = PMeas Vec4 Cov4
 instance semigroupPMeas :: Semigroup PMeas where
   append (PMeas p1 cp1) (PMeas p2 cp2) = PMeas (p1+p2) (cp1 + cp2)
 instance monoidPMeas :: Monoid PMeas where
-  mempty = PMeas (zero_ 4 1) (zero_ 4 4)
+  mempty = PMeas zero zero
 instance showPMeasInst :: Show PMeas where
   show = showPMeas
 -- print PMeas as a 4-momentum vector px,py,pz,E with errors
 showPMeas :: PMeas -> String
 showPMeas (PMeas p cp) = s' where
-  sp         = map sqrt $ getDiag cp
+  sp         = map sqrt $ diag cp
   f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx -- \xc2b1 ±±±±±
   s' = (foldl f "" $ zip (toArray p) sp) <> " GeV"
 
@@ -251,11 +244,11 @@ fromQMeas (QMeas q0 cq0 w2pt) = PMeas p0 cp0 where
   see  = (px*px*sxx + py*py*syy + pz*pz*szz +
          2.0*(px*(py*sxy + pz*sxz) + py*pz*syz))/e/e
 
-  p0   = fromArray 4 [px,py,pz,e]
-  cp0  = fromArray2 4 4 [ sxx, sxy, sxz, sxe,
-                         sxy, syy, syz, sye,
-                         sxz, syz, szz, sze,
-                         sxe, sye, sze, see]
+  p0   = fromArray [px,py,pz,e]
+  cp0  = fromArray [ sxx, sxy, sxz, sxe
+                   , sxy, syy, syz, sye
+                   , sxz, syz, szz, sze
+                   , sxe, sye, sze, see]
 
 -----------------------------------------------
 -- MMeas
@@ -272,17 +265,17 @@ instance showMMeas :: Show MMeas where
 -- XMeas
 -- 3-vector and covariance matrix for position/vertex measurement
 --
-data XMeas = XMeas V3 M3
+data XMeas = XMeas Vec3 Cov3
 instance showXMeasinst :: Show XMeas where
   show = showXMeas
 -- return a string showing vertex position vector with errors
 showXMeas :: XMeas -> String
-showXMeas (XMeas (V3 v) (M3 cv)) = s' where
+showXMeas (XMeas v cv) = s' where
   vv         = toArray v
   x          = unsafePartial $ unsafeIndex vv 0
   y          = unsafePartial $ unsafeIndex vv 1
   z          = unsafePartial $ unsafeIndex vv 2
-  s2v        = map sqrt $ getDiag cv
+  s2v        = map sqrt $ diag cv
   dx         = unsafePartial $ unsafeIndex s2v 0
   dy         = unsafePartial $ unsafeIndex s2v 1
   dz         = unsafePartial $ unsafeIndex s2v 2
