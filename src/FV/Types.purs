@@ -117,34 +117,33 @@ instance showAMeas :: Show QMeas where
 -- print QMeas as a 4-momentum vector with errors, use pt and pz
 showQMeas :: QMeas -> String
 showQMeas (QMeas q cq w2pt) = s' where
-  s' = "QMeas ..."
-  {-- f :: String -> (Tuple Number Number) -> String --}
-  {-- f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx --}
-  {-- m          = mπ --}
-  {-- wp         = w2pt --}
-  {-- qs :: Array Number --}
-  {-- qs         = toArray q --}
-  {-- w          = uidx qs 0 --}
-  {-- tl         = uidx qs 1 --}
-  {-- psi0       = uidx qs 2 --}
-  {-- pt         = wp / abs w --}
-  {-- pz         = pt*tl --}
-  {-- psi        = psi0*180.0/pi --}
-  {-- e          = sqrt(pt*pt  + pz*pz + m*m) --}
-  {-- jj         = fromArrays $ --}
-  {--             [-wp/w/w, -wp/w/w*tl,0.0, -(pz*pz + pt*pt)/w/e] --}
-  {--             : [0.0, wp/w, 0.0, pt*pt*tl/e] --}
-  {--             : [0.0, 0.0, 1.0, 0.0] --}
-  {--             : Nil --}
-  {-- cq'        = (tr jj) * cq* jj --}
-  {-- p'         = [pt, pz, psi, e] --}
-  {-- dp         = map sqrt $ getDiag cq' --}
-  {-- d1         = uidx dp 0 --}
-  {-- d2         = uidx dp 1 --}
-  {-- d3         = uidx dp 2 --}
-  {-- d4         = uidx dp 3 --}
-  {-- dp'        = [d1, d2, d3*180.0/pi, d4] --}
-  {-- s'         = (foldl f "" $ zip p' dp' ) <> " GeV" --}
+  f :: String -> (Tuple Number Number) -> String
+  f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx
+  m          = mπ
+  wp         = w2pt
+  qs :: Array Number
+  qs         = toArray q
+  w          = uidx qs 0
+  tl         = uidx qs 1
+  psi0       = uidx qs 2
+  pt         = wp / abs w
+  pz         = pt*tl
+  psi        = psi0*180.0/pi
+  e          = sqrt(pt*pt  + pz*pz + m*m)
+  jj :: Jac34
+  jj         = fromArray
+              [ -wp/w/w, -wp/w/w*tl, 0.0, -(pz*pz + pt*pt)/w/e
+              , 0.0, wp/w, 0.0, pt*pt*tl/e
+              , 0.0, 0.0, 1.0, 0.0]
+  cq'        = jj ||*|| cq
+  p'         = [pt, pz, psi, e]
+  dp         = map sqrt $ diag cq'
+  d1         = uidx dp 0
+  d2         = uidx dp 1
+  d3         = uidx dp 2
+  d4         = uidx dp 3
+  dp'        = [d1, d2, d3*180.0/pi, d4]
+  s'         = (foldl f "" $ zip p' dp' ) <> " GeV"
 
 fromHMeas :: HMeas -> QMeas -- just drop the d0, z0 part... fix!!!!
 fromHMeas (HMeas h ch w2pt) = QMeas q cq w2pt where

@@ -34,6 +34,8 @@ type Cov3 = Cov Dim3
 type Cov4 = Cov Dim4
 type Cov5 = Cov Dim5
 type Jac53 = Jac Dim5 Dim3
+type Jac43 = Jac Dim4 Dim3
+type Jac34 = Jac Dim3 Dim4
 type Jac35 = Jac Dim3 Dim5
 type Jac55 = Jac Dim5 Dim5
 type Vec3 = Vec Dim3
@@ -167,6 +169,20 @@ instance matJac53 :: Mat (Jac Dim5 Dim3) where
               | otherwise = Jac {v: a}
   toArray (Jac {v}) = v
   toMatrix (Jac {v}) = M.fromArray2 5 3 v
+instance matJac43 :: Mat (Jac Dim4 Dim3) where
+  val (Jac {v}) = v
+  fromArray a | A.length a /= 12 =
+                  error "Jac43 fromArray: wrong input array length"
+              | otherwise = Jac {v: a}
+  toArray (Jac {v}) = v
+  toMatrix (Jac {v}) = M.fromArray2 3 4 v
+instance matJac34 :: Mat (Jac Dim3 Dim4) where
+  val (Jac {v}) = v
+  fromArray a | A.length a /= 12 =
+                  error "Jac34 fromArray: wrong input array length"
+              | otherwise = Jac {v: a}
+  toArray (Jac {v}) = v
+  toMatrix (Jac {v}) = M.fromArray2 3 4 v
 instance matJac35 :: Mat (Jac Dim3 Dim5) where
   val (Jac {v}) = v
   fromArray a | A.length a /= 15 =
@@ -444,7 +460,59 @@ infixr 7 transvoc as *||
 infixr 7 transvec as |||
 infixr 7 sandwichjj as ||||
 
+instance tmat34 :: TMat Dim3 Dim4 where
+  sandwich j c = c' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mc' = M.tr mj * mc * mj
+    c' = fromArray $ M.toArray mc'
+  transcov j c = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mj * mc
+    j' = fromArray $ M.toArray mj'
+  transvoc c j = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mc * mj
+    j' = fromArray $ M.toArray mj'
+  transvec j v = v' where
+    mj = toMatrix j
+    mv = toMatrix v
+    mv' = mj * mv
+    v' = fromArray $ M.toArray mv'
+  sandwichjj j1 j2 = c' where
+    mj1 = toMatrix j1
+    mj2 = toMatrix j2
+    mc' = mj1 * mj2
+    c' = fromArray $ M.toArray mc'
 instance tmat35 :: TMat Dim3 Dim5 where
+  sandwich j c = c' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mc' = M.tr mj * mc * mj
+    c' = fromArray $ M.toArray mc'
+  transcov j c = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mj * mc
+    j' = fromArray $ M.toArray mj'
+  transvoc c j = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mc * mj
+    j' = fromArray $ M.toArray mj'
+  transvec j v = v' where
+    mj = toMatrix j
+    mv = toMatrix v
+    mv' = mj * mv
+    v' = fromArray $ M.toArray mv'
+  sandwichjj j1 j2 = c' where
+    mj1 = toMatrix j1
+    mj2 = toMatrix j2
+    mc' = mj1 * mj2
+    c' = fromArray $ M.toArray mc'
+instance tmat43 :: TMat Dim4 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
