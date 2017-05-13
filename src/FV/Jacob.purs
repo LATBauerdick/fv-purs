@@ -6,7 +6,7 @@ module FV.Jacob
 import Prelude
 import Math ( sqrt, atan2, cos, sin, atan, pi )
 
-import Stuff (mod', uidx)
+import Stuff (mod', uidx, debug)
 import Data.Cov (Jacs, Vec3, Vec5, fromArray, val)
 
 -- | calculate q 3-vector for a given helix parameterization near vertex position

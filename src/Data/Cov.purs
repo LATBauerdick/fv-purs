@@ -44,6 +44,12 @@ type Vec4 = Vec Dim4
 type Vec5 = Vec Dim5
 type Jacs = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 
+-------------------------------------------------------------------------
+-- Mat to give behavior to Cov and Vec and Jac
+-- ability to convert to and from Matrix and Array
+-- while keeping info about dimensionality
+-- also define Semiring and Ring functions
+--
 class Mat a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
@@ -198,6 +204,8 @@ instance matJac55 :: Mat (Jac Dim5 Dim5) where
               | otherwise = Jac {v: a}
   toArray (Jac {v}) = v
   toMatrix (Jac {v}) = M.fromArray2 5 5 v
+-----------------------------------------------------------------
+-- funcitons for symetric matrices: Cov
 class SymMat a where
   inv :: a -> a
   invMaybe :: a -> Maybe a
@@ -225,7 +233,15 @@ instance symMatCov3 :: SymMat (Cov Dim3) where
         b33 = (a12*a12 - a11*a22)/det
         v' = [b11,b12,b13,b22,b23,b33]
     pure $ fromArray v'-- `debug` ("------------>>>>>" <> show v')
-  det a = 1.0
+  det (Cov {v}) = dd where
+        a11 = unsafePartial $ A.unsafeIndex v 0
+        a12 = unsafePartial $ A.unsafeIndex v 1
+        a13 = unsafePartial $ A.unsafeIndex v 2
+        a22 = unsafePartial $ A.unsafeIndex v 3
+        a23 = unsafePartial $ A.unsafeIndex v 4
+        a33 = unsafePartial $ A.unsafeIndex v 5
+        dd = (a33*a12*a12 - 2.0*a13*a23*a12 + a13*a13*a22
+            +a11*(a23*a23 - a22*a33))
   diag (Cov {v}) = a where
     a11 = unsafePartial $ A.unsafeIndex v 0
     a22 = unsafePartial $ A.unsafeIndex v 3
@@ -260,7 +276,7 @@ instance symMatCov4 :: SymMat (Cov Dim4) where
         i' = (i*b*b - d*f*b - c*g*b + c*d*e + a*f*g - a*e*i)/det
         j' = (-h*b*b + 2.0*c*f*b - a*f*f - c*c*e + a*e*h)/det
         v' = [a',b',c',d',e',f',g',h',i',j']
-    pure $ fromArray v' `debug` ("------------>>>>>" <> show v')
+    pure $ fromArray v' --`debug` ("------------>>>>>" <> show v')
   det (Cov {v}) = d' where
     a = unsafePartial $ A.unsafeIndex v 0
     b = unsafePartial $ A.unsafeIndex v 1
@@ -376,7 +392,7 @@ instance symMatCov5 :: SymMat (Cov Dim5) where
           + 2.0*c*d*f*k - 2.0*b*d*g*k - 2.0*b*c*h*k + 2.0*a*g*h*k + b*b*k*k 
           - a*f*k*k - c*c*f*m + 2.0*b*c*g*m - a*g*g*m - b*b*j*m + a*f*j*m)/det
         v' = [a',b',c',d',e',f',g',h',i',j',k',l',m',n',o']
-    pure $ fromArray v' `debug` ("------------>>>>>" <> show v')
+    pure $ fromArray v' --`debug` ("------------>>>>>" <> show v')
   det (Cov {v}) = d' where
     a = unsafePartial $ A.unsafeIndex v 0
     b = unsafePartial $ A.unsafeIndex v 1
@@ -416,25 +432,6 @@ instance symMatCov5 :: SymMat (Cov Dim5) where
     a55 = unsafePartial $ A.unsafeIndex v 14
     a = [a11,a22,a33,a44,a55]
 
-
-tr :: Jac53 -> Jac35
-tr (Jac {v}) = Jac {v:v'} where
-  a11 = unsafePartial $ A.unsafeIndex v 0
-  a12 = unsafePartial $ A.unsafeIndex v 1
-  a13 = unsafePartial $ A.unsafeIndex v 2
-  a14 = unsafePartial $ A.unsafeIndex v 3
-  a15 = unsafePartial $ A.unsafeIndex v 4
-  a21 = unsafePartial $ A.unsafeIndex v 5
-  a22 = unsafePartial $ A.unsafeIndex v 6
-  a23 = unsafePartial $ A.unsafeIndex v 7
-  a24 = unsafePartial $ A.unsafeIndex v 8
-  a25 = unsafePartial $ A.unsafeIndex v 9
-  a31 = unsafePartial $ A.unsafeIndex v 10
-  a32 = unsafePartial $ A.unsafeIndex v 11
-  a33 = unsafePartial $ A.unsafeIndex v 12
-  a34 = unsafePartial $ A.unsafeIndex v 13
-  a35 = unsafePartial $ A.unsafeIndex v 14
-  v' = [a11,a21,a31,a12,a22,a32,a13,a23,a33,a14,a24,a34,a15,a25,a35]
 
 instance semiringCov3 :: Semiring (Cov Dim3) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
@@ -523,6 +520,11 @@ instance showCov4 :: Show (Cov Dim4) where
 instance semiringCov5 :: Semiring (Cov Dim5) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
   zero = Cov {v: A.replicate 15 0.0 }
+  {-- mul a b = c where --}
+  {--   ma = toMatrix a --}
+  {--   mb = toMatrix b --}
+  {--   mc = ma * mb --}
+  {--   c = fromArray $ M.toArray mc --}
   mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where
     a11 = unsafePartial $ A.unsafeIndex a 0
     a12 = unsafePartial $ A.unsafeIndex a 1
@@ -593,8 +595,10 @@ instance semiringJac :: Semiring (Jac a b) where
   one = undefined -- Cov { v: [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0] }
 instance ringJac :: Ring (Jac a b) where
   sub (Jac {v: v1}) (Jac {v: v2}) = Jac {v: A.zipWith (-) v1 v2}
-instance showJac :: Show (Jac a b) where
-  show (Jac {v}) = "Show Jac \n" <> (show $ v)
+instance showJac35 :: Show (Jac Dim3 Dim5) where
+  show (Jac {v}) = "Show Jac\n" <> (show $ M.fromArray2 3 5 v)
+instance showJac53 :: Show (Jac Dim5 Dim3) where
+  show (Jac {v}) = "Show Jac\n" <> (show $ M.fromArray2 5 3 v)
 
 -- Instances for Vec -- these are always column vectors
 instance semiringVec3 :: Semiring (Vec Dim3) where
@@ -628,6 +632,10 @@ instance showVec5 :: Show (Vec Dim5) where
   show (Vec {v}) = "Show Vec\n" <> (show $ M.fromArray (A.length v) v)
 
 
+-------------------------------------------------------------------------
+-- Chi2 for Vec * Vec and Vev^T * Cov * Vec, resulting in Number
+-- operators |.| and |*|
+--
 class Chi2 a where
   chi2 :: Vec a -> Cov a -> Number
   sandwichvv :: Vec a -> Vec a -> Number
@@ -651,6 +659,10 @@ instance chi2Dim3 :: Chi2 Dim3 where
   sandwichvv (Vec {v:v1}) (Vec {v:v2}) = vv where
     vv = A.foldl (+) zero $ A.zipWith (*) v1 v2
 
+-------------------------------------------------------------------------
+-- TMat for operations between Jac and Cov or Vec
+-- operators follow convetion of | for Vec, * for Cov and || for Jac
+--   e.g. ||* to multiply Jac * Cov, and ||*||  for Jac^T * Cov * Jac
 class TMat a b where
   sandwich :: Jac a b -> Cov a -> Cov b
   transcov :: Jac a b -> Cov b -> Jac a b
@@ -794,21 +806,48 @@ instance tmat55 :: TMat Dim5 Dim5 where
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
 
+-------------------------------------------------------------------------
+-- TVec for Cov * Vec
+-- operator cov *| vec
+--
 class TVec a where
   ttransvec :: Cov a -> Vec a -> Vec a
+  sandwichcc :: Cov a -> Cov a -> Cov a
 infixr 7 ttransvec as *|
+infixr 7 sandwichcc as ***
 instance tvec3 :: TVec Dim3 where
   ttransvec c v = v' where
     mc = toMatrix c
     mv = toMatrix v
     mv' = mc * mv
     v' = fromArray $ M.toArray mv'
+  sandwichcc c1 c2 = c' where
+    mc1 = toMatrix c1
+    mc2 = toMatrix c2
+    mc' = mc1 * mc2 * mc1
+    c' = fromArray $ M.toArray mc'
+instance tvec4 :: TVec Dim4 where
+  ttransvec c v = v' where
+    mc = toMatrix c
+    mv = toMatrix v
+    mv' = mc * mv
+    v' = fromArray $ M.toArray mv'
+  sandwichcc c1 c2 = c' where
+    mc1 = toMatrix c1
+    mc2 = toMatrix c2
+    mc' = mc1 * mc2 * mc1
+    c' = fromArray $ M.toArray mc'
 instance tvec5 :: TVec Dim5 where
   ttransvec c v = v' where
     mc = toMatrix c
     mv = toMatrix v
     mv' = mc * mv
     v' = fromArray $ M.toArray mv'
+  sandwichcc c1 c2 = c' where
+    mc1 = toMatrix c1
+    mc2 = toMatrix c2
+    mc' = mc1 * mc2 * mc1
+    c' = fromArray $ M.toArray mc'
 
 scaleDiag :: Number -> Cov3 -> Cov3
 scaleDiag s c = c' where
@@ -833,6 +872,33 @@ subm2 n (Cov {v:v}) = Cov {v: v'} where
   a33 = unsafePartial $ A.unsafeIndex v 9
   v' = [a11,a12,a13,a22,a23,a33]
 
+tr :: Jac53 -> Jac35
+tr (Jac {v}) = Jac {v:v'} where
+  a11 = unsafePartial $ A.unsafeIndex v 0
+  a12 = unsafePartial $ A.unsafeIndex v 1
+  a13 = unsafePartial $ A.unsafeIndex v 2
+  a21 = unsafePartial $ A.unsafeIndex v 3
+  a22 = unsafePartial $ A.unsafeIndex v 4
+  a23 = unsafePartial $ A.unsafeIndex v 5
+  a31 = unsafePartial $ A.unsafeIndex v 6
+  a32 = unsafePartial $ A.unsafeIndex v 7
+  a33 = unsafePartial $ A.unsafeIndex v 8
+  a41 = unsafePartial $ A.unsafeIndex v 9
+  a42 = unsafePartial $ A.unsafeIndex v 10
+  a43 = unsafePartial $ A.unsafeIndex v 11
+  a51 = unsafePartial $ A.unsafeIndex v 12
+  a52 = unsafePartial $ A.unsafeIndex v 13
+  a53 = unsafePartial $ A.unsafeIndex v 14
+  v' = [a11,a21,a31,a41,a51,a12,a22,a32,a42,a52,a13,a23,a33,a43,a53]
+
+xxxuuuxxx :: Cov5 -> Cov5 -> Cov5
+xxxuuuxxx a b = c where
+    ma = toMatrix a
+    mb = toMatrix b
+    mc = ma * mb * ma
+    {-- c = fromArray $ M.toArray mc --}
+    c = a * ( b * a )
+
 
 newtype MD = MakeMD {m3 :: Cov3, m5 :: Cov5}
 instance showMD :: Show MD where
@@ -844,10 +910,11 @@ testCov = "testCov: " <> show md <> "\n"
                       <> "exp v3 " <> show ( (v3 + v3) |.| v3 ) <> "\n"
                       <> "tj3 " <> show tj3 <> "vv3 " <> show vv3
                       <> show (v3 |*| c3)
+                      <> "\n(tr j53 ||*|| c3)" <> show (tr j53 ||*|| c3)
+                      <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5)
                       <> show (c3 * (inv c3))
                       <> show (c4 * (inv c4))
-                      <> show c5 <> show (det c5) <> show (inv c5) 
-                      <> show (c5 * (inv c5)) 
+                      <> show (c5 * (inv c5))
                       where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
