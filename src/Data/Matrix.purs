@@ -897,8 +897,8 @@ multStd_ a@(M_ {nrows: 3, ncols: 3})
         ]
 multStd_ a@(M_ {nrows: n, ncols: m}) b@(M_ {ncols: m'}) =
   matrix n m' \(Tuple i j) -> sum do
-                                    k <- A.range 1 m
-                                    pure $ (unsafeGet i k a ) * (unsafeGet k j b)
+    k <- A.range 1 m -- `debug` ("xxx<><><><>" <> show n <> show m <> show m')
+    pure $ (unsafeGet i k a ) * (unsafeGet k j b)
 
 multStd__ :: forall a. Matrix a -> Matrix a -> Matrix a
 multStd__ a b = undefined

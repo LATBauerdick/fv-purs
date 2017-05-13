@@ -14,7 +14,7 @@ import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 --import Data.String.Utils (words)
 
 import Data.Tuple ( Tuple(..) )
-import Data.Array ( (!!), length )
+import Data.Array ( (!!), length, zip )
 import Data.Foldable ( fold, traverse_ )
 import Data.Maybe (Maybe (..), fromJust )
 import Partial.Unsafe ( unsafePartial )
@@ -22,7 +22,7 @@ import Data.List ( List(..),  (:), mapMaybe )
 
 import FV.Types
   ( VHMeas (..), HMeas (..), QMeas (..), PMeas (..)
-  , XMeas (..), Prong (..)
+  , XMeas (..), Prong (..), Chi2 (..)
   , vertex, helices, hFilter, fromHMeas, fromQMeas, vBlowup, invMass
   )
 
@@ -56,8 +56,8 @@ main :: forall e.  Eff ( console :: CONSOLE
 --main = void $ launchAff do
 main = do
   log "FVT Test Suite"
-  log "--Test hSlurp"
-  testHSlurp
+  {-- log "--Test hSlurp" --}
+  {-- testHSlurp --}
   {-- log "--Test Matrix" --}
   {-- testMatrix --}
   log "--Test Cov"
@@ -84,10 +84,10 @@ doFitTest :: forall e. VHMeas
 doFitTest vm' l5 = do
   let vm = vBlowup 10000.0 vm'
   let showLen xs = show $ length xs
-      showQChi2 :: QMeas -> Number -> Number -> Eff (console :: CONSOLE) Unit
-      showQChi2 qm chi2 i = log $ "q" <> show i
+      showQChi2 :: forall e. (Tuple QMeas Chi2) -> Eff (console :: CONSOLE | e) Unit
+      showQChi2 (Tuple qm (Chi2 chi2)) = log $ "q"
                                 <> " chi2 ->" <> to1fix chi2
-                                <> "pt,pz,fi,E ->"
+                                <> " pt,pz,fi,E ->"
                                 <> show qm
 
   log $ "initial vertex position -> " <> show ((vertex vm)::XMeas)
@@ -99,10 +99,11 @@ doFitTest vm' l5 = do
 
   log             "Fitting Vertex --------------------"
   let pr = fit vm
-      {-- Prong {fitVertex: vf, fitMomenta: ql, fitChi2s: cl} = fit vm --}
-  {-- log $ "Fitted vertex -> " <> show vf --}
-  {-- mapM_ showQChi2 $ zip3 ql cl [0..] --}
-  {-- putStrLn $ "Inv Mass " ++ showLen ql ++ " fit" ++ show (invMass $map q2p ql) --}
+      Prong {fitVertex: vf, fitMomenta: ql, fitChi2s: cl} = fit vm
+  log $ "Fitted vertex -> " <> show vf
+  traverse_ showQChi2 $ zip ql cl
+  log $ "Inv Mass " <> show (length ql) <> " fit" 
+                    <> show (invMass (map fromQMeas ql))
 
   {-- let m5 = invMass . map q2p . iflt l5 $ ql --}
   {--     iflt rng hl = [h | (h, i) <- zip hl [0..], i `elem` rng ] --}

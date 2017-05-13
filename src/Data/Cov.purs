@@ -38,6 +38,8 @@ type Jac53 = Jac Dim5 Dim3
 type Jac43 = Jac Dim4 Dim3
 type Jac34 = Jac Dim3 Dim4
 type Jac35 = Jac Dim3 Dim5
+type Jac33 = Jac Dim3 Dim3
+type Jac44 = Jac Dim4 Dim4
 type Jac55 = Jac Dim5 Dim5
 type Vec3 = Vec Dim3
 type Vec4 = Vec Dim4
@@ -197,6 +199,20 @@ instance matJac35 :: Mat (Jac Dim3 Dim5) where
               | otherwise = Jac {v: a}
   toArray (Jac {v}) = v
   toMatrix (Jac {v}) = M.fromArray2 3 5 v
+instance matJac33 :: Mat (Jac Dim3 Dim3) where
+  val (Jac {v}) = v
+  fromArray a | A.length a /= 9 =
+                  error "Jac33 fromArray: wrong input array length"
+              | otherwise = Jac {v: a}
+  toArray (Jac {v}) = v
+  toMatrix (Jac {v}) = M.fromArray2 3 3 v
+instance matJac44 :: Mat (Jac Dim4 Dim4) where
+  val (Jac {v}) = v
+  fromArray a | A.length a /= 16 =
+                  error "Jac44 fromArray: wrong input array length"
+              | otherwise = Jac {v: a}
+  toArray (Jac {v}) = v
+  toMatrix (Jac {v}) = M.fromArray2 4 4 v
 instance matJac55 :: Mat (Jac Dim5 Dim5) where
   val (Jac {v}) = v
   fromArray a | A.length a /= 25 =
@@ -232,16 +248,15 @@ instance symMatCov3 :: SymMat (Cov Dim3) where
         b23 = (a11*a23 - a12*a13)/det
         b33 = (a12*a12 - a11*a22)/det
         v' = [b11,b12,b13,b22,b23,b33]
-    pure $ fromArray v'-- `debug` ("------------>>>>>" <> show v')
+    pure $ fromArray v'
   det (Cov {v}) = dd where
-        a11 = unsafePartial $ A.unsafeIndex v 0
-        a12 = unsafePartial $ A.unsafeIndex v 1
-        a13 = unsafePartial $ A.unsafeIndex v 2
-        a22 = unsafePartial $ A.unsafeIndex v 3
-        a23 = unsafePartial $ A.unsafeIndex v 4
-        a33 = unsafePartial $ A.unsafeIndex v 5
-        dd = (a33*a12*a12 - 2.0*a13*a23*a12 + a13*a13*a22
-            +a11*(a23*a23 - a22*a33))
+        a = unsafePartial $ A.unsafeIndex v 0
+        b = unsafePartial $ A.unsafeIndex v 1
+        c = unsafePartial $ A.unsafeIndex v 2
+        d = unsafePartial $ A.unsafeIndex v 3
+        e = unsafePartial $ A.unsafeIndex v 4
+        f = unsafePartial $ A.unsafeIndex v 5
+        dd = a*d*f - a*e*e - b*b*f + 2.0*b*c*e - c*c*d
   diag (Cov {v}) = a where
     a11 = unsafePartial $ A.unsafeIndex v 0
     a22 = unsafePartial $ A.unsafeIndex v 3
@@ -276,7 +291,7 @@ instance symMatCov4 :: SymMat (Cov Dim4) where
         i' = (i*b*b - d*f*b - c*g*b + c*d*e + a*f*g - a*e*i)/det
         j' = (-h*b*b + 2.0*c*f*b - a*f*f - c*c*e + a*e*h)/det
         v' = [a',b',c',d',e',f',g',h',i',j']
-    pure $ fromArray v' --`debug` ("------------>>>>>" <> show v')
+    pure $ fromArray v'
   det (Cov {v}) = d' where
     a = unsafePartial $ A.unsafeIndex v 0
     b = unsafePartial $ A.unsafeIndex v 1
@@ -392,7 +407,7 @@ instance symMatCov5 :: SymMat (Cov Dim5) where
           + 2.0*c*d*f*k - 2.0*b*d*g*k - 2.0*b*c*h*k + 2.0*a*g*h*k + b*b*k*k 
           - a*f*k*k - c*c*f*m + 2.0*b*c*g*m - a*g*g*m - b*b*j*m + a*f*j*m)/det
         v' = [a',b',c',d',e',f',g',h',i',j',k',l',m',n',o']
-    pure $ fromArray v' --`debug` ("------------>>>>>" <> show v')
+    pure $ fromArray v'
   det (Cov {v}) = d' where
     a = unsafePartial $ A.unsafeIndex v 0
     b = unsafePartial $ A.unsafeIndex v 1
@@ -458,7 +473,7 @@ instance semiringCov3 :: Semiring (Cov Dim3) where
     --  , a13*b11 + a23*b12 + a33*b13
     --  , a13*b12 + a23*b22 + a33*b23
         , a13*b13 + a23*b23 + a33*b33
-        ]
+        ] `debug` "------------> mul cov3 * cov3 not allowed"
   one = Cov { v: [1.0, 0.0, 0.0, 1.0, 0.0, 1.0] }
 instance ringCov3 :: Ring (Cov Dim3) where
   sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
@@ -472,7 +487,7 @@ instance semiringCov4 :: Semiring (Cov Dim4) where
     ma = toMatrix a
     mb = toMatrix b
     mc = ma * mb
-    c = fromArray $ M.toArray mc
+    c = fromArray $ M.toArray mc `debug` "------------> mul cov4 * cov4 not allowed"
   mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where
     a11 = unsafePartial $ A.unsafeIndex a 0
     a12 = unsafePartial $ A.unsafeIndex a 1
@@ -520,68 +535,75 @@ instance showCov4 :: Show (Cov Dim4) where
 instance semiringCov5 :: Semiring (Cov Dim5) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
   zero = Cov {v: A.replicate 15 0.0 }
-  {-- mul a b = c where --}
-  {--   ma = toMatrix a --}
-  {--   mb = toMatrix b --}
-  {--   mc = ma * mb --}
-  {--   c = fromArray $ M.toArray mc --}
-  mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where
-    a11 = unsafePartial $ A.unsafeIndex a 0
-    a12 = unsafePartial $ A.unsafeIndex a 1
-    a13 = unsafePartial $ A.unsafeIndex a 2
-    a14 = unsafePartial $ A.unsafeIndex a 3
-    a15 = unsafePartial $ A.unsafeIndex a 4
-    a22 = unsafePartial $ A.unsafeIndex a 5
-    a23 = unsafePartial $ A.unsafeIndex a 6
-    a24 = unsafePartial $ A.unsafeIndex a 7
-    a25 = unsafePartial $ A.unsafeIndex a 8
-    a33 = unsafePartial $ A.unsafeIndex a 9
-    a34 = unsafePartial $ A.unsafeIndex a 10
-    a35 = unsafePartial $ A.unsafeIndex a 11
-    a44 = unsafePartial $ A.unsafeIndex a 12
-    a45 = unsafePartial $ A.unsafeIndex a 13
-    a55 = unsafePartial $ A.unsafeIndex a 14
-    b11 = unsafePartial $ A.unsafeIndex b 0
-    b12 = unsafePartial $ A.unsafeIndex b 1
-    b13 = unsafePartial $ A.unsafeIndex b 2
-    b14 = unsafePartial $ A.unsafeIndex b 3
-    b15 = unsafePartial $ A.unsafeIndex b 4
-    b22 = unsafePartial $ A.unsafeIndex b 5
-    b23 = unsafePartial $ A.unsafeIndex b 6
-    b24 = unsafePartial $ A.unsafeIndex b 7
-    b25 = unsafePartial $ A.unsafeIndex b 8
-    b33 = unsafePartial $ A.unsafeIndex b 9
-    b34 = unsafePartial $ A.unsafeIndex b 10
-    b35 = unsafePartial $ A.unsafeIndex b 11
-    b44 = unsafePartial $ A.unsafeIndex b 12
-    b45 = unsafePartial $ A.unsafeIndex b 13
-    b55 = unsafePartial $ A.unsafeIndex b 14
-    c = [ a11*b11 + a12*b12 + a13*b13 + a14*b14 + a15*b15
-        , a11*b12 + a12*b22 + a13*b23 + a14*b24 + a15*b25
-        , a11*b13 + a12*b23 + a13*b33 + a14*b34 + a15*b35
-        , a11*b14 + a12*b24 + a13*b34 + a14*b44 + a15*b45
-        , a11*b15 + a12*b25 + a13*b35 + a14*b45 + a15*b55
-   --   , a12*b11 + a22*b12 + a23*b13 + a24*b14 + a25*b15
-        , a12*b12 + a22*b22 + a23*b23 + a24*b24 + a25*b25
-        , a12*b13 + a22*b23 + a23*b33 + a24*b34 + a25*b35
-        , a12*b14 + a22*b24 + a23*b34 + a24*b44 + a25*b45
-        , a12*b15 + a22*b25 + a23*b35 + a24*b45 + a25*b55
-   --   , a13*b11 + a23*b12 + a33*b13 + a34*b14 + a35*b15
-   --   , a13*b12 + a23*b22 + a33*b23 + a34*b24 + a35*b25
-        , a13*b13 + a23*b23 + a33*b33 + a34*b34 + a35*b35
-        , a13*b14 + a23*b24 + a33*b34 + a34*b44 + a35*b45
-        , a13*b15 + a23*b25 + a33*b35 + a34*b45 + a35*b55
-   --   , a14*b11 + a24*b12 + a34*b13 + a44*b14 + a45*b15
-   --   , a14*b12 + a24*b22 + a34*b23 + a44*b24 + a45*b25
-   --   , a14*b13 + a24*b23 + a34*b33 + a44*b34 + a45*b35
-        , a14*b14 + a24*b24 + a34*b34 + a44*b44 + a45*b45
-        , a14*b15 + a24*b25 + a34*b35 + a44*b45 + a45*b55
-   --   , a15*b11 + a25*b21 + a35*b13 + a45*b14 + a55*b15
-   --   , a15*b12 + a25*b22 + a35*b23 + a45*b24 + a55*b25
-   --   , a15*b13 + a25*b23 + a35*b33 + a45*b34 + a55*b35
-   --   , a15*b14 + a25*b23 + a35*b34 + a45*b44 + a55*b45
-        , a15*b15 + a25*b25 + a35*b35 + a45*b45 + a55*b55
-        ]
+  mul a b = b `debug` "------------> mul cov5 * cov5 not allowed"
+  {-- mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where --}
+{-- -- | a: array of values at row number i and column number j --}
+{-- -- | w: width, number of columns --}
+{--     uGet :: Array Number -> Int -> Int -> Int -> Number --}
+{--     uGet a w i j = unsafePartial $ A.unsafeIndex a ((i-1)*w + (j - 1)) --}
+{--     values = do --}
+{--       i <- A.range 1 n --}
+{--       j <- A.range 1 m --}
+{--       pure $ sum do --}
+{--         k <- A.range 1 m --}
+{--         pure $ (uGet a w i k ) * ( uGet b w k j ) --}
+
+    {-- a11 = unsafePartial $ A.unsafeIndex a 0 --}
+    {-- a12 = unsafePartial $ A.unsafeIndex a 1 --}
+    {-- a13 = unsafePartial $ A.unsafeIndex a 2 --}
+    {-- a14 = unsafePartial $ A.unsafeIndex a 3 --}
+    {-- a15 = unsafePartial $ A.unsafeIndex a 4 --}
+    {-- a22 = unsafePartial $ A.unsafeIndex a 5 --}
+    {-- a23 = unsafePartial $ A.unsafeIndex a 6 --}
+    {-- a24 = unsafePartial $ A.unsafeIndex a 7 --}
+    {-- a25 = unsafePartial $ A.unsafeIndex a 8 --}
+    {-- a33 = unsafePartial $ A.unsafeIndex a 9 --}
+    {-- a34 = unsafePartial $ A.unsafeIndex a 10 --}
+    {-- a35 = unsafePartial $ A.unsafeIndex a 11 --}
+    {-- a44 = unsafePartial $ A.unsafeIndex a 12 --}
+    {-- a45 = unsafePartial $ A.unsafeIndex a 13 --}
+    {-- a55 = unsafePartial $ A.unsafeIndex a 14 --}
+    {-- b11 = unsafePartial $ A.unsafeIndex b 0 --}
+    {-- b12 = unsafePartial $ A.unsafeIndex b 1 --}
+    {-- b13 = unsafePartial $ A.unsafeIndex b 2 --}
+    {-- b14 = unsafePartial $ A.unsafeIndex b 3 --}
+    {-- b15 = unsafePartial $ A.unsafeIndex b 4 --}
+    {-- b22 = unsafePartial $ A.unsafeIndex b 5 --}
+    {-- b23 = unsafePartial $ A.unsafeIndex b 6 --}
+    {-- b24 = unsafePartial $ A.unsafeIndex b 7 --}
+    {-- b25 = unsafePartial $ A.unsafeIndex b 8 --}
+    {-- b33 = unsafePartial $ A.unsafeIndex b 9 --}
+    {-- b34 = unsafePartial $ A.unsafeIndex b 10 --}
+    {-- b35 = unsafePartial $ A.unsafeIndex b 11 --}
+    {-- b44 = unsafePartial $ A.unsafeIndex b 12 --}
+    {-- b45 = unsafePartial $ A.unsafeIndex b 13 --}
+    {-- b55 = unsafePartial $ A.unsafeIndex b 14 --}
+    {-- c = [ a11*b11 + a12*b12 + a13*b13 + a14*b14 + a15*b15 --}
+    {--     , a11*b12 + a12*b22 + a13*b23 + a14*b24 + a15*b25 --}
+    {--     , a11*b13 + a12*b23 + a13*b33 + a14*b34 + a15*b35 --}
+    {--     , a11*b14 + a12*b24 + a13*b34 + a14*b44 + a15*b45 --}
+    {--     , a11*b15 + a12*b25 + a13*b35 + a14*b45 + a15*b55 --}
+   {-- --   , a12*b11 + a22*b12 + a23*b13 + a24*b14 + a25*b15 --}
+    {--     , a12*b12 + a22*b22 + a23*b23 + a24*b24 + a25*b25 --}
+    {--     , a12*b13 + a22*b23 + a23*b33 + a24*b34 + a25*b35 --}
+    {--     , a12*b14 + a22*b24 + a23*b34 + a24*b44 + a25*b45 --}
+    {--     , a12*b15 + a22*b25 + a23*b35 + a24*b45 + a25*b55 --}
+   {-- --   , a13*b11 + a23*b12 + a33*b13 + a34*b14 + a35*b15 --}
+   {-- --   , a13*b12 + a23*b22 + a33*b23 + a34*b24 + a35*b25 --}
+    {--     , a13*b13 + a23*b23 + a33*b33 + a34*b34 + a35*b35 --}
+    {--     , a13*b14 + a23*b24 + a33*b34 + a34*b44 + a35*b45 --}
+    {--     , a13*b15 + a23*b25 + a33*b35 + a34*b45 + a35*b55 --}
+   {-- --   , a14*b11 + a24*b12 + a34*b13 + a44*b14 + a45*b15 --}
+   {-- --   , a14*b12 + a24*b22 + a34*b23 + a44*b24 + a45*b25 --}
+   {-- --   , a14*b13 + a24*b23 + a34*b33 + a44*b34 + a45*b35 --}
+    {--     , a14*b14 + a24*b24 + a34*b34 + a44*b44 + a45*b45 --}
+    {--     , a14*b15 + a24*b25 + a34*b35 + a44*b45 + a45*b55 --}
+   {-- --   , a15*b11 + a25*b21 + a35*b13 + a45*b14 + a55*b15 --}
+   {-- --   , a15*b12 + a25*b22 + a35*b23 + a45*b24 + a55*b25 --}
+   {-- --   , a15*b13 + a25*b23 + a35*b33 + a45*b34 + a55*b35 --}
+   {-- --   , a15*b14 + a25*b23 + a35*b34 + a45*b44 + a55*b45 --}
+    {--     , a15*b15 + a25*b25 + a35*b35 + a45*b45 + a55*b55 --}
+    {--     ] --}
   one = Cov { v: [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0] }
 instance ringCov5 :: Ring (Cov Dim5) where
   sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
@@ -599,6 +621,12 @@ instance showJac35 :: Show (Jac Dim3 Dim5) where
   show (Jac {v}) = "Show Jac\n" <> (show $ M.fromArray2 3 5 v)
 instance showJac53 :: Show (Jac Dim5 Dim3) where
   show (Jac {v}) = "Show Jac\n" <> (show $ M.fromArray2 5 3 v)
+instance showJac33 :: Show (Jac Dim3 Dim3) where
+  show (Jac {v}) = "Show Jac\n" <> (show $ M.fromArray2 3 3 v)
+instance showJac44 :: Show (Jac Dim4 Dim4) where
+  show (Jac {v}) = "Show Jac\n" <> (show $ M.fromArray2 4 4 v)
+instance showJac55 :: Show (Jac Dim5 Dim5) where
+  show (Jac {v}) = "Show Jac\n" <> (show $ M.fromArray2 5 5 v)
 
 -- Instances for Vec -- these are always column vectors
 instance semiringVec3 :: Semiring (Vec Dim3) where
@@ -660,22 +688,23 @@ instance chi2Dim3 :: Chi2 Dim3 where
     vv = A.foldl (+) zero $ A.zipWith (*) v1 v2
 
 -------------------------------------------------------------------------
--- TMat for operations between Jac and Cov or Vec
+-- TransMat2 for operations that need two dimensional parameters
+-- that is, between Jac and Cov or Vec
 -- operators follow convetion of | for Vec, * for Cov and || for Jac
 --   e.g. ||* to multiply Jac * Cov, and ||*||  for Jac^T * Cov * Jac
-class TMat a b where
-  sandwich :: Jac a b -> Cov a -> Cov b
-  transcov :: Jac a b -> Cov b -> Jac a b
-  transvoc :: Cov a -> Jac a b -> Jac a b
-  transvec :: Jac a b -> Vec b -> Vec a
-  sandwichjj :: Jac a b -> Jac b a -> Cov a
+class TransMat2 a b where
+  sandwich :: Jac a b -> Cov a -> Cov b        -- Jac^T * Cov * Jac
+  transcov :: Jac a b -> Cov b -> Jac a b      -- Jac * Cov
+  transvoc :: Cov a -> Jac a b -> Jac a b      -- Cov * Jac
+  transvec :: Jac a b -> Vec b -> Vec a        -- Jac * Vec
+  sandwichjj :: Jac a b -> Jac b a -> Jac a a  -- Jac * Jac
 infixr 7 sandwich as ||*||
 infixr 7 transcov as ||*
 infixr 7 transvoc as *||
 infixr 7 transvec as |||
 infixr 7 sandwichjj as ||||
 
-instance tmat34 :: TMat Dim3 Dim4 where
+instance tmat33 :: TransMat2 Dim3 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
@@ -701,7 +730,7 @@ instance tmat34 :: TMat Dim3 Dim4 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
-instance tmat35 :: TMat Dim3 Dim5 where
+instance tmat34 :: TransMat2 Dim3 Dim4 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
@@ -727,7 +756,33 @@ instance tmat35 :: TMat Dim3 Dim5 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
-instance tmat43 :: TMat Dim4 Dim3 where
+instance tmat35 :: TransMat2 Dim3 Dim5 where
+  sandwich j c = c' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mc' = M.tr mj * mc * mj
+    c' = fromArray $ M.toArray mc'
+  transcov j c = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mj * mc
+    j' = fromArray $ M.toArray mj'
+  transvoc c j = j' where
+    mj = toMatrix j
+    mc = toMatrix c
+    mj' = mc * mj
+    j' = fromArray $ M.toArray mj'
+  transvec j v = v' where
+    mj = toMatrix j
+    mv = toMatrix v
+    mv' = mj * mv
+    v' = fromArray $ M.toArray mv'
+  sandwichjj j1 j2 = c' where
+    mj1 = toMatrix j1
+    mj2 = toMatrix j2
+    mc' = mj1 * mj2
+    c'  = fromArray $ M.toArray mc'
+instance tmat43 :: TransMat2 Dim4 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
@@ -753,7 +808,7 @@ instance tmat43 :: TMat Dim4 Dim3 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
-instance tmat53 :: TMat Dim5 Dim3 where
+instance tmat53 :: TransMat2 Dim5 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
@@ -779,7 +834,7 @@ instance tmat53 :: TMat Dim5 Dim3 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
-instance tmat55 :: TMat Dim5 Dim5 where
+instance tmat55 :: TransMat2 Dim5 Dim5 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
@@ -807,15 +862,15 @@ instance tmat55 :: TMat Dim5 Dim5 where
     c' = fromArray $ M.toArray mc'
 
 -------------------------------------------------------------------------
--- TVec for Cov * Vec
--- operator cov *| vec
+-- TransMat for operations that need only dimensional parameters
+-- TransMat for Cov * Vec and Cov * Cov * Cov
 --
-class TVec a where
-  ttransvec :: Cov a -> Vec a -> Vec a
-  sandwichcc :: Cov a -> Cov a -> Cov a
+class TransMat a where
+  ttransvec :: Cov a -> Vec a -> Vec a      -- Cov * Vec
+  sandwichcc :: Cov a -> Cov a -> Cov a     -- Cov * Cov * Cov
 infixr 7 ttransvec as *|
 infixr 7 sandwichcc as ***
-instance tvec3 :: TVec Dim3 where
+instance tvec3 :: TransMat Dim3 where
   ttransvec c v = v' where
     mc = toMatrix c
     mv = toMatrix v
@@ -826,7 +881,7 @@ instance tvec3 :: TVec Dim3 where
     mc2 = toMatrix c2
     mc' = mc1 * mc2 * mc1
     c' = fromArray $ M.toArray mc'
-instance tvec4 :: TVec Dim4 where
+instance tvec4 :: TransMat Dim4 where
   ttransvec c v = v' where
     mc = toMatrix c
     mv = toMatrix v
@@ -837,7 +892,7 @@ instance tvec4 :: TVec Dim4 where
     mc2 = toMatrix c2
     mc' = mc1 * mc2 * mc1
     c' = fromArray $ M.toArray mc'
-instance tvec5 :: TVec Dim5 where
+instance tvec5 :: TransMat Dim5 where
   ttransvec c v = v' where
     mc = toMatrix c
     mv = toMatrix v
@@ -891,37 +946,32 @@ tr (Jac {v}) = Jac {v:v'} where
   a53 = unsafePartial $ A.unsafeIndex v 14
   v' = [a11,a21,a31,a41,a51,a12,a22,a32,a42,a52,a13,a23,a33,a43,a53]
 
-xxxuuuxxx :: Cov5 -> Cov5 -> Cov5
-xxxuuuxxx a b = c where
-    ma = toMatrix a
-    mb = toMatrix b
-    mc = ma * mb * ma
-    {-- c = fromArray $ M.toArray mc --}
-    c = a * ( b * a )
-
-
 newtype MD = MakeMD {m3 :: Cov3, m5 :: Cov5}
 instance showMD :: Show MD where
   show (MakeMD {m3, m5}) = "Show MD,\nm3=" <> show m3 <> "\nm5=" <> show m5
 
-testCov = "testCov: " <> show md <> "\n"
-                      <> show mm3
-                      <> show mm5
-                      <> "exp v3 " <> show ( (v3 + v3) |.| v3 ) <> "\n"
-                      <> "tj3 " <> show tj3 <> "vv3 " <> show vv3
-                      <> show (v3 |*| c3)
-                      <> "\n(tr j53 ||*|| c3)" <> show (tr j53 ||*|| c3)
-                      <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5)
-                      <> show (c3 * (inv c3))
-                      <> show (c4 * (inv c4))
-                      <> show (c5 * (inv c5))
-                      where
+testCov = "testCov: "
+        <> show md <> "\n"
+        <> show mm3
+        <> show mm5
+        <> "exp v3 " <> show ( (v3 + v3) |.| v3 ) <> "\n"
+        <> "tj3 " <> show tj3 <> "vv3 " <> show vv3
+        <> show (v3 |*| c3)
+        <> "\n(tr j53 ||*|| c3)" <> show (tr j53 ||*|| c3)
+        <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5)
+        <> show (c3 * (inv c3))
+        <> show (c4 * (inv c4))
+        where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
   c4 :: Cov4
   c4 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
   c5 :: Cov5
   c5 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
+  c50 :: Cov5
+  c50 = fromArray [15.0,14.0,13.0,12.0,11.0,10.0,9.0,8.0,7.0,6.0,5.0,4.0,3.0,2.0,1.0]
+  c50m :: Cov5
+  c50m = fromArray $ M.toArray $ toMatrix c50
   c51 :: Cov5
   c51 = one
   v3 :: Vec3
@@ -946,10 +996,6 @@ testCov = "testCov: " <> show md <> "\n"
                         ,5.0,9.0,12.0,14.0,15.0]
   mm5 = (m5+m5)*m5
   md = MakeMD {m3: (c3+c3)*c3, m5: (c5+c5)*c5}
-
-{-- det3 :: Cov3 -> Number --}
-{-- det3 cov = det where --}
-{--   det = --} 
 
 -----------------------------------------------
 
