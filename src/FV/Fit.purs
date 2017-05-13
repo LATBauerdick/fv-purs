@@ -11,25 +11,10 @@ import Stuff
 import Data.Cov
 --import FV.Coeff ( expand, hv2q ) as Coeff
 import FV.Jacob as J
-{-- import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), XMeas (..) --}
-{--                 , Prong (..), Chi2 --}
-{--                 , helices --}
-{--                 ) --}
-data VHMeas = VHMeas { vertex :: XMeas, helices :: Array HMeas }
-helices (VHMeas {helices}) = helices
-data XMeas = XMeas Vec3 Cov3
-instance showXMeas :: Show XMeas where
-  show _ = "XMeas"
-data QMeas = QMeas Vec3 Cov3 Number
-data HMeas = HMeas Vec5 Cov5 Number
-newtype Chi2 = Chi2 Number
-data Prong = Prong
-          { nProng        :: Int
-          , fitVertex     :: XMeas
-          , fitMomenta    :: Array QMeas
-          , fitChi2s      :: Array Chi2
-          , measurements  :: VHMeas
-          }
+import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), XMeas (..)
+                , Prong (..), Chi2 (..)
+                , helices
+                )
 
 fit :: VHMeas -> Prong
 {-- fit v = Prong {}--  undefined --}
@@ -62,7 +47,7 @@ kAdd' (XMeas v0 uu0) (HMeas h gg w0) x_e q_e 𝜒2_0 iter = x_k where
   aaT   = tr aa
   bbT   = tr bb
   x_k   = case invMaybe (bb ||*|| gg) of
-            Nothing  -> XMeas v0 (inv uu0) -- `debug` "... in kAdd'"
+            Nothing  -> XMeas v0 (inv uu0) `debug` "... can't invert in kAdd'"
             Just ww  -> let
                 gb    = gg - gg * (bbT ||*|| ww) * gg
                 uu    = uu0 + aa ||*|| gb
@@ -72,7 +57,7 @@ kAdd' (XMeas v0 uu0) (HMeas h gg w0) x_e q_e 𝜒2_0 iter = x_k where
                 dm    = m - aa ||| v
                 q     = ww *| bbT ||| gg *| dm
                 𝜒2    = (dm - bb ||| q) |*| gg + (v - v0) |*| uu0
-                x_k'  = if goodEnough 𝜒2_0 𝜒2 iter -- `debug` ("--> kAdd' chi2 is " ++ show 𝜒2)
+                x_k'  = if goodEnough 𝜒2_0 𝜒2 iter --`debug` ("--> kAdd' chi2 is " <> show 𝜒2)
                   then XMeas v cc
                   else kAdd' (XMeas v0 uu0) (HMeas h gg w0) v q 𝜒2 (iter+1)
               in x_k'

@@ -1,7 +1,7 @@
 module FV.Types
   ( MCtruth (..)
   , Prong (..)
-  , Chi2
+  , Chi2 (..)
   , VHMeas (..), vertex, helices, hFilter
   , XMeas (..), vBlowup
   , HMeas (..)
@@ -36,7 +36,7 @@ import Data.Cov
 -----------------------------------------------
 -- Prong
 -- a prong results from a vertex fit of N helices
-type Chi2  = Number
+newtype Chi2  = Chi2 Number
 data Prong = Prong
           { nProng        :: Int
           , fitVertex     :: XMeas
@@ -243,11 +243,11 @@ fromQMeas (QMeas q0 cq0 w2pt) = PMeas p0 cp0 where
   see  = (px*px*sxx + py*py*syy + pz*pz*szz +
          2.0*(px*(py*sxy + pz*sxz) + py*pz*syz))/e/e
 
-  p0   = fromArray [px,py,pz,e]
   cp0  = fromArray [ sxx, sxy, sxz, sxe
-                   , sxy, syy, syz, sye
-                   , sxz, syz, szz, sze
-                   , sxe, sye, sze, see]
+                        , syy, syz, sye
+                             , szz, sze
+                                  , see]
+  p0   = fromArray [px,py,pz,e]
 
 -----------------------------------------------
 -- MMeas

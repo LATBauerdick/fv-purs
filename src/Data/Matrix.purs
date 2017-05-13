@@ -208,7 +208,7 @@ prettyMatrix m@(M_ {nrows: r, ncols: c, values: v}) = unlines ls where
   ls = do
     i <- L.range 1 r
     let ws :: L.List String
-        ws = map (\j -> fillBlanks mx (to0fix $ getElem i j m)) (L.range 1 c)
+        ws = map (\j -> fillBlanks mx (to5fix $ getElem i j m)) (L.range 1 c)
     pure $ "( " <> unwords ws <> " )"
   mx = fromMaybe 0 (maximum $ map (S.length <<< to3fix) v)
   fillBlanks k str =

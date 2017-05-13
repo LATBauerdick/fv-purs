@@ -21,7 +21,7 @@ import Partial.Unsafe (unsafePartial)
 import Data.Matrix (sw, fromArray, fromArray2, toArray) as M
 import Data.Cov
 import FV.Types ( MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
-import Stuff ( words )
+import Stuff
 
 
 type FilePath = String -- from Node.Path

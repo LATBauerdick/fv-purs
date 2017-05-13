@@ -37,7 +37,7 @@ import Data.Matrix
   )
 import Data.Cov
   ( Cov (..)
-  , testCov
+  , testCov, inv, invMaybe
   )
 import FV.Fit ( fit )
 
@@ -58,8 +58,8 @@ main = do
   log "FVT Test Suite"
   log "--Test hSlurp"
   testHSlurp
-  log "--Test Matrix"
-  testMatrix
+  {-- log "--Test Matrix" --}
+  {-- testMatrix --}
   log "--Test Cov"
   log $ testCov
   log "--Test FVT"
@@ -98,7 +98,7 @@ doFitTest vm' l5 = do
   log $ ("Inv Mass " <> showLen pl5 <> " helix") <> show (invMass pl5)
 
   log             "Fitting Vertex --------------------"
-  --let pr = fit vm
+  let pr = fit vm
       {-- Prong {fitVertex: vf, fitMomenta: ql, fitChi2s: cl} = fit vm --}
   {-- log $ "Fitted vertex -> " <> show vf --}
   {-- mapM_ showQChi2 $ zip3 ql cl [0..] --}
