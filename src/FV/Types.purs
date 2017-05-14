@@ -4,6 +4,7 @@ module FV.Types
   , Chi2 (..)
   , VHMeas (..), vertex, helices, hFilter
   , XMeas (..), vBlowup
+  , DMeas (..), class Pos, distance
   , HMeas (..)
   , QMeas (..), fromHMeas
   , PMeas (..), fromQMeas, invMass
@@ -37,6 +38,11 @@ import Data.Cov
 -- Prong
 -- a prong results from a vertex fit of N helices
 newtype Chi2  = Chi2 Number
+instance semiringChi2 :: Semiring Chi2 where
+  add (Chi2 c0) (Chi2 c1) = Chi2 (c0+c1)
+  zero = Chi2 0.0
+  mul (Chi2 c0) (Chi2 c1) = Chi2 (c0*c1)
+  one = Chi2 1.0
 data Prong = Prong
           { nProng        :: Int
           , fitVertex     :: XMeas
@@ -264,7 +270,34 @@ instance showMMeas :: Show MMeas where
 -- XMeas
 -- 3-vector and covariance matrix for position/vertex measurement
 --
+data DMeas = DMeas Number Number -- distance and error
+instance showDMeas :: Show DMeas where
+  show (DMeas d sd) = to2fix d <> " +-" <> to2fix sd <> " cm"
+class Pos a where
+  distance :: a -> a -> DMeas -- distance between two positions
+instance posXMeas :: Pos XMeas where
+  distance (XMeas v0 vv0) (XMeas v1 vv1) = DMeas d sd where
+    v0s = toArray v0
+    x0 = uidx v0s 0
+    y0 = uidx v0s 1
+    z0 = uidx v0s 2
+    v1s = toArray v1
+    x1 = uidx v1s 0
+    y1 = uidx v1s 1
+    z1 = uidx v1s 2
+
+    d  = sqrt(sqr(x0-x1) + sqr(y0-y1) + sqr(z0-z1))
+    dd :: Vec3
+    dd = fromArray [(x0-x1)/d, (y0-y1)/d, (z0-z1)/d]
+    tem0 = dd |*| vv0
+    tem1 = dd |*| vv1
+    sd   = sqrt (tem0 + tem1)
+
 data XMeas = XMeas Vec3 Cov3
+instance semigroupXmeas :: Semigroup XMeas where
+  append (XMeas x1 cx1) (XMeas x2 cx2) = XMeas (x1 + x2) (cx1 + cx2)
+instance monoidXmeas :: Monoid XMeas where
+  mempty = XMeas zero zero
 instance showXMeasinst :: Show XMeas where
   show = showXMeas
 -- return a string showing vertex position vector with errors
@@ -279,8 +312,8 @@ showXMeas (XMeas v cv) = s' where
   dy         = unsafePartial $ unsafeIndex s2v 1
   dz         = unsafePartial $ unsafeIndex s2v 2
   f :: Number -> Number -> String -> String
-  f x dx s  = s <> to3fix x <>  " +-" <> to3fix dx
+  f x dx s  = s <> to2fix x <>  " +-" <> to3fix dx
   s' = (f z dz) <<< (f y dy) <<< (f x dx) $
-    "(r,z) =" <> "(" <> to3fix (sqrt (x*x + y*y))
-              <> ", " <> to3fix z <> "), x y z ="
+    "(r,z) =" <> "(" <> to2fix (sqrt (x*x + y*y))
+              <> ", " <> to2fix z <> "), x y z ="
 

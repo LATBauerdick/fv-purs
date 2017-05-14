@@ -72,6 +72,9 @@ debug = flip trace
 {-- unsafePerformEff :: forall eff a. Eff eff a -> a --}
 {-- log :: forall eff. String -> Eff (console :: CONSOLE | eff) Unit --}
 
+-- | square of a number
+sqr :: Number -> Number
+sqr a = a*a
 
 -- | generalisation of 'div' to any instance of Real
 div' :: Number -> Number -> Int
@@ -114,6 +117,8 @@ to0fix :: Number -> String
 to0fix = format (width 4 <> precision 0)
 to1fix :: Number -> String
 to1fix = format (width 6 <> precision 1)
+to2fix :: Number -> String
+to2fix = format (width 7 <> precision 2)
 to3fix :: Number -> String
 to3fix = format (width 8 <> precision 3)
 to5fix :: Number -> String

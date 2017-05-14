@@ -13,17 +13,18 @@ import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 --import Node.Path (FilePath)
 --import Data.String.Utils (words)
 
+import Data.Monoid ( class Monoid, mempty )
 import Data.Tuple ( Tuple(..) )
-import Data.Array ( (!!), length, zip )
-import Data.Foldable ( fold, traverse_ )
+import Data.Array ( (!!), length, zip, range, index, foldl )
+import Data.Foldable ( fold, traverse_, sum )
 import Data.Maybe (Maybe (..), fromJust )
 import Partial.Unsafe ( unsafePartial )
 import Data.List ( List(..),  (:), mapMaybe )
 
 import FV.Types
   ( VHMeas (..), HMeas (..), QMeas (..), PMeas (..)
-  , XMeas (..), Prong (..), Chi2 (..)
-  , vertex, helices, hFilter, fromHMeas, fromQMeas, vBlowup, invMass
+  , XMeas (..), Prong (..), Chi2 (..), DMeas (..)
+  , vertex, helices, hFilter, fromHMeas, fromQMeas, vBlowup, distance, invMass
   )
 
 import Test.Input ( hSlurp, hSlurpMCtruth )
@@ -48,6 +49,18 @@ showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
 showMomentum h = log $ "pt,pz,fi,E ->" <> (show <<< fromHMeas) h
 showHelix :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
 showHelix h = log $ "Helix ->" <> (show h)
+showProng :: forall e. Prong -> Eff (console:: CONSOLE |e) Prong
+showProng (Prong pr@{nProng: n, fitVertex: v, fitMomenta: ql, fitChi2s: cl, measurements: m}) = do
+  let
+      showCl :: String -> Array Chi2 -> String
+      showCl = foldl (\s (Chi2 x) -> s <> to1fix x)
+      Chi2 chi2tot = sum cl
+      sc = "chi2tot ->" <> to1fix chi2tot <> ", ndof " <> show (n*2)
+      sd = ", r ->" <> (show $ distance v mempty)
+      scl = showCl ", chi2s ->" cl
+      sm = ", Mass ->" <> show (invMass (map fromQMeas ql))
+  log $ sc <> sd <> scl <> sm
+  pure $ Prong pr
 
 main :: forall e.  Eff ( console :: CONSOLE
                        --, exception :: EXCEPTION
@@ -76,7 +89,8 @@ testFVT = do
   traverse_ showMomentum hel
   let l5 = [0,2,3,4,5] -- these are the tracks supposedly from the tau
   doFitTest vm l5
-  {-- _ <- showProng <<< fitw <<< hFilter l5 <<< vBlowup 10000.0 $ vm --}
+  _ <- showProng <<< fit <<< hFilter l5 <<< vBlowup 10000.0 $ vm
+  pure unit
 
 doFitTest :: forall e. VHMeas 
             -> Array Int
@@ -90,32 +104,31 @@ doFitTest vm' l5 = do
                                 <> " pt,pz,fi,E ->"
                                 <> show qm
 
-  log $ "initial vertex position -> " <> show ((vertex vm)::XMeas)
+  log $           "initial vertex position -> " <> show ((vertex vm)::XMeas)
 
   let pl         = map (fromQMeas <<< fromHMeas) $ helices vm
-  log $ ("Inv Mass " <> showLen pl <> " helix") <> show (invMass pl)
+  log $ "Inv Mass " <> showLen pl <> " helix" <> show (invMass pl)
   let pl5        = map (fromQMeas <<< fromHMeas) (helices <<< hFilter l5 $ vm)
-  log $ ("Inv Mass " <> showLen pl5 <> " helix") <> show (invMass pl5)
+  log $ "Inv Mass " <> showLen pl5 <> " helix" <> show (invMass pl5)
 
   log             "Fitting Vertex --------------------"
   let pr = fit vm
       Prong {fitVertex: vf, fitMomenta: ql, fitChi2s: cl} = fit vm
-  log $ "Fitted vertex -> " <> show vf
+  log $           "Fitted vertex -> " <> show vf
   traverse_ showQChi2 $ zip ql cl
   log $ "Inv Mass " <> show (length ql) <> " fit" 
                     <> show (invMass (map fromQMeas ql))
 
-  {-- let m5 = invMass . map q2p . iflt l5 $ ql --}
-  {--     iflt rng hl = [h | (h, i) <- zip hl [0..], i `elem` rng ] --}
-  {-- putStrLn $ "Inv Mass " ++ showLen (iflt l5 ql) ++ " fit" ++ show m5 --}
+  let m5 = invMass <<< map fromQMeas <<< iflt l5 $ ql
+  log $ "Inv Mass " <> show (length l5) <> " fit" <> show m5
 
-  {-- putStrLn             "Refitting Vertex-----------------" --}
-  {-- let prf = fit . hFilter l5 $ vm --}
-  {-- putStrLn $ "Refitted vertex -> " ++ show (fitVertex prf) --}
-  {-- mapM_ showQChi2 $ zip3 (fitMomenta prf) (fitChi2s prf) [0..] --}
-  {-- putStrLn $ "Inv Mass " ++ (show $ nProng prf) ++ " refit" ++ show (invMass $ map q2p (fitMomenta prf)) --}
-  {-- putStrLn $ "Final vertex -> " ++ show (fitVertex prf) --}
-  log "end of doFitTest------------------------------------------"
+  log $           "Refitting Vertex-----------------"
+  let Prong {fitVertex, fitMomenta, fitChi2s, nProng} = fit <<< hFilter l5 $ vm
+  log $           "Refitted vertex -> " <> show fitVertex
+  traverse_ showQChi2 $ zip fitMomenta fitChi2s
+  log $           "Inv Mass " <> show nProng <> " refit" <> (show <<< invMass <<< map fromQMeas $ fitMomenta)
+  log $           "Final vertex -> " <> show fitVertex
+  log $           "end of doFitTest------------------------------------------"
 
 testHSlurp :: forall e. Eff (console :: CONSOLE | e) Unit
 testHSlurp = do
