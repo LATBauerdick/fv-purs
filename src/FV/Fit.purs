@@ -9,9 +9,7 @@ import Math ( abs )
 import Partial.Unsafe ( unsafePartial )
 
 import Stuff
---import Data.Matrix ( sw, tr, scalar, inv, invMaybe, det )
 import Data.Cov
---import FV.Coeff ( expand, hv2q ) as Coeff
 import FV.Jacob as J
 import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), XMeas (..)
                 , Prong (..), Chi2 (..)
@@ -69,16 +67,11 @@ kSmooth :: VHMeas -> XMeas -> Prong
 --kSmooth vm v | trace ("kSmooth " <> (show <<< length <<< helices $ vm) <> ", vertex at " <> (show v) ) false = undefined
 kSmooth (VHMeas {vertex: v0, helices: hl}) v = pr' where
   (Tuple ql chi2l) = unzip $ mapMaybe (ksm v) hl
-  xx = unzip $ mapMaybe (ksm v) hl
-  ql = fst xx
-  chi2l = snd xx
   hl' = hl
   n = length hl
   n' = length ql
   n'' = if n == n' then n else n' `debug` "kSmooth killed helices"
   pr' = Prong { fitVertex: v, fitMomenta: ql, fitChi2s: chi2l, nProng: n'', measurements: VHMeas {vertex: v0, helices: hl'} }
-  {-- mmmmm = ksm v (unsafePartial $  head hl) --}
-  {-- pr' = Prong { fitVertex: v, fitMomenta: [], fitChi2s: [], nProng: 0, measurements: VHMeas {vertex: v, helices: hl} } --}
 
 -- kalman smoother step: calculate 3-mom q and chi2 at kalman filter'ed vertex
 -- if we can't invert, return Nothing and this track will not be included

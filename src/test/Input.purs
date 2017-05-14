@@ -18,7 +18,6 @@ import Math ( sin, cos )
 -- import Unsafe.Coerce (unsafeCoerce)
 import Partial.Unsafe (unsafePartial)
 
-import Data.Matrix (sw, fromArray, fromArray2, toArray) as M
 import Data.Cov
 import FV.Types ( MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
 import Stuff

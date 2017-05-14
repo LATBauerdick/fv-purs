@@ -1,6 +1,6 @@
 module FV.Types
   ( MCtruth (..)
-  , Prong (..)
+  , Prong (..), fitMomenta
   , Chi2 (..)
   , VHMeas (..), vertex, helices, hFilter
   , XMeas (..), vBlowup
@@ -23,15 +23,6 @@ import Data.Int (round, toNumber)
 import Math ( sqrt, abs, pi, sin, cos )
 
 import Stuff
-import Data.Matrix 
-  ( M, nrows, ncols, values, fromArray2, fromArray, fromArrays
-  , diagonal, identity, zero_
-  , Matrix (..)
-  , getDiag, toArray, subm, subm2
-  , sw, tr, scaleDiag
-  , elementwiseUnsafePlus, elementwiseUnsafeMinus, multStd
-  ) as M
-
 import Data.Cov
 
 -----------------------------------------------
@@ -50,6 +41,8 @@ data Prong = Prong
           , fitChi2s      :: Array Chi2
           , measurements  :: VHMeas
           }
+fitMomenta :: Prong -> Array QMeas
+fitMomenta (Prong {fitMomenta: f}) = f
 instance showProng :: Show Prong where
   show _ = "Prong!!!!!!!!"
 
@@ -312,7 +305,7 @@ showXMeas (XMeas v cv) = s' where
   dy         = unsafePartial $ unsafeIndex s2v 1
   dz         = unsafePartial $ unsafeIndex s2v 2
   f :: Number -> Number -> String -> String
-  f x dx s  = s <> to2fix x <>  " +-" <> to3fix dx
+  f x dx s  = s <> to2fix x <>  " +-" <> to2fix dx
   s' = (f z dz) <<< (f y dy) <<< (f x dx) $
     "(r,z) =" <> "(" <> to2fix (sqrt (x*x + y*y))
               <> ", " <> to2fix z <> "), x y z ="
