@@ -1008,20 +1008,11 @@ choldc (Cov {v: a}) = Cov {v: a'} where
   uJust = unsafePartial $ fromJust
   aaa = run (do
     arr <- emptySTArray
-    void $ pushSTArray arr 1.0
-    void $ pushSTArray arr 2.0
-    void $ pushSTArray arr 3.0
-    void $ pushSTArray arr 4.0
-    void $ pushSTArray arr 5.0
-    void $ pushSTArray arr 6.0
     let indexes :: Array (Tuple Int Int)
         indexes = do
           i <- A.range 1 w
           j <- A.range i w
           pure $ Tuple i j
-        peek c = do
-          xx <- peekSTArray arr c
-          pure xx
         gg i j k = do
           aik <- peekSTArray arr (idx i k) `debug` ("--> " <> show i <> show j <> show k <> show (idx i j) )
           ajk <- peekSTArray arr (idx j k)
@@ -1029,40 +1020,20 @@ choldc (Cov {v: a}) = Cov {v: a'} where
           void $ pokeSTArray arr (idx i j) $ (uJust aij) - (uJust aik) * (uJust ajk)
         ff c = do
           let Tuple i j = (uidx indexes c)
-              aij = uGet a w i j `debug` ("-> " <> show i <> show j <> show (idx i j))
+              aij = uidx a c `debug` ("-> " <> show i <> show j <> show (idx i j) <> " " <> show (uidx a c))
+          void $ pushSTArray arr 0.0
           void $ pokeSTArray arr c aij
-          mx <- peekSTArray arr (idx i j)
-          void$ pokeSTArray arr (idx i j) (uJust mx)
           let kmin = 1
               kmax = (i-1) + 1
           forE kmin kmax do \k -> gg i j k
-          msum <- peekSTArray arr (idx i j)
+          msum <- peekSTArray arr c
           maii' <- peekSTArray arr (idx i i)
           let sum = uJust msum
-              aii' = uJust maii'
+              aii' = case (uJust maii') > 0.0 of
+                        true -> uJust maii'
+                        otherwise -> error ("choldc: not a positive definite matrix " <> show a)
               aij' = if (i==j) then (sqrt aii') else sum / (sqrt aii')
-          void $ pokeSTArray arr (idx i j) aij'
+          void $ pokeSTArray arr c aij'
     forE 0 6 do \c -> ff c
     pure arr)
   a' = aaa `debug` ("--->> arr" <> show aaa)
-
-  {-- aa = do --}
-  {--   i <- A.range 1 n `debug` ("--->> pp" <> show pp) --}
-  {--   j <- A.range i n --}
-  {--   let s0 = uGet a w i j --}
-  {--   let sr = sum do --}
-  {--                 k <- A.range (i-1) 1 --}
-  {--                 let gg = k>0 && i>1 --}
-  {--                 guard $ gg --}
-  {--                 let aaa = uGet a w i k `debug` ("--->ji ik jk " <> show j <> show i <> " " <> show i <> show k <> " " <> show j <> show k ) --}
-  {--                 pure $ (uGet a w i k)*(uGet a w j k) --}
-  {--   let ss = s0 - sr `debug` ( "---->> ji ss pp " <> show j <> show i <> " " <> show (s0 - sr) <> " " <> show (uidx pp (i-1))) --}
-  {--   pure $ if i == j then uidx pp (i-1) else ss / (uidx pp (i-1)) --}
-  {-- a' = aaa `debug` ("--->> aa" <> show aaa) --}
-
-  {--     for (sum=a[i][j],k=i-1;k>=1;k--) sum -= a[i][k]*a[j][k]; --} 
-  {--     if (i == j) { --} 
-  {--       if (sum <= 0.0) -- a, with rounding errors, is not positive deﬁnite. --} 
-  {--           nrerror("choldc failed"); --} 
-  {--       p[i]=sqrt(sum); --} 
-  {--     } else a[j][i]=sum/p[i]; --} 
