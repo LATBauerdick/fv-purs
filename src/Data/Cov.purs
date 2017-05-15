@@ -13,7 +13,7 @@ import Data.Array
   ( replicate, unsafeIndex, zipWith, length, singleton, foldl, range, reverse
   ) as A
 import Data.Array.Partial ( head ) as AP
-import Control.Monad.Eff ( Eff, forE )
+import Control.Monad.Eff ( Eff, forE, whileE )
 import Control.Monad.ST ( ST, pureST )
 import Data.Array.ST
 import Data.Foldable ( sum )
@@ -1002,38 +1002,52 @@ choldc :: Cov3 -> Cov3
 choldc (Cov {v: a}) = Cov {v: a'} where
   n = 3
   w = 3
+  l = 6
   idx :: Int -> Int -> Int
   idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
           | otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
   uJust = unsafePartial $ fromJust
   aaa = run (do
     arr <- emptySTArray
-    let indexes :: Array (Tuple Int Int)
+    let
+        push = do
+          _ <- pushSTArray arr 0.0
+          pure unit
+        indexes :: Array (Tuple Int Int)
         indexes = do
           i <- A.range 1 w
           j <- A.range i w
           pure $ Tuple i j
         gg i j k = do
-          aik <- peekSTArray arr (idx i k) `debug` ("--> " <> show i <> show j <> show k <> show (idx i j) )
+          aik <- peekSTArray arr (idx i k) `debug` ("--> k iter " <> show i <> show j <> show k <> show (idx i j) )
           ajk <- peekSTArray arr (idx j k)
           aij <- peekSTArray arr (idx i j)
-          void $ pokeSTArray arr (idx i j) $ (uJust aij) - (uJust aik) * (uJust ajk)
+          void $ pokeSTArray arr (idx i j) $ (uJust aij) - (uJust aik) * (uJust ajk) `debug` ("aij'" <> show i <> show j <> show aij)
         ff c = do
           let Tuple i j = (uidx indexes c)
               aij = uidx a c `debug` ("-> " <> show i <> show j <> show (idx i j) <> " " <> show (uidx a c))
-          void $ pushSTArray arr 0.0
-          void $ pokeSTArray arr c aij
+          void $ pokeSTArray arr c aij `debug` ("initial poke " <> show i <> show j <> " " <> show aij)
           let kmin = 1
               kmax = (i-1) + 1
           forE kmin kmax do \k -> gg i j k
-          msum <- peekSTArray arr c
-          maii' <- peekSTArray arr (idx i i)
-          let sum = uJust msum
-              aii' = case (uJust maii') > 0.0 of
-                        true -> uJust maii'
-                        otherwise -> error ("choldc: not a positive definite matrix " <> show a)
-              aij' = if (i==j) then (sqrt aii') else sum / (sqrt aii')
-          void $ pokeSTArray arr c aij'
-    forE 0 6 do \c -> ff c
+          msum <- peekSTArray arr (idx i j)
+          let sum' = uJust msum
+              sum = if (i==j) && sum' < 0.0 then error ("choldc: not a positive definite matrix " <> show a)
+                                            else sum' `debug` ("---> sum=" <> show sum')
+          mpi' <- peekSTArray arr (l+i-1)
+          let pi' = uJust mpi'
+              pi = if i == j then sqrt sum else pi' `debug` ("--> p'" <> show i <> show j <> "=" <> show pi')
+          void $ if i==j
+                         then pokeSTArray arr (l+i-1) pi `debug` ("---> poke p" <> show i <> "=" <> show pi)
+                         else pokeSTArray arr c (sum/pi) `debug` ("---> poke " <> show i <> show j <> " " <> show (sum/pi))
+          pure $ unit
+        hh i = do
+          maii <- peekSTArray arr (l+i-1)
+          let aii = uJust maii
+          void $ pokeSTArray arr (idx i i) aii
+
+    forE 0 (l+w) do \_ -> push -- make an STarray of lenght + nrows
+    forE 0 l do \c -> ff c
+    forE 1 (w+1) do \i -> hh i
     pure arr)
   a' = aaa `debug` ("--->> arr" <> show aaa)
