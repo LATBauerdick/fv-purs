@@ -9,7 +9,7 @@ import Data.Random.Normal
 import Statistics.Sample ( mean, variance )
 
 import Data.Traversable ( mapAccumL )
---import Data.Cov ( chol )
+import Data.Cov ( chol )
 
 import FV.Types ( XMeas (..), VHMeas (..), HMeas (..), Prong (..), MMeas (..)
              , invMass, fromQMeas, fitMomenta)

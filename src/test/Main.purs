@@ -23,7 +23,6 @@ import Data.Maybe ( fromJust )
 import Partial.Unsafe ( unsafePartial )
 import Data.List ( mapMaybe )
 
-import Test.Matrix (testMatrix)
 import Test.Cov (testCov)
 
 import FV.Types
@@ -37,6 +36,22 @@ import FV.Fit ( fit )
 
 import Data.Number ( fromString )
 import Stuff (iflt, to1fix, words)
+
+main :: forall e.  Eff ( console :: CONSOLE
+                       --, exception :: EXCEPTION
+                       --, fs :: FS
+                       | e) Unit
+--main = void $ launchAff do
+main = do
+  log "FVT Test Suite"
+  log "--Test hSlurp"
+  {-- testHSlurp --}
+  {-- log "--Test Matrix" --}
+  {-- testMatrix --}
+  log "--Test Cov"
+  log $ testCov 0
+  log "--Test FVT"
+  {-- testFVT --}
 
 showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
 showMomentum h = log $ "pt,pz,fi,E ->" <> (show <<< fromHMeas) h
@@ -54,25 +69,6 @@ showProng (Prong pr@{nProng: n, fitVertex: v, fitMomenta: ql, fitChi2s: cl, meas
       sm = ", Mass ->" <> show (invMass (map fromQMeas ql))
   log $ sc <> sd <> scl <> sm
   pure $ Prong pr
-
-main :: forall e.  Eff ( console :: CONSOLE
-                       --, exception :: EXCEPTION
-                       --, fs :: FS
-                       | e) Unit
---main = void $ launchAff do
-main = do
-  log "FVT Test Suite"
-  log "--Test hSlurp"
-  testHSlurp
-  log "--Test Matrix"
-  testMatrix
-  log "--Test Cov"
-  log $ testCov
-  log "--Test FVT"
-  testFVT
-  {-- (VHMeas _ hl, _) <- hSlurp "dat/tav-0.dat" --}
-  {-- let HMeas _ _ w = head hl --}
-  {-- w `shouldBe` 0.0114 --}
 
 testFVT :: forall e. Eff (console :: CONSOLE | e) Unit
 testFVT = do

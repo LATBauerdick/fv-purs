@@ -3,27 +3,32 @@ module Test.Cov (testCov) where
 import Prelude
 import Data.Cov 
   ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5
-  , fromArray, inv, toMatrix, tr
+  , fromArray, inv, toMatrix, tr, choldc
   , (*|), (|*|), (|.|), (||*||), (|||)
   )
-import Data.Matrix as M
+import Data.SimpleMatrix as M
 
 newtype MD = MakeMD {m3 :: Cov3, m5 :: Cov5}
 instance showMD :: Show MD where
   show (MakeMD {m3, m5}) = "Show MD,\nm3=" <> show m3 <> "\nm5=" <> show m5
 
-testCov :: String
-testCov = "testCov: "
-        <> show md <> "\n"
-        <> show mm3
-        <> show mm5
-        <> "exp v3 " <> show ( (v3 + v3) |.| v3 ) <> "\n"
-        <> "tj3 " <> show tj3 <> "vv3 " <> show vv3
-        <> show (v3 |*| c3)
-        <> "\n(tr j53 ||*|| c3)" <> show (tr j53 ||*|| c3)
-        <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5)
-        <> show (c3 * (inv c3))
-        <> show (c4 * (inv c4))
+testCov :: Int -> String
+testCov cnt = "testCov: " <> show cnt
+        {-- <> show md <> "\n" --}
+        {-- <> show mm3 --}
+        {-- <> show mm5 --}
+        {-- <> "exp v3 " <> show ( (v3 + v3) |.| v3 ) <> "\n" --}
+        {-- <> show (j53) --}
+        {-- <> show (tr j53) --}
+        {-- <> "tj3 " <> show tj3 --}
+        {-- <> "vv3 " <> show vv3 --}
+        {-- <> show (v3 |*| c3) --}
+        {-- <> "\n(tr j53 ||*|| c3)" <> show (tr j53 ||*|| c3) --}
+        {-- <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5) --}
+        {-- <> show (c3 * (inv c3)) --}
+        {-- <> show (c4 * (inv c4)) --}
+        <> "choldc" <> show ch3 
+        <> show cch3
         where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
@@ -50,15 +55,19 @@ testCov = "testCov: "
   vv3 :: Vec3
   vv3 = tr j53 ||| j53 ||| c3 *| v3
 
-  m3 :: M.Matrix Number
+  m3 :: M.Matrix
   m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]
   mm3 = (m3+m3)*m3
-  m5 :: M.Matrix Number
+  m5 :: M.Matrix
   m5 = M.fromArray2 5 5 [1.0,2.0,3.0,4.0,5.0, 2.0,6.0,7.0,8.0,9.0
                         ,3.0,7.0,10.0,11.0,12.0, 4.0,8.0,11.0,13.0,14.0
                         ,5.0,9.0,12.0,14.0,15.0]
   mm5 = (m5+m5)*m5
-  md = MakeMD {m3: (c3+c3)*c3, m5: (c5+c5)*c5}
+  md = MakeMD {m3: (c3+c3), m5: (c5+c5)}
+
+  ch3 :: Cov3
+  ch3 = fromArray [2.0, -1.0, 0.0, 2.0, -1.0, 2.0]
+  cch3 = choldc ch3
 
 -----------------------------------------------
 

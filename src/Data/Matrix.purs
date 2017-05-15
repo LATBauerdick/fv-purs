@@ -246,15 +246,6 @@ instance functorMatrix :: Functor Matrix where
 --  append m m' = matrix (max (nrows m) (nrows m')) (max (ncols m) (ncols m')) $ uncurry zipTogether --}
 --     where zipTogether row column = fromMaybe mempty $ safeGet row column m <> safeGet row column m'
 
--- | /O(rows*cols)/. The transpose of a matrix.
---   Example:
---
--- >           ( 1 2 3 )   ( 1 4 7 )
--- >           ( 4 5 6 )   ( 2 5 8 )
--- > transpose ( 7 8 9 ) = ( 3 6 9 )
-{-- transpose :: Matrix a -> Matrix a --}
-{-- transpose m = matrix (ncols m) (nrows m) $ \(i,j) -> m ! (j,i) --}
-
 -- | /O(rows*cols)/. Map a function over a row.
 --   Example:
 --

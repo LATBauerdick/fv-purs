@@ -10,16 +10,23 @@ module Data.Cov
 
 import Prelude
 import Data.Array
-  ( replicate, unsafeIndex, zipWith, length, singleton, foldl, range
+  ( replicate, unsafeIndex, zipWith, length, singleton, foldl, range, reverse
   ) as A
 import Data.Array.Partial ( head ) as AP
+import Control.Monad.Eff ( Eff, forE )
+import Control.Monad.ST ( ST, pureST )
+import Data.Array.ST
+import Data.Foldable ( sum )
+import Data.Tuple (Tuple (..))
+
 import Partial.Unsafe ( unsafePartial )
 import Data.Maybe (Maybe (..), fromJust)
 import Control.MonadZero (guard)
-import Math ( abs )
-import Data.Matrix
+import Math ( abs, sqrt )
+import Data.Int (toNumber, round)
+import Data.SimpleMatrix
   ( Matrix (..)
-  , tr
+  , transpose
   , fromArray, fromArray2, toArray
   ) as M
 import Stuff
@@ -47,6 +54,9 @@ type Vec5 = Vec Dim5
 type Jacs = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 
 -------------------------------------------------------------------------
+-------------------------------------------------------------------------
+-------------------------------------------------------------------------
+-------------------------------------------------------------------------
 -- Mat to give behavior to Cov and Vec and Jac
 -- ability to convert to and from Matrix and Array
 -- while keeping info about dimensionality
@@ -56,7 +66,7 @@ class Mat a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
   toArray :: a -> Array Number
-  toMatrix :: a -> M.Matrix Number
+  toMatrix :: a -> M.Matrix
 instance matCov3 :: Mat (Cov Dim3) where
   val (Cov {v}) = v
   fromArray a | A.length a == 6 = Cov {v: a}
@@ -221,12 +231,14 @@ instance matJac55 :: Mat (Jac Dim5 Dim5) where
   toArray (Jac {v}) = v
   toMatrix (Jac {v}) = M.fromArray2 5 5 v
 -----------------------------------------------------------------
--- funcitons for symetric matrices: Cov
+-- | funcitons for symetric matrices: Cov
+-- | type class SymMat
 class SymMat a where
-  inv :: a -> a
-  invMaybe :: a -> Maybe a
-  det :: a -> Number
-  diag :: a -> Array Number
+  inv :: a -> a               -- | inverse matrix
+  invMaybe :: a -> Maybe a    -- | Maybe inverse matrix
+  det :: a -> Number          -- | determinant
+  diag :: a -> Array Number   -- | Array of diagonal elements
+  chol :: a -> a              -- | Cholsky decomposition
 instance symMatCov3 :: SymMat (Cov Dim3) where
   inv m = unsafePartial $ fromJust (invMaybe m)
   invMaybe (Cov {v}) = do
@@ -249,6 +261,7 @@ instance symMatCov3 :: SymMat (Cov Dim3) where
         b33 = (a12*a12 - a11*a22)/det
         v' = [b11,b12,b13,b22,b23,b33]
     pure $ fromArray v'
+  chol a = a
   det (Cov {v}) = dd where
         a = unsafePartial $ A.unsafeIndex v 0
         b = unsafePartial $ A.unsafeIndex v 1
@@ -312,6 +325,7 @@ instance symMatCov4 :: SymMat (Cov Dim4) where
     a33 = unsafePartial $ A.unsafeIndex v 7
     a44 = unsafePartial $ A.unsafeIndex v 9
     a = [a11,a22,a33,a44]
+  chol a = a
 instance symMatCov5 :: SymMat (Cov Dim5) where
   inv m = unsafePartial $ fromJust (invMaybe m)
   invMaybe (Cov {v}) = do
@@ -446,12 +460,13 @@ instance symMatCov5 :: SymMat (Cov Dim5) where
     a44 = unsafePartial $ A.unsafeIndex v 12
     a55 = unsafePartial $ A.unsafeIndex v 14
     a = [a11,a22,a33,a44,a55]
+  chol a = undefined
 
 
 instance semiringCov3 :: Semiring (Cov Dim3) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
   zero = Cov {v: A.replicate 6 0.0 }
-  mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where
+  mul (Cov {v: a}) (Cov {v: b}) = undefined where --Cov {v: c} where
     a11 = unsafePartial $ A.unsafeIndex a 0
     a12 = unsafePartial $ A.unsafeIndex a 1
     a13 = unsafePartial $ A.unsafeIndex a 2
@@ -483,49 +498,45 @@ instance showCov3 :: Show (Cov Dim3) where
 instance semiringCov4 :: Semiring (Cov Dim4) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
   zero = Cov {v: A.replicate 10 0.0 }
-  mul a b = c where
-    ma = toMatrix a
-    mb = toMatrix b
-    mc = ma * mb
-    c = fromArray $ M.toArray mc `debug` "------------> mul cov4 * cov4 not allowed"
-  mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where
-    a11 = unsafePartial $ A.unsafeIndex a 0
-    a12 = unsafePartial $ A.unsafeIndex a 1
-    a13 = unsafePartial $ A.unsafeIndex a 2
-    a14 = unsafePartial $ A.unsafeIndex a 3
-    a22 = unsafePartial $ A.unsafeIndex a 4
-    a23 = unsafePartial $ A.unsafeIndex a 5
-    a24 = unsafePartial $ A.unsafeIndex a 6
-    a33 = unsafePartial $ A.unsafeIndex a 7
-    a34 = unsafePartial $ A.unsafeIndex a 8
-    a44 = unsafePartial $ A.unsafeIndex a 9
-    b11 = unsafePartial $ A.unsafeIndex b 0
-    b12 = unsafePartial $ A.unsafeIndex b 1
-    b13 = unsafePartial $ A.unsafeIndex b 2
-    b14 = unsafePartial $ A.unsafeIndex b 3
-    b22 = unsafePartial $ A.unsafeIndex b 4
-    b23 = unsafePartial $ A.unsafeIndex b 5
-    b24 = unsafePartial $ A.unsafeIndex b 6
-    b33 = unsafePartial $ A.unsafeIndex b 7
-    b34 = unsafePartial $ A.unsafeIndex b 8
-    b44 = unsafePartial $ A.unsafeIndex b 9
-    c = [ a11*b11 + a12*b12 + a13*b13 + a14*b14
-        , a11*b12 + a12*b22 + a13*b23 + a14*b24
-        , a11*b13 + a12*b23 + a13*b33 + a14*b34
-        , a11*b14 + a12*b24 + a13*b34 + a14*b44
-   --   , a12*b11 + a22*b12 + a23*b13 + a24*b14
-        , a12*b12 + a22*b22 + a23*b23 + a24*b24
-        , a12*b13 + a22*b23 + a23*b33 + a24*b34
-        , a12*b14 + a22*b24 + a23*b34 + a24*b44
-   --   , a13*b11 + a23*b12 + a33*b13 + a34*b14
-   --   , a13*b12 + a23*b22 + a33*b23 + a34*b24
-        , a13*b13 + a23*b23 + a33*b33 + a34*b34
-        , a13*b14 + a23*b24 + a33*b34 + a34*b44
-   --   , a14*b11 + a24*b12 + a34*b13 + a44*b14
-   --   , a14*b12 + a24*b22 + a34*b23 + a44*b24
-   --   , a14*b13 + a24*b23 + a34*b33 + a44*b34
-        , a14*b14 + a24*b24 + a34*b34 + a44*b44
-        ]
+  mul (Cov {v: a}) (Cov {v: b}) = error "------------> mul cov4 * cov4 not allowed"
+    {-- Cov {v: c} where --}
+    {-- a11 = unsafePartial $ A.unsafeIndex a 0 --}
+    {-- a12 = unsafePartial $ A.unsafeIndex a 1 --}
+    {-- a13 = unsafePartial $ A.unsafeIndex a 2 --}
+    {-- a14 = unsafePartial $ A.unsafeIndex a 3 --}
+    {-- a22 = unsafePartial $ A.unsafeIndex a 4 --}
+    {-- a23 = unsafePartial $ A.unsafeIndex a 5 --}
+    {-- a24 = unsafePartial $ A.unsafeIndex a 6 --}
+    {-- a33 = unsafePartial $ A.unsafeIndex a 7 --}
+    {-- a34 = unsafePartial $ A.unsafeIndex a 8 --}
+    {-- a44 = unsafePartial $ A.unsafeIndex a 9 --}
+    {-- b11 = unsafePartial $ A.unsafeIndex b 0 --}
+    {-- b12 = unsafePartial $ A.unsafeIndex b 1 --}
+    {-- b13 = unsafePartial $ A.unsafeIndex b 2 --}
+    {-- b14 = unsafePartial $ A.unsafeIndex b 3 --}
+    {-- b22 = unsafePartial $ A.unsafeIndex b 4 --}
+    {-- b23 = unsafePartial $ A.unsafeIndex b 5 --}
+    {-- b24 = unsafePartial $ A.unsafeIndex b 6 --}
+    {-- b33 = unsafePartial $ A.unsafeIndex b 7 --}
+    {-- b34 = unsafePartial $ A.unsafeIndex b 8 --}
+    {-- b44 = unsafePartial $ A.unsafeIndex b 9 --}
+    {-- c = [ a11*b11 + a12*b12 + a13*b13 + a14*b14 --}
+    {--     , a11*b12 + a12*b22 + a13*b23 + a14*b24 --}
+    {--     , a11*b13 + a12*b23 + a13*b33 + a14*b34 --}
+    {--     , a11*b14 + a12*b24 + a13*b34 + a14*b44 --}
+   {-- --   , a12*b11 + a22*b12 + a23*b13 + a24*b14 --}
+    {--     , a12*b12 + a22*b22 + a23*b23 + a24*b24 --}
+    {--     , a12*b13 + a22*b23 + a23*b33 + a24*b34 --}
+    {--     , a12*b14 + a22*b24 + a23*b34 + a24*b44 --}
+   {-- --   , a13*b11 + a23*b12 + a33*b13 + a34*b14 --}
+   {-- --   , a13*b12 + a23*b22 + a33*b23 + a34*b24 --}
+    {--     , a13*b13 + a23*b23 + a33*b33 + a34*b34 --}
+    {--     , a13*b14 + a23*b24 + a33*b34 + a34*b44 --}
+   {-- --   , a14*b11 + a24*b12 + a34*b13 + a44*b14 --}
+   {-- --   , a14*b12 + a24*b22 + a34*b23 + a44*b24 --}
+   {-- --   , a14*b13 + a24*b23 + a34*b33 + a44*b34 --}
+    {--     , a14*b14 + a24*b24 + a34*b34 + a44*b44 --}
+    {--     ] --}
   one = Cov { v: [1.0,0.0,0.0,0.0,1.0,0.0,0.0,1.0,0.0,1.0] }
 instance ringCov4 :: Ring (Cov Dim4) where
   sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
@@ -535,7 +546,7 @@ instance showCov4 :: Show (Cov Dim4) where
 instance semiringCov5 :: Semiring (Cov Dim5) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
   zero = Cov {v: A.replicate 15 0.0 }
-  mul a b = b `debug` "------------> mul cov5 * cov5 not allowed"
+  mul a b = error "------------> mul cov5 * cov5 not allowed"
   {-- mul (Cov {v: a}) (Cov {v: b}) = Cov {v: c} where --}
 {-- -- | a: array of values at row number i and column number j --}
 {-- -- | w: width, number of columns --}
@@ -674,7 +685,7 @@ instance chi2Dim5 :: Chi2 Dim5 where
   chi2 v c = x where
     mv = toMatrix v
     mc = toMatrix c
-    mx = M.tr mv * mc * mv
+    mx = M.transpose mv * mc * mv
     x = uidx (M.toArray mx) 0
   sandwichvv (Vec {v:v1}) (Vec {v:v2}) = vv where
     vv = A.foldl (+) zero $ A.zipWith (*) v1 v2
@@ -682,7 +693,7 @@ instance chi2Dim3 :: Chi2 Dim3 where
   chi2 v c = x where
     mv = toMatrix v
     mc = toMatrix c
-    mx = M.tr mv * mc * mv
+    mx = M.transpose mv * mc * mv
     x = uidx (M.toArray mx) 0
   sandwichvv (Vec {v:v1}) (Vec {v:v2}) = vv where
     vv = A.foldl (+) zero $ A.zipWith (*) v1 v2
@@ -708,7 +719,7 @@ instance tmat33 :: TransMat2 Dim3 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
-    mc' = M.tr mj * mc * mj
+    mc' = M.transpose mj * mc * mj
     c' = fromArray $ M.toArray mc'
   transcov j c = j' where
     mj = toMatrix j
@@ -734,7 +745,7 @@ instance tmat34 :: TransMat2 Dim3 Dim4 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
-    mc' = M.tr mj * mc * mj
+    mc' = M.transpose mj * mc * mj
     c' = fromArray $ M.toArray mc'
   transcov j c = j' where
     mj = toMatrix j
@@ -760,7 +771,7 @@ instance tmat35 :: TransMat2 Dim3 Dim5 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
-    mc' = M.tr mj * mc * mj
+    mc' = M.transpose mj * mc * mj
     c' = fromArray $ M.toArray mc'
   transcov j c = j' where
     mj = toMatrix j
@@ -786,7 +797,7 @@ instance tmat43 :: TransMat2 Dim4 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
-    mc' = M.tr mj * mc * mj
+    mc' = M.transpose mj * mc * mj
     c' = fromArray $ M.toArray mc'
   transcov j c = j' where
     mj = toMatrix j
@@ -812,7 +823,7 @@ instance tmat53 :: TransMat2 Dim5 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
-    mc' = M.tr mj * mc * mj
+    mc' = M.transpose mj * mc * mj
     c' = fromArray $ M.toArray mc'
   transcov j c = j' where
     mj = toMatrix j
@@ -838,7 +849,7 @@ instance tmat55 :: TransMat2 Dim5 Dim5 where
   sandwich j c = c' where
     mj = toMatrix j
     mc = toMatrix c
-    mc' = M.tr mj * mc * mj
+    mc' = M.transpose mj * mc * mj
     c' = fromArray $ M.toArray mc'
   transcov j c = j' where
     mj = toMatrix j
@@ -947,3 +958,111 @@ tr (Jac {v}) = Jac {v:v'} where
   a53 = unsafePartial $ A.unsafeIndex v 14
   v' = [a11,a21,a31,a41,a51,a12,a22,a32,a42,a52,a13,a23,a33,a43,a53]
 
+-- CHOLESKY DECOMPOSITION
+
+-- | Simple Cholesky decomposition of a symmetric, positive definite matrix.
+--   The result for a matrix /M/ is a lower triangular matrix /L/ such that:
+--
+--   * /M = LL^T/.
+--
+--   Example:
+--
+-- >            (  2 -1  0 )   (  1.41  0     0    )
+-- >            ( -1  2 -1 )   ( -0.70  1.22  0    )
+-- > cholDecomp (  0 -1  2 ) = (  0.00 -0.81  1.15 )
+{-- cholDecomp :: forall a. Cov a -> Cov a --}
+{-- cholDecomp a --}
+{--         | (nrows a == 1) && (ncols a == 1) = fmap sqrt a --}
+{--         | otherwise = joinBlocks (l11, l12, l21, l22) where --}
+{--     (a11, a12, a21, a22) = splitBlocks 1 1 a --}
+{--     l11' = sqrt (a11 ! (1,1)) --}
+{--     l11 = fromList 1 1 [l11'] --}
+{--     l12 = zero (nrows a12) (ncols a12) --}
+{--     l21 = scaleMatrix (1/l11') a21 --}
+{--     a22' = a22 - multStd l21 (transpose l21) --}
+{--     l22 = cholDecomp a22' --}
+
+
+
+-- Given a positive-deﬁnite symmetric matrix a[1..n][1..n],
+-- this routine constructs its Cholesky decomposition,
+-- A = L · L T
+-- On input, only the upper triangle of a need be given; it is not modiﬁed.
+-- The Cholesky factor L is returned in the lower triangle of a,
+-- except for its diagonal elements which are returned in p[1..n].
+
+
+run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a
+run act = pureST (act >>= unsafeFreeze)
+
+uGet :: Array Number -> Int -> Int -> Int -> Number
+uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a ((i-1)*w - (i-1)*(i-2)/2 + j-i)
+             | otherwise = unsafePartial $ A.unsafeIndex a ((j-1)*w - (j-1)*(j-2)/2 + i-j)
+choldc :: Cov3 -> Cov3
+choldc (Cov {v: a}) = Cov {v: a'} where
+  n = 3
+  w = 3
+  idx :: Int -> Int -> Int
+  idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
+          | otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
+  uJust = unsafePartial $ fromJust
+  aaa = run (do
+    arr <- emptySTArray
+    void $ pushSTArray arr 1.0
+    void $ pushSTArray arr 2.0
+    void $ pushSTArray arr 3.0
+    void $ pushSTArray arr 4.0
+    void $ pushSTArray arr 5.0
+    void $ pushSTArray arr 6.0
+    let indexes :: Array (Tuple Int Int)
+        indexes = do
+          i <- A.range 1 w
+          j <- A.range i w
+          pure $ Tuple i j
+        peek c = do
+          xx <- peekSTArray arr c
+          pure xx
+        gg i j k = do
+          aik <- peekSTArray arr (idx i k) `debug` ("--> " <> show i <> show j <> show k <> show (idx i j) )
+          ajk <- peekSTArray arr (idx j k)
+          aij <- peekSTArray arr (idx i j)
+          void $ pokeSTArray arr (idx i j) $ (uJust aij) - (uJust aik) * (uJust ajk)
+        ff c = do
+          let Tuple i j = (uidx indexes c)
+              aij = uGet a w i j `debug` ("-> " <> show i <> show j <> show (idx i j))
+          void $ pokeSTArray arr c aij
+          mx <- peekSTArray arr (idx i j)
+          void$ pokeSTArray arr (idx i j) (uJust mx)
+          let kmin = 1
+              kmax = (i-1) + 1
+          forE kmin kmax do \k -> gg i j k
+          msum <- peekSTArray arr (idx i j)
+          maii' <- peekSTArray arr (idx i i)
+          let sum = uJust msum
+              aii' = uJust maii'
+              aij' = if (i==j) then (sqrt aii') else sum / (sqrt aii')
+          void $ pokeSTArray arr (idx i j) aij'
+    forE 0 6 do \c -> ff c
+    pure arr)
+  a' = aaa `debug` ("--->> arr" <> show aaa)
+
+  {-- aa = do --}
+  {--   i <- A.range 1 n `debug` ("--->> pp" <> show pp) --}
+  {--   j <- A.range i n --}
+  {--   let s0 = uGet a w i j --}
+  {--   let sr = sum do --}
+  {--                 k <- A.range (i-1) 1 --}
+  {--                 let gg = k>0 && i>1 --}
+  {--                 guard $ gg --}
+  {--                 let aaa = uGet a w i k `debug` ("--->ji ik jk " <> show j <> show i <> " " <> show i <> show k <> " " <> show j <> show k ) --}
+  {--                 pure $ (uGet a w i k)*(uGet a w j k) --}
+  {--   let ss = s0 - sr `debug` ( "---->> ji ss pp " <> show j <> show i <> " " <> show (s0 - sr) <> " " <> show (uidx pp (i-1))) --}
+  {--   pure $ if i == j then uidx pp (i-1) else ss / (uidx pp (i-1)) --}
+  {-- a' = aaa `debug` ("--->> aa" <> show aaa) --}
+
+  {--     for (sum=a[i][j],k=i-1;k>=1;k--) sum -= a[i][k]*a[j][k]; --} 
+  {--     if (i == j) { --} 
+  {--       if (sum <= 0.0) -- a, with rounding errors, is not positive deﬁnite. --} 
+  {--           nrerror("choldc failed"); --} 
+  {--       p[i]=sqrt(sum); --} 
+  {--     } else a[j][i]=sum/p[i]; --} 
