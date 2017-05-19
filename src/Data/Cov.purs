@@ -53,6 +53,10 @@ type Vec4 = Vec Dim4
 type Vec5 = Vec Dim5
 type Jacs = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 
+-- access to arrays of symmetrical matrices
+uGet :: Array Number -> Int -> Int -> Int -> Number
+uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a ((i-1)*w - (i-1)*(i-2)/2 + j-i)
+             | otherwise = unsafePartial $ A.unsafeIndex a ((j-1)*w - (j-1)*(j-2)/2 + i-j)
 -------------------------------------------------------------------------
 -------------------------------------------------------------------------
 -------------------------------------------------------------------------
@@ -234,12 +238,12 @@ instance matJac55 :: Mat (Jac Dim5 Dim5) where
 -- | funcitons for symetric matrices: Cov
 -- | type class SymMat
 class SymMat a where
-  inv :: a -> a               -- | inverse matrix
-  invMaybe :: a -> Maybe a    -- | Maybe inverse matrix
-  det :: a -> Number          -- | determinant
-  diag :: a -> Array Number   -- | Array of diagonal elements
-  chol :: a -> a              -- | Cholsky decomposition
-instance symMatCov3 :: SymMat (Cov Dim3) where
+  inv :: Cov a -> Cov a                -- | inverse matrix
+  invMaybe :: Cov a -> Maybe (Cov a)   -- | Maybe inverse matrix
+  det :: Cov a -> Number               -- | determinant
+  diag :: Cov a -> Array Number        -- | Array of diagonal elements
+  chol :: Cov a -> Jac a a             -- | Cholsky decomposition
+instance symMatCov3 :: SymMat Dim3 where
   inv m = unsafePartial $ fromJust (invMaybe m)
   invMaybe (Cov {v}) = do
     let
@@ -261,7 +265,7 @@ instance symMatCov3 :: SymMat (Cov Dim3) where
         b33 = (a12*a12 - a11*a22)/det
         v' = [b11,b12,b13,b22,b23,b33]
     pure $ fromArray v'
-  chol a = a
+  chol a = choldc a 3
   det (Cov {v}) = dd where
         a = unsafePartial $ A.unsafeIndex v 0
         b = unsafePartial $ A.unsafeIndex v 1
@@ -275,7 +279,7 @@ instance symMatCov3 :: SymMat (Cov Dim3) where
     a22 = unsafePartial $ A.unsafeIndex v 3
     a33 = unsafePartial $ A.unsafeIndex v 5
     a = [a11,a22,a33]
-instance symMatCov4 :: SymMat (Cov Dim4) where
+instance symMatCov4 :: SymMat Dim4 where
   inv m = unsafePartial $ fromJust (invMaybe m)
   invMaybe (Cov {v}) = do
     let
@@ -325,8 +329,8 @@ instance symMatCov4 :: SymMat (Cov Dim4) where
     a33 = unsafePartial $ A.unsafeIndex v 7
     a44 = unsafePartial $ A.unsafeIndex v 9
     a = [a11,a22,a33,a44]
-  chol a = a
-instance symMatCov5 :: SymMat (Cov Dim5) where
+  chol a = choldc a 4
+instance symMatCov5 :: SymMat Dim5 where
   inv m = unsafePartial $ fromJust (invMaybe m)
   invMaybe (Cov {v}) = do
     let
@@ -460,7 +464,7 @@ instance symMatCov5 :: SymMat (Cov Dim5) where
     a44 = unsafePartial $ A.unsafeIndex v 12
     a55 = unsafePartial $ A.unsafeIndex v 14
     a = [a11,a22,a33,a44,a55]
-  chol a = undefined
+  chol a = choldc a 5
 
 
 instance semiringCov3 :: Semiring (Cov Dim3) where
@@ -709,6 +713,7 @@ class TransMat2 a b where
   transvoc :: Cov a -> Jac a b -> Jac a b      -- Cov * Jac
   transvec :: Jac a b -> Vec b -> Vec a        -- Jac * Vec
   sandwichjj :: Jac a b -> Jac b a -> Jac a a  -- Jac * Jac
+  tr :: Jac a b -> Jac b a
 infixr 7 sandwich as ||*||
 infixr 7 transcov as ||*
 infixr 7 transvoc as *||
@@ -741,6 +746,10 @@ instance tmat33 :: TransMat2 Dim3 Dim3 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
+  tr j = jt where
+    mj = toMatrix j
+    mjt = M.transpose mj
+    jt = fromArray $ M.toArray mjt
 instance tmat34 :: TransMat2 Dim3 Dim4 where
   sandwich j c = c' where
     mj = toMatrix j
@@ -767,6 +776,10 @@ instance tmat34 :: TransMat2 Dim3 Dim4 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
+  tr j = jt where
+    mj = toMatrix j
+    mjt = M.transpose mj
+    jt = fromArray $ M.toArray mjt
 instance tmat35 :: TransMat2 Dim3 Dim5 where
   sandwich j c = c' where
     mj = toMatrix j
@@ -793,6 +806,10 @@ instance tmat35 :: TransMat2 Dim3 Dim5 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c'  = fromArray $ M.toArray mc'
+  tr j = jt where
+    mj = toMatrix j
+    mjt = M.transpose mj
+    jt = fromArray $ M.toArray mjt
 instance tmat43 :: TransMat2 Dim4 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
@@ -819,6 +836,10 @@ instance tmat43 :: TransMat2 Dim4 Dim3 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
+  tr j = jt where
+    mj = toMatrix j
+    mjt = M.transpose mj
+    jt = fromArray $ M.toArray mjt
 instance tmat53 :: TransMat2 Dim5 Dim3 where
   sandwich j c = c' where
     mj = toMatrix j
@@ -845,6 +866,27 @@ instance tmat53 :: TransMat2 Dim5 Dim3 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
+  tr (Jac {v}) = Jac {v:v'} where
+    a11 = unsafePartial $ A.unsafeIndex v 0
+    a12 = unsafePartial $ A.unsafeIndex v 1
+    a13 = unsafePartial $ A.unsafeIndex v 2
+    a21 = unsafePartial $ A.unsafeIndex v 3
+    a22 = unsafePartial $ A.unsafeIndex v 4
+    a23 = unsafePartial $ A.unsafeIndex v 5
+    a31 = unsafePartial $ A.unsafeIndex v 6
+    a32 = unsafePartial $ A.unsafeIndex v 7
+    a33 = unsafePartial $ A.unsafeIndex v 8
+    a41 = unsafePartial $ A.unsafeIndex v 9
+    a42 = unsafePartial $ A.unsafeIndex v 10
+    a43 = unsafePartial $ A.unsafeIndex v 11
+    a51 = unsafePartial $ A.unsafeIndex v 12
+    a52 = unsafePartial $ A.unsafeIndex v 13
+    a53 = unsafePartial $ A.unsafeIndex v 14
+    v' = [a11,a21,a31,a41,a51,a12,a22,a32,a42,a52,a13,a23,a33,a43,a53]
+  {-- tr j = jt where --}
+  {--   mj = toMatrix j --}
+  {--   mjt = M.transpose mj --}
+  {--   jt = fromArray $ M.toArray mjt --}
 instance tmat55 :: TransMat2 Dim5 Dim5 where
   sandwich j c = c' where
     mj = toMatrix j
@@ -871,7 +913,10 @@ instance tmat55 :: TransMat2 Dim5 Dim5 where
     mj2 = toMatrix j2
     mc' = mj1 * mj2
     c' = fromArray $ M.toArray mc'
-
+  tr j = jt where
+    mj = toMatrix j
+    mjt = M.transpose mj
+    jt = fromArray $ M.toArray mjt
 -------------------------------------------------------------------------
 -- TransMat for operations that need only dimensional parameters
 -- TransMat for Cov * Vec and Cov * Cov * Cov
@@ -939,24 +984,6 @@ subm2 n (Cov {v:v}) = Cov {v: v'} where
   a33 = unsafePartial $ A.unsafeIndex v 9
   v' = [a11,a12,a13,a22,a23,a33]
 
-tr :: Jac53 -> Jac35
-tr (Jac {v}) = Jac {v:v'} where
-  a11 = unsafePartial $ A.unsafeIndex v 0
-  a12 = unsafePartial $ A.unsafeIndex v 1
-  a13 = unsafePartial $ A.unsafeIndex v 2
-  a21 = unsafePartial $ A.unsafeIndex v 3
-  a22 = unsafePartial $ A.unsafeIndex v 4
-  a23 = unsafePartial $ A.unsafeIndex v 5
-  a31 = unsafePartial $ A.unsafeIndex v 6
-  a32 = unsafePartial $ A.unsafeIndex v 7
-  a33 = unsafePartial $ A.unsafeIndex v 8
-  a41 = unsafePartial $ A.unsafeIndex v 9
-  a42 = unsafePartial $ A.unsafeIndex v 10
-  a43 = unsafePartial $ A.unsafeIndex v 11
-  a51 = unsafePartial $ A.unsafeIndex v 12
-  a52 = unsafePartial $ A.unsafeIndex v 13
-  a53 = unsafePartial $ A.unsafeIndex v 14
-  v' = [a11,a21,a31,a41,a51,a12,a22,a32,a42,a52,a13,a23,a33,a43,a53]
 
 -- CHOLESKY DECOMPOSITION
 
@@ -969,85 +996,162 @@ tr (Jac {v}) = Jac {v:v'} where
 --
 -- >            (  2 -1  0 )   (  1.41  0     0    )
 -- >            ( -1  2 -1 )   ( -0.70  1.22  0    )
--- > cholDecomp (  0 -1  2 ) = (  0.00 -0.81  1.15 )
-{-- cholDecomp :: forall a. Cov a -> Cov a --}
-{-- cholDecomp a --}
-{--         | (nrows a == 1) && (ncols a == 1) = fmap sqrt a --}
-{--         | otherwise = joinBlocks (l11, l12, l21, l22) where --}
-{--     (a11, a12, a21, a22) = splitBlocks 1 1 a --}
-{--     l11' = sqrt (a11 ! (1,1)) --}
-{--     l11 = fromList 1 1 [l11'] --}
-{--     l12 = zero (nrows a12) (ncols a12) --}
-{--     l21 = scaleMatrix (1/l11') a21 --}
-{--     a22' = a22 - multStd l21 (transpose l21) --}
-{--     l22 = cholDecomp a22' --}
-
-
-
+-- > choldx     (  0 -1  2 ) = (  0.00 -0.81  1.15 )
+--
 -- Given a positive-deﬁnite symmetric matrix a[1..n][1..n],
 -- this routine constructs its Cholesky decomposition,
--- A = L · L T
--- On input, only the upper triangle of a need be given; it is not modiﬁed.
+-- A = L · L^T
 -- The Cholesky factor L is returned in the lower triangle of a,
 -- except for its diagonal elements which are returned in p[1..n].
 
 
-run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a
-run act = pureST (act >>= unsafeFreeze)
-
-uGet :: Array Number -> Int -> Int -> Int -> Number
-uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a ((i-1)*w - (i-1)*(i-2)/2 + j-i)
-             | otherwise = unsafePartial $ A.unsafeIndex a ((j-1)*w - (j-1)*(j-2)/2 + i-j)
-choldc :: Cov3 -> Cov3
-choldc (Cov {v: a}) = Cov {v: a'} where
-  n = 3
-  w = 3
-  l = 6
-  idx :: Int -> Int -> Int
-  idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
-          | otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
+choldc :: forall a. Cov a -> Int -> Jac a a
+choldc (Cov {v: a}) n = Jac {v: a'} where
+  w = n
+  ll = n*n --n*(n+1)/2
+  idx' j i | i >= j   = (i-1)*w + j-1
+           | otherwise = error "idx': i < j"
   uJust = unsafePartial $ fromJust
-  aaa = run (do
+  indexes :: Array (Tuple Int Int)
+  indexes = do
+    i <- A.range 1 w
+    j <- A.range i w
+    pure $ Tuple i j
+  {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
+  {-- run act = pureST (act >>= unsafeFreeze) --}
+  {-- a' = run (do --}
+  a' = pureST ((do
+    -- make a STArray of n x n + space for diagonal
     arr <- emptySTArray
-    let
-        push = do
-          _ <- pushSTArray arr 0.0
-          pure unit
-        indexes :: Array (Tuple Int Int)
-        indexes = do
-          i <- A.range 1 w
-          j <- A.range i w
-          pure $ Tuple i j
-        gg i j k = do
-          aik <- peekSTArray arr (idx i k) `debug` ("--> k iter " <> show i <> show j <> show k <> show (idx i j) )
-          ajk <- peekSTArray arr (idx j k)
-          aij <- peekSTArray arr (idx i j)
-          void $ pokeSTArray arr (idx i j) $ (uJust aij) - (uJust aik) * (uJust ajk) `debug` ("aij'" <> show i <> show j <> show aij)
-        ff c = do
+    _ <- pushAllSTArray arr (A.replicate (ll+n) 0.0)
+
+    -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
+    forE 0 (n*(n+1)/2) \c -> do
           let Tuple i j = (uidx indexes c)
-              aij = uidx a c `debug` ("-> " <> show i <> show j <> show (idx i j) <> " " <> show (uidx a c))
-          void $ pokeSTArray arr c aij `debug` ("initial poke " <> show i <> show j <> " " <> show aij)
+              aij = uidx a c
+          _ <- pokeSTArray arr (idx' i j) aij
           let kmin = 1
               kmax = (i-1) + 1
-          forE kmin kmax do \k -> gg i j k
-          msum <- peekSTArray arr (idx i j)
-          let sum' = uJust msum
-              sum = if (i==j) && sum' < 0.0 then error ("choldc: not a positive definite matrix " <> show a)
-                                            else sum' `debug` ("---> sum=" <> show sum')
-          mpi' <- peekSTArray arr (l+i-1)
-          let pi' = uJust mpi'
-              pi = if i == j then sqrt sum else pi' `debug` ("--> p'" <> show i <> show j <> "=" <> show pi')
-          void $ if i==j
-                         then pokeSTArray arr (l+i-1) pi `debug` ("---> poke p" <> show i <> "=" <> show pi)
-                         else pokeSTArray arr c (sum/pi) `debug` ("---> poke " <> show i <> show j <> " " <> show (sum/pi))
-          pure $ unit
-        hh i = do
-          maii <- peekSTArray arr (l+i-1)
-          let aii = uJust maii
-          void $ pokeSTArray arr (idx i i) aii
+          forE kmin kmax \k -> do
+              aik <- peekSTArray arr (idx' k i)
+              ajk <- peekSTArray arr (idx' k j)
+              aij <- peekSTArray arr (idx' i j)
+              void $ pokeSTArray arr (idx' i j) ((uJust aij)
+                                               - (uJust aik) * (uJust ajk))
 
-    forE 0 (l+w) do \_ -> push -- make an STarray of lenght + nrows
-    forE 0 l do \c -> ff c
-    forE 1 (w+1) do \i -> hh i
-    pure arr)
-  a' = aaa `debug` ("--->> arr" <> show aaa)
+          msum <- peekSTArray arr (idx' i j)
+          let sum' = uJust msum
+              sum = if (i==j) && sum' < 0.0
+                       then error ("choldc: not a positive definite matrix " <> show a)
+                       else sum'
+          mp_i' <- peekSTArray arr (ll+i-1)
+          let p_i' = uJust mp_i'
+              p_i = if i == j then sqrt sum else p_i'
+          void $ if i==j
+                         then pokeSTArray arr (ll+i-1) p_i -- store diag terms outside main array
+                         else pokeSTArray arr (idx' i j) (sum/p_i)
+          pure $ unit
+
+    -- copy diagonal back into array
+    forE 1 (w+1) \i -> do
+          maii <- peekSTArray arr (ll+i-1)
+          let aii = uJust maii
+          void $ pokeSTArray arr (idx' i i) aii
+    pure arr) >>= unsafeFreeze)
+
+-- | Matrix inversion using Cholesky decomposition
+-- | based on Numerical Recipies formulat in 2.9
+--
+cholInv :: forall a. Cov a -> Int -> Jac a a
+cholInv (Cov {v: a}) n = Jac {v: a'} where
+  w = n
+  ll = n*n --n*(n+1)/2
+  idx' j i | i >= j   = (i-1)*w + j-1
+           | otherwise = error "idx': i < j"
+  idx'' i j | i >= j   = (j-1)*w + i-1
+            | otherwise = error "idx'': i < j"
+  uJust = unsafePartial $ fromJust
+  indexes :: Array (Tuple Int Int)
+  indexes = do
+    i <- A.range 1 w
+    j <- A.range i w
+    pure $ Tuple i j
+  {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
+  {-- run act = pureST (act >>= unsafeFreeze) --}
+  {-- a' = run (do --}
+  a' = pureST ((do
+    -- make a STArray of n x n + space for diagonal
+    arr <- emptySTArray
+    _ <- pushAllSTArray arr (A.replicate (ll+n) 0.0)
+
+    -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
+    forE 0 (n*(n+1)/2) \c -> do
+          let Tuple i j = (uidx indexes c)
+              aij = uidx a c
+          _ <- pokeSTArray arr (idx' i j) aij
+          let kmin = 1
+              kmax = (i-1) + 1
+          forE kmin kmax \k -> do
+              aik <- peekSTArray arr (idx' k i)
+              ajk <- peekSTArray arr (idx' k j)
+              aij <- peekSTArray arr (idx' i j)
+              void $ pokeSTArray arr (idx' i j) ((uJust aij)
+                                               - (uJust aik) * (uJust ajk))
+
+          msum <- peekSTArray arr (idx' i j)
+          let sum' = uJust msum
+              sum = if (i==j) && sum' < 0.0
+                       then error ("choldc: not a positive definite matrix " <> show a)
+                       else sum'
+          mp_i' <- peekSTArray arr (ll+i-1)
+          let p_i' = uJust mp_i'
+              p_i = if i == j then sqrt sum else p_i'
+          void $ if i==j
+                         then pokeSTArray arr (ll+i-1) p_i -- store diag terms outside main array
+                         else pokeSTArray arr (idx' i j) (sum/p_i)
+          pure $ unit
+
+    -- invert L -> L^(-1)
+--for (i=1;i<=n;i++) {
+--  a[i][i]=1.0/p[i];
+--  for (j=i+1;j<=n;j++) {
+--    sum=0.0;
+--    for (k=i;k<j;k++) sum -= a[j][k]*a[k][i];
+--    a[j][i]=sum/p[j];
+--  }
+--}
+    {-- forE 1 (w+1) \i -> do --}
+    {--   maii <- peekSTArray arr (ll+i-1) --}
+    {--   void $ pokeSTArray arr (idx'' i i) (1.0/(uJust maii)) --}
+    {--   forE i (w+1) \j -> do --}
+    {--     void $ pokeSTArray arr (idx'' j i) 0.0 --}
+    {--     forE i j \k -> do --}
+    {--       majk <- peekSTArray arr (idx'' j k) --}
+    {--       maki <- peekSTArray arr (idx'' k i) --}
+    {--       maji <- peekSTArray arr (idx'' j i) --}
+    {--       void $ pokeSTArray arr (idx'' j i) ((uJust maji) --}
+    {--                                       - (uJust majk) * (uJust maki)) --}
+    {--     maji <- peekSTArray arr (idx'' j i) --}
+    {--     void $ pokeSTArray arr (idx'' i i) ((uJust maji)/(uJust maii)) --}
+    pure arr) >>= unsafeFreeze)
+
+--C version Numerical Recipies 2.9
+--for (i=1;i<=n;i++) {
+--  for (j=i;j<=n;j++) {
+--    for (sum=a[i][j],k=i-1;k>=1;k--) sum -= a[i][k]*a[j][k];
+--    if (i == j) {
+--      if (sum <= 0.0) nrerror("choldc failed");
+--      p[i]=sqrt(sum);
+--    } else a[j][i]=sum/p[i];
+--  }
+--}
+-- In this, and many other applications, one often needs L^(−1) . The lower 
+-- triangle of this matrix can be efﬁciently found from the output of choldc:
+--for (i=1;i<=n;i++) {
+--  a[i][i]=1.0/p[i];
+--  for (j=i+1;j<=n;j++) {
+--    sum=0.0;
+--    for (k=i;k<j;k++) sum -= a[j][k]*a[k][i];
+--    a[j][i]=sum/p[j];
+--  }
+--}

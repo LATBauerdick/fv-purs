@@ -23,6 +23,7 @@ import Data.Maybe ( fromJust )
 import Partial.Unsafe ( unsafePartial )
 import Data.List ( mapMaybe )
 
+import Test.Matrix (testMatrix)
 import Test.Cov (testCov)
 
 import FV.Types
@@ -46,7 +47,7 @@ main = do
   log "FVT Test Suite"
   log "--Test hSlurp"
   {-- testHSlurp --}
-  {-- log "--Test Matrix" --}
+  log "--Test Matrix"
   {-- testMatrix --}
   log "--Test Cov"
   log $ testCov 0

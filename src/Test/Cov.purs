@@ -3,8 +3,8 @@ module Test.Cov (testCov) where
 import Prelude
 import Data.Cov 
   ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5
-  , fromArray, inv, toMatrix, tr, choldc
-  , (*|), (|*|), (|.|), (||*||), (|||)
+  , fromArray, inv, toMatrix, tr, chol, cholInv
+  , (*|), (|*|), (|.|), (||*||), (|||), (||||)
   )
 import Data.SimpleMatrix as M
 
@@ -27,8 +27,14 @@ testCov cnt = "testCov: " <> show cnt
         {-- <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5) --}
         {-- <> show (c3 * (inv c3)) --}
         {-- <> show (c4 * (inv c4)) --}
-        <> "choldc" <> show ch3 
-        <> show cch3
+        <> "chol" <> show ch3
+        <> show cch3 <> show (cch3 |||| tr cch3)
+        <> "chol" <> show ch5
+        <> show (chol ch5) <> show ( chol ch5 |||| tr (chol ch5))
+        <> "cholInv" <> show (cholInv ch3 3)
+        <> show ((cholInv ch3 3) |||| tr (cholInv ch3 3))
+        <> "cholInv" <> show (cholInv ch5 5)
+        <> show ((cholInv ch5 5) |||| tr (cholInv ch5 5))
         where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
@@ -67,7 +73,11 @@ testCov cnt = "testCov: " <> show cnt
 
   ch3 :: Cov3
   ch3 = fromArray [2.0, -1.0, 0.0, 2.0, -1.0, 2.0]
-  cch3 = choldc ch3
+  cch3 = chol ch3
+  ich3 = cholInv ch3
+
+  ch5 :: Cov5
+  ch5 = fromArray [2.0, -1.0, 0.0, 0.0, 0.0, 2.0, -1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 0.0, 2.0]
 
 -----------------------------------------------
 

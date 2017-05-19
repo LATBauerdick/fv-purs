@@ -8,11 +8,11 @@ import Prelude
 import Data.Tuple ( Tuple (..) )
 import Data.Maybe ( fromMaybe )
 import Data.List ( List(..), (:), length, head, range ) as L
-import Data.Array (
-                    range, index, unsafeIndex, cons, concat, fromFoldable, take
-                  , mapMaybe, replicate, slice, length , all, singleton, head
-                  , filter, findIndex
-                  ) as A
+import Data.Array
+  ( range, index, unsafeIndex, cons, concat, fromFoldable, take
+  , mapMaybe, replicate, slice, length , all, singleton, head
+  , filter, findIndex
+  ) as A
 import Data.Foldable ( maximum, sum )
 import Data.String ( length, fromCharArray ) as S
 import Partial.Unsafe ( unsafePartial )
@@ -77,7 +77,7 @@ instance showMatrixNumber :: Show Matrix where
     ls = do
       i <- L.range 1 r
       let ws :: L.List String
-          ws = map (\j -> fillBlanks mx (show $ unsafeGet i j m)) (L.range 1 c)
+          ws = map (\j -> fillBlanks mx (to3fix $ unsafeGet i j m)) (L.range 1 c)
       pure $ "( " <> unwords ws <> " )"
     mx = fromMaybe 0 (maximum $ map (S.length <<< to3fix) v)
     fillBlanks k str =
