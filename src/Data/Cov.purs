@@ -1045,15 +1045,14 @@ choldc (Cov {v: a}) n = Jac {v: a'} where
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
     forE 1 (w+1) \i -> do
       forE i (w+1) \j -> do
-          let aij = uidx a (idx i j)
-          _ <- pokeSTArray arr (idx' i j) aij
+          _ <- pokeSTArray arr (idx' i j) (uidx a (idx i j))
           let kmin = 1
               kmax = (i-1) + 1
           forE kmin kmax \k -> do
               aik <- peekSTArray arr (idx' k i)
               ajk <- peekSTArray arr (idx' k j)
-              aij <- peekSTArray arr (idx' i j)
-              void $ pokeSTArray arr (idx' i j) ((uJust aij)
+              sum <- peekSTArray arr (idx' i j)
+              void $ pokeSTArray arr (idx' i j) ((uJust sum)
                                                - (uJust aik) * (uJust ajk))
 
           msum <- peekSTArray arr (idx' i j)
@@ -1091,13 +1090,12 @@ cholInv (Cov {v: a}) n = Jac {v: a'} where
            | otherwise = error "idx': i < j"
   idx'' i j | i >= j   = (i-1)*w + j-1
             | otherwise = error "idx'': i < j"
-  idx''' i j | i < j   = (i-1)*w + j-1
-            | otherwise = error "idx''': i >= j"
+  idx''' i j = (i-1)*w + j-1
   uJust = unsafePartial $ fromJust
-  a' = pureST ((do
-    -- make a STArray of n x n + space for diagonal
+  l = pureST ((do
+    -- make a STArray of n x n + space for diagonal +1 for summing
     arr <- emptySTArray
-    _ <- pushAllSTArray arr (A.replicate (ll+n) 0.0)
+    void $ pushAllSTArray arr (A.replicate (ll+n+1) 0.0)
 
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
     forE 1 (w+1) \i -> do
@@ -1127,49 +1125,29 @@ cholInv (Cov {v: a}) n = Jac {v: a'} where
                          else pokeSTArray arr (idx' i j) (sum/p_i)
           pure $ unit
 
-    -- copy diagonal back into array
-    {-- forE 1 (w+1) \i -> do --}
-    {--       maii <- peekSTArray arr (ll+i-1) --}
-    {--       let aii = uJust maii --}
-    {--       void $ pokeSTArray arr (idx' i i) aii --}
     -- invert L -> L^(-1)
---for (i=1;i<=n;i++) {
---  a[i][i]=1.0/p[i];
---  for (j=i+1;j<=n;j++) {
---    sum=0.0;
---    for (k=i;k<j;k++) sum -= a[j][k]*a[k][i];
---    a[j][i]=sum/p[j];
---  }
---}
     forE 1 (w+1) \i -> do
       mp_i <- peekSTArray arr (ll+i-1)
       void $ pokeSTArray arr (idx'' i i) (1.0/(uJust mp_i))
-
-    forE 1 (w+1) \i -> do
-      forE i (w+1) \j -> do
-        maij <- peekSTArray arr (idx'' j i)
-        let aij = uJust maij `debug` ("test: a" <> show j <> show i <> "=" <> show maij)
-        pure $ unit
-
-    forE 1 (w+1) \i -> do
       forE (i+1) (w+1) \j -> do
-        void $ pokeSTArray arr (idx''' i j) 0.0
-                                          `debug` ("poke a" <> show i <> show j)
+        void $ pokeSTArray arr (ll+w) 0.0
         forE i j \k -> do
           majk <- peekSTArray arr (idx'' j k)
           maki <- peekSTArray arr (idx'' k i)
-          maij <- peekSTArray arr (idx''' i j)
-          void $ pokeSTArray arr (idx''' i j) ((uJust maij)
-                                          - (uJust majk) * (uJust maki))
-                                          `debug` ("loop a" <> show i <> show j <> show k <> "=" <> show (uJust maij) <> " " <> show (uJust majk) <> " " <> show (uJust maki) )
-        maij <- peekSTArray arr (idx''' i j)
+          sum <- peekSTArray arr (ll+w)
+          void $ pokeSTArray arr (ll+w)
+                    ((uJust sum) - (uJust majk) * (uJust maki))
+        msum <- peekSTArray arr (ll+w)
         mp_j <- peekSTArray arr (ll+j-1)
-        void $ pokeSTArray arr (idx'' j i) ((uJust maij)/(uJust mp_j))
-                                          `debug` ("poke a" <> show j <> show i <>"="<> show (uJust maij) <> "/" <> show (uJust mp_j))
-      forE 1 (w+1) \i -> do
-        forE (i+1) (w+1) \j -> do
-          void $ pokeSTArray arr (idx''' i j) 0.0
+        void $ pokeSTArray arr (idx'' j i) ((uJust msum)/(uJust mp_j))
     pure arr) >>= unsafeFreeze)
+  a' = do
+    i <- A.range 1 n
+    j <- A.range 1 n
+    let aij = sum do
+                  k <- A.range 1 n
+                  pure $ (uidx l (idx''' k i)) * (uidx l (idx''' k j))
+    pure $ aij
 
 --C version Numerical Recipies 2.9
 --for (i=1;i<=n;i++) {
