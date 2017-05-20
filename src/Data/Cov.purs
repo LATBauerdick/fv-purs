@@ -1078,8 +1078,8 @@ choldc (Cov {v: a}) n = Jac {v: a'} where
 -- | Matrix inversion using Cholesky decomposition
 -- | based on Numerical Recipies formulat in 2.9
 --
-cholInv :: forall a. Cov a -> Int -> Jac a a
-cholInv (Cov {v: a}) n = Jac {v: a'} where
+cholInv :: forall a. Cov a -> Int -> Cov a
+cholInv (Cov {v: a}) n = Cov {v: a'} where
   w = n
   ll = n*n --n*(n+1)/2
   idx :: Int -> Int -> Int
@@ -1143,7 +1143,7 @@ cholInv (Cov {v: a}) n = Jac {v: a'} where
     pure arr) >>= unsafeFreeze)
   a' = do
     i <- A.range 1 n
-    j <- A.range 1 n
+    j <- A.range i n
     let aij = sum do
                   k <- A.range 1 n
                   pure $ (uidx l (idx''' k i)) * (uidx l (idx''' k j))
