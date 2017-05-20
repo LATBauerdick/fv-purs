@@ -52,7 +52,7 @@ main = do
   log "--Test Cov"
   log $ testCov 0
   log "--Test FVT"
-  {-- testFVT --}
+  testFVT
 
 showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
 showMomentum h = log $ "pt,pz,fi,E ->" <> (show <<< fromHMeas) h

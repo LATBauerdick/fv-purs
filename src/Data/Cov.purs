@@ -331,101 +331,103 @@ instance symMatCov4 :: SymMat Dim4 where
     a = [a11,a22,a33,a44]
   chol a = choldc a 4
 instance symMatCov5 :: SymMat Dim5 where
-  inv m = unsafePartial $ fromJust (invMaybe m)
-  invMaybe (Cov {v}) = do
-    let
-        a = unsafePartial $ A.unsafeIndex v 0
-        b = unsafePartial $ A.unsafeIndex v 1
-        c = unsafePartial $ A.unsafeIndex v 2
-        d = unsafePartial $ A.unsafeIndex v 3
-        e = unsafePartial $ A.unsafeIndex v 4
-        f = unsafePartial $ A.unsafeIndex v 5
-        g = unsafePartial $ A.unsafeIndex v 6
-        h = unsafePartial $ A.unsafeIndex v 7
-        i = unsafePartial $ A.unsafeIndex v 8
-        j = unsafePartial $ A.unsafeIndex v 9
-        k = unsafePartial $ A.unsafeIndex v 10
-        l = unsafePartial $ A.unsafeIndex v 11
-        m = unsafePartial $ A.unsafeIndex v 12
-        n = unsafePartial $ A.unsafeIndex v 13
-        o = unsafePartial $ A.unsafeIndex v 14
-        det = a*f*j*m*o - a*f*j*n*n - a*f*k*k*o + 2.0*a*f*k*l*n - a*f*l*l*m 
-          - a*g*g*m*o + a*g*g*n*n + 2.0*a*g*h*k*o - 2.0*a*g*h*l*n 
-          - 2.0*a*g*i*k*n + 2.0*a*g*i*l*m - a*h*h*j*o + a*h*h*l*l 
-          + 2.0*a*h*i*j*n - 2.0*a*h*i*k*l - a*i*i*j*m + a*i*i*k*k - b*b*j*m*o 
-          + b*b*j*n*n + b*b*k*k*o - 2.0*b*b*k*l*n + b*b*l*l*m + 2.0*b*c*g*m*o 
-          - 2.0*b*c*g*n*n - 2.0*b*c*h*k*o + 2.0*b*c*h*l*n + 2.0*b*c*i*k*n 
-          - 2.0*b*c*i*l*m - 2.0*b*d*g*k*o + 2.0*b*d*g*l*n + 2.0*b*d*h*j*o 
-          - 2.0*b*d*h*l*l - 2.0*b*d*i*j*n + 2.0*b*d*i*k*l + 2.0*b*e*g*k*n 
-          - 2.0*b*e*g*l*m - 2.0*b*e*h*j*n + 2.0*b*e*h*k*l + 2.0*b*e*i*j*m 
-          - 2.0*b*e*i*k*k - c*c*f*m*o + c*c*f*n*n + c*c*h*h*o - 2.0*c*c*h*i*n 
-          + c*c*i*i*m + 2.0*c*d*f*k*o - 2.0*c*d*f*l*n - 2.0*c*d*g*h*o 
-          + 2.0*c*d*g*i*n + 2.0*c*d*h*i*l - 2.0*c*d*i*i*k - 2.0*c*e*f*k*n 
-          + 2.0*c*e*f*l*m + 2.0*c*e*g*h*n - 2.0*c*e*g*i*m - 2.0*c*e*h*h*l 
-          + 2.0*c*e*h*i*k - d*d*f*j*o + d*d*f*l*l + d*d*g*g*o 
-          - 2.0*d*d*g*i*l + d*d*i*i*j + 2.0*d*e*f*j*n - 2.0*d*e*f*k*l 
-          - 2.0*d*e*g*g*n + 2.0*d*e*g*h*l + 2.0*d*e*g*i*k - 2.0*d*e*h*i*j 
-          - e*e*f*j*m + e*e*f*k*k + e*e*g*g*m - 2.0*e*e*g*h*k + e*e*h*h*j
-    guard $ (abs det) > 1.0e-50
-    let
-        a' = (i*i*k*k - 2.0*h*i*k*l + h*h*l*l - i*i*j*m + 2.0*g*i*l*m 
-            - f*l*l*m + 2.0*h*i*j*n - 2.0*g*i*k*n - 2.0*g*h*l*n + 2.0*f*k*l*n 
-            + g*g*n*n - f*j*n*n - h*h*j*o + 2.0*g*h*k*o - f*k*k*o 
-            - g*g*m*o + f*j*m*o)/det
-        b' = (-e*i*k*k + e*h*k*l + d*i*k*l - d*h*l*l + e*i*j*m - e*g*l*m 
-          - c*i*l*m + b*l*l*m - e*h*j*n - d*i*j*n + e*g*k*n + c*i*k*n 
-          + d*g*l*n + c*h*l*n - 2.0*b*k*l*n - c*g*n*n + b*j*n*n + d*h*j*o 
-          - d*g*k*o - c*h*k*o + b*k*k*o + c*g*m*o - b*j*m*o)/det
-        c' = (e*h*i*k - d*i*i*k - e*h*h*l + d*h*i*l - e*g*i*m + c*i*i*m 
-          + e*f*l*m - b*i*l*m + e*g*h*n + d*g*i*n - 2.0*c*h*i*n - e*f*k*n 
-          + b*i*k*n - d*f*l*n + b*h*l*n + c*f*n*n - b*g*n*n - d*g*h*o 
-          + c*h*h*o + d*f*k*o - b*h*k*o - c*f*m*o + b*g*m*o)/det
-        d' = (-e*h*i*j + d*i*i*j + e*g*i*k - c*i*i*k + e*g*h*l - 2.0*d*g*i*l 
-          + c*h*i*l - e*f*k*l + b*i*k*l + d*f*l*l - b*h*l*l - e*g*g*n 
-          + c*g*i*n + e*f*j*n - b*i*j*n - c*f*l*n + b*g*l*n + d*g*g*o 
-          - c*g*h*o - d*f*j*o + b*h*j*o + c*f*k*o - b*g*k*o)/det
-        e' = (e*h*h*j - d*h*i*j - 2.0*e*g*h*k + d*g*i*k + c*h*i*k + e*f*k*k 
-          - b*i*k*k + d*g*h*l - c*h*h*l - d*f*k*l + b*h*k*l + e*g*g*m 
-          - c*g*i*m - e*f*j*m + b*i*j*m + c*f*l*m - b*g*l*m - d*g*g*n 
-          + c*g*h*n + d*f*j*n - b*h*j*n - c*f*k*n + b*g*k*n)/det
-        f' = (e*e*k*k - 2.0*d*e*k*l + d*d*l*l - e*e*j*m + 2.0*c*e*l*m - a*l*l*m 
-          + 2.0*d*e*j*n - 2.0*c*e*k*n - 2.0*c*d*l*n + 2.0*a*k*l*n + c*c*n*n 
-          - a*j*n*n - d*d*j*o + 2.0*c*d*k*o - a*k*k*o - c*c*m*o + a*j*m*o)/det
-        g' = (-e*e*h*k + d*e*i*k + d*e*h*l - d*d*i*l + e*e*g*m - c*e*i*m 
-          - b*e*l*m + a*i*l*m - 2.0*d*e*g*n + c*e*h*n + c*d*i*n + b*e*k*n 
-          - a*i*k*n + b*d*l*n - a*h*l*n - b*c*n*n + a*g*n*n + d*d*g*o 
-          - c*d*h*o - b*d*k*o + a*h*k*o + b*c*m*o - a*g*m*o)/det
-        h' = (e*e*h*j - d*e*i*j - e*e*g*k + c*e*i*k + d*e*g*l - 2.0*c*e*h*l 
-          + c*d*i*l + b*e*k*l - a*i*k*l - b*d*l*l + a*h*l*l + c*e*g*n 
-          - c*c*i*n - b*e*j*n + a*i*j*n + b*c*l*n - a*g*l*n - c*d*g*o 
-          + c*c*h*o + b*d*j*o - a*h*j*o - b*c*k*o + a*g*k*o)/det
-        i' = (-d*e*h*j + d*d*i*j + d*e*g*k + c*e*h*k - 2.0*c*d*i*k 
-          - b*e*k*k + a*i*k*k - d*d*g*l + c*d*h*l + b*d*k*l - a*h*k*l 
-          - c*e*g*m + c*c*i*m + b*e*j*m - a*i*j*m - b*c*l*m + a*g*l*m 
-          + c*d*g*n - c*c*h*n - b*d*j*n + a*h*j*n + b*c*k*n - a*g*k*n)/det
-        j' = (e*e*h*h - 2.0*d*e*h*i + d*d*i*i - e*e*f*m + 2.0*b*e*i*m - a*i*i*m 
-          + 2.0*d*e*f*n - 2.0*b*e*h*n - 2.0*b*d*i*n + 2.0*a*h*i*n  + b*b*n*n 
-          - a*f*n*n - d*d*f*o + 2.0*b*d*h*o - a*h*h*o - b*b*m*o + a*f*m*o)/det
-        k' = (-e*e*g*h + d*e*g*i + c*e*h*i - c*d*i*i + e*e*f*k - 2.0*b*e*i*k 
-          + a*i*i*k - d*e*f*l + b*e*h*l + b*d*i*l - a*h*i*l - c*e*f*n 
-          + b*e*g*n + b*c*i*n - a*g*i*n - b*b*l*n + a*f*l*n + c*d*f*o 
-          - b*d*g*o - b*c*h*o + a*g*h*o + b*b*k*o - a*f*k*o)/det
-        l' = (d*e*g*h - c*e*h*h - d*d*g*i + c*d*h*i - d*e*f*k + b*e*h*k 
-          + b*d*i*k - a*h*i*k + d*d*f*l - 2.0*b*d*h*l + a*h*h*l + c*e*f*m 
-          - b*e*g*m - b*c*i*m + a*g*i*m + b*b*l*m - a*f*l*m - c*d*f*n 
-          + b*d*g*n + b*c*h*n - a*g*h*n - b*b*k*n + a*f*k*n)/det
-        m' = (e*e*g*g - 2.0*c*e*g*i + c*c*i*i - e*e*f*j + 2.0*b*e*i*j - a*i*i*j 
-          + 2.0*c*e*f*l - 2.0*b*e*g*l - 2.0*b*c*i*l + 2.0*a*g*i*l + b*b*l*l 
-          - a*f*l*l - c*c*f*o + 2.0*b*c*g*o - a*g*g*o - b*b*j*o + a*f*j*o)/det
-        n' = (-d*e*g*g + c*e*g*h + c*d*g*i - c*c*h*i + d*e*f*j - b*e*h*j 
-          - b*d*i*j + a*h*i*j - c*e*f*k + b*e*g*k + b*c*i*k - a*g*i*k 
-          - c*d*f*l + b*d*g*l + b*c*h*l - a*g*h*l - b*b*k*l + a*f*k*l 
-          + c*c*f*n - 2.0*b*c*g*n + a*g*g*n + b*b*j*n - a*f*j*n)/det
-        o' = (d*d*g*g - 2.0*c*d*g*h + c*c*h*h - d*d*f*j + 2.0*b*d*h*j - a*h*h*j 
-          + 2.0*c*d*f*k - 2.0*b*d*g*k - 2.0*b*c*h*k + 2.0*a*g*h*k + b*b*k*k 
-          - a*f*k*k - c*c*f*m + 2.0*b*c*g*m - a*g*g*m - b*b*j*m + a*f*j*m)/det
-        v' = [a',b',c',d',e',f',g',h',i',j',k',l',m',n',o']
-    pure $ fromArray v'
+  inv m = cholInv m 5
+  invMaybe m = Just (cholInv m 5)
+  {-- inv m = unsafePartial $ fromJust (invMaybe m) --}
+  {-- invMaybe (Cov {v}) = do --}
+  {--   let --}
+  {--       a = unsafePartial $ A.unsafeIndex v 0 --}
+  {--       b = unsafePartial $ A.unsafeIndex v 1 --}
+  {--       c = unsafePartial $ A.unsafeIndex v 2 --}
+  {--       d = unsafePartial $ A.unsafeIndex v 3 --}
+  {--       e = unsafePartial $ A.unsafeIndex v 4 --}
+  {--       f = unsafePartial $ A.unsafeIndex v 5 --}
+  {--       g = unsafePartial $ A.unsafeIndex v 6 --}
+  {--       h = unsafePartial $ A.unsafeIndex v 7 --}
+  {--       i = unsafePartial $ A.unsafeIndex v 8 --}
+  {--       j = unsafePartial $ A.unsafeIndex v 9 --}
+  {--       k = unsafePartial $ A.unsafeIndex v 10 --}
+  {--       l = unsafePartial $ A.unsafeIndex v 11 --}
+  {--       m = unsafePartial $ A.unsafeIndex v 12 --}
+  {--       n = unsafePartial $ A.unsafeIndex v 13 --}
+  {--       o = unsafePartial $ A.unsafeIndex v 14 --}
+  {--       det = a*f*j*m*o - a*f*j*n*n - a*f*k*k*o + 2.0*a*f*k*l*n - a*f*l*l*m --} 
+  {--         - a*g*g*m*o + a*g*g*n*n + 2.0*a*g*h*k*o - 2.0*a*g*h*l*n --} 
+  {--         - 2.0*a*g*i*k*n + 2.0*a*g*i*l*m - a*h*h*j*o + a*h*h*l*l --} 
+  {--         + 2.0*a*h*i*j*n - 2.0*a*h*i*k*l - a*i*i*j*m + a*i*i*k*k - b*b*j*m*o --} 
+  {--         + b*b*j*n*n + b*b*k*k*o - 2.0*b*b*k*l*n + b*b*l*l*m + 2.0*b*c*g*m*o --} 
+  {--         - 2.0*b*c*g*n*n - 2.0*b*c*h*k*o + 2.0*b*c*h*l*n + 2.0*b*c*i*k*n --} 
+  {--         - 2.0*b*c*i*l*m - 2.0*b*d*g*k*o + 2.0*b*d*g*l*n + 2.0*b*d*h*j*o --} 
+  {--         - 2.0*b*d*h*l*l - 2.0*b*d*i*j*n + 2.0*b*d*i*k*l + 2.0*b*e*g*k*n --} 
+  {--         - 2.0*b*e*g*l*m - 2.0*b*e*h*j*n + 2.0*b*e*h*k*l + 2.0*b*e*i*j*m --} 
+  {--         - 2.0*b*e*i*k*k - c*c*f*m*o + c*c*f*n*n + c*c*h*h*o - 2.0*c*c*h*i*n --} 
+  {--         + c*c*i*i*m + 2.0*c*d*f*k*o - 2.0*c*d*f*l*n - 2.0*c*d*g*h*o --} 
+  {--         + 2.0*c*d*g*i*n + 2.0*c*d*h*i*l - 2.0*c*d*i*i*k - 2.0*c*e*f*k*n --} 
+  {--         + 2.0*c*e*f*l*m + 2.0*c*e*g*h*n - 2.0*c*e*g*i*m - 2.0*c*e*h*h*l --} 
+  {--         + 2.0*c*e*h*i*k - d*d*f*j*o + d*d*f*l*l + d*d*g*g*o --} 
+  {--         - 2.0*d*d*g*i*l + d*d*i*i*j + 2.0*d*e*f*j*n - 2.0*d*e*f*k*l --} 
+  {--         - 2.0*d*e*g*g*n + 2.0*d*e*g*h*l + 2.0*d*e*g*i*k - 2.0*d*e*h*i*j --} 
+  {--         - e*e*f*j*m + e*e*f*k*k + e*e*g*g*m - 2.0*e*e*g*h*k + e*e*h*h*j --}
+  {--   guard $ (abs det) > 1.0e-50 --}
+  {--   let --}
+  {--       a' = (i*i*k*k - 2.0*h*i*k*l + h*h*l*l - i*i*j*m + 2.0*g*i*l*m --} 
+  {--           - f*l*l*m + 2.0*h*i*j*n - 2.0*g*i*k*n - 2.0*g*h*l*n + 2.0*f*k*l*n --} 
+  {--           + g*g*n*n - f*j*n*n - h*h*j*o + 2.0*g*h*k*o - f*k*k*o --} 
+  {--           - g*g*m*o + f*j*m*o)/det --}
+  {--       b' = (-e*i*k*k + e*h*k*l + d*i*k*l - d*h*l*l + e*i*j*m - e*g*l*m --} 
+  {--         - c*i*l*m + b*l*l*m - e*h*j*n - d*i*j*n + e*g*k*n + c*i*k*n --} 
+  {--         + d*g*l*n + c*h*l*n - 2.0*b*k*l*n - c*g*n*n + b*j*n*n + d*h*j*o --} 
+  {--         - d*g*k*o - c*h*k*o + b*k*k*o + c*g*m*o - b*j*m*o)/det --}
+  {--       c' = (e*h*i*k - d*i*i*k - e*h*h*l + d*h*i*l - e*g*i*m + c*i*i*m --} 
+  {--         + e*f*l*m - b*i*l*m + e*g*h*n + d*g*i*n - 2.0*c*h*i*n - e*f*k*n --} 
+  {--         + b*i*k*n - d*f*l*n + b*h*l*n + c*f*n*n - b*g*n*n - d*g*h*o --} 
+  {--         + c*h*h*o + d*f*k*o - b*h*k*o - c*f*m*o + b*g*m*o)/det --}
+  {--       d' = (-e*h*i*j + d*i*i*j + e*g*i*k - c*i*i*k + e*g*h*l - 2.0*d*g*i*l --} 
+  {--         + c*h*i*l - e*f*k*l + b*i*k*l + d*f*l*l - b*h*l*l - e*g*g*n --} 
+  {--         + c*g*i*n + e*f*j*n - b*i*j*n - c*f*l*n + b*g*l*n + d*g*g*o --} 
+  {--         - c*g*h*o - d*f*j*o + b*h*j*o + c*f*k*o - b*g*k*o)/det --}
+  {--       e' = (e*h*h*j - d*h*i*j - 2.0*e*g*h*k + d*g*i*k + c*h*i*k + e*f*k*k --} 
+  {--         - b*i*k*k + d*g*h*l - c*h*h*l - d*f*k*l + b*h*k*l + e*g*g*m --} 
+  {--         - c*g*i*m - e*f*j*m + b*i*j*m + c*f*l*m - b*g*l*m - d*g*g*n --} 
+  {--         + c*g*h*n + d*f*j*n - b*h*j*n - c*f*k*n + b*g*k*n)/det --}
+  {--       f' = (e*e*k*k - 2.0*d*e*k*l + d*d*l*l - e*e*j*m + 2.0*c*e*l*m - a*l*l*m --} 
+  {--         + 2.0*d*e*j*n - 2.0*c*e*k*n - 2.0*c*d*l*n + 2.0*a*k*l*n + c*c*n*n --} 
+  {--         - a*j*n*n - d*d*j*o + 2.0*c*d*k*o - a*k*k*o - c*c*m*o + a*j*m*o)/det --}
+  {--       g' = (-e*e*h*k + d*e*i*k + d*e*h*l - d*d*i*l + e*e*g*m - c*e*i*m --} 
+  {--         - b*e*l*m + a*i*l*m - 2.0*d*e*g*n + c*e*h*n + c*d*i*n + b*e*k*n --} 
+  {--         - a*i*k*n + b*d*l*n - a*h*l*n - b*c*n*n + a*g*n*n + d*d*g*o --} 
+  {--         - c*d*h*o - b*d*k*o + a*h*k*o + b*c*m*o - a*g*m*o)/det --}
+  {--       h' = (e*e*h*j - d*e*i*j - e*e*g*k + c*e*i*k + d*e*g*l - 2.0*c*e*h*l --} 
+  {--         + c*d*i*l + b*e*k*l - a*i*k*l - b*d*l*l + a*h*l*l + c*e*g*n --} 
+  {--         - c*c*i*n - b*e*j*n + a*i*j*n + b*c*l*n - a*g*l*n - c*d*g*o --} 
+  {--         + c*c*h*o + b*d*j*o - a*h*j*o - b*c*k*o + a*g*k*o)/det --}
+  {--       i' = (-d*e*h*j + d*d*i*j + d*e*g*k + c*e*h*k - 2.0*c*d*i*k --} 
+  {--         - b*e*k*k + a*i*k*k - d*d*g*l + c*d*h*l + b*d*k*l - a*h*k*l --} 
+  {--         - c*e*g*m + c*c*i*m + b*e*j*m - a*i*j*m - b*c*l*m + a*g*l*m --} 
+  {--         + c*d*g*n - c*c*h*n - b*d*j*n + a*h*j*n + b*c*k*n - a*g*k*n)/det --}
+  {--       j' = (e*e*h*h - 2.0*d*e*h*i + d*d*i*i - e*e*f*m + 2.0*b*e*i*m - a*i*i*m --} 
+  {--         + 2.0*d*e*f*n - 2.0*b*e*h*n - 2.0*b*d*i*n + 2.0*a*h*i*n  + b*b*n*n --} 
+  {--         - a*f*n*n - d*d*f*o + 2.0*b*d*h*o - a*h*h*o - b*b*m*o + a*f*m*o)/det --}
+  {--       k' = (-e*e*g*h + d*e*g*i + c*e*h*i - c*d*i*i + e*e*f*k - 2.0*b*e*i*k --} 
+  {--         + a*i*i*k - d*e*f*l + b*e*h*l + b*d*i*l - a*h*i*l - c*e*f*n --} 
+  {--         + b*e*g*n + b*c*i*n - a*g*i*n - b*b*l*n + a*f*l*n + c*d*f*o --} 
+  {--         - b*d*g*o - b*c*h*o + a*g*h*o + b*b*k*o - a*f*k*o)/det --}
+  {--       l' = (d*e*g*h - c*e*h*h - d*d*g*i + c*d*h*i - d*e*f*k + b*e*h*k --} 
+  {--         + b*d*i*k - a*h*i*k + d*d*f*l - 2.0*b*d*h*l + a*h*h*l + c*e*f*m --} 
+  {--         - b*e*g*m - b*c*i*m + a*g*i*m + b*b*l*m - a*f*l*m - c*d*f*n --} 
+  {--         + b*d*g*n + b*c*h*n - a*g*h*n - b*b*k*n + a*f*k*n)/det --}
+  {--       m' = (e*e*g*g - 2.0*c*e*g*i + c*c*i*i - e*e*f*j + 2.0*b*e*i*j - a*i*i*j --} 
+  {--         + 2.0*c*e*f*l - 2.0*b*e*g*l - 2.0*b*c*i*l + 2.0*a*g*i*l + b*b*l*l --} 
+  {--         - a*f*l*l - c*c*f*o + 2.0*b*c*g*o - a*g*g*o - b*b*j*o + a*f*j*o)/det --}
+  {--       n' = (-d*e*g*g + c*e*g*h + c*d*g*i - c*c*h*i + d*e*f*j - b*e*h*j --} 
+  {--         - b*d*i*j + a*h*i*j - c*e*f*k + b*e*g*k + b*c*i*k - a*g*i*k --} 
+  {--         - c*d*f*l + b*d*g*l + b*c*h*l - a*g*h*l - b*b*k*l + a*f*k*l --} 
+  {--         + c*c*f*n - 2.0*b*c*g*n + a*g*g*n + b*b*j*n - a*f*j*n)/det --}
+  {--       o' = (d*d*g*g - 2.0*c*d*g*h + c*c*h*h - d*d*f*j + 2.0*b*d*h*j - a*h*h*j --} 
+  {--         + 2.0*c*d*f*k - 2.0*b*d*g*k - 2.0*b*c*h*k + 2.0*a*g*h*k + b*b*k*k --} 
+  {--         - a*f*k*k - c*c*f*m + 2.0*b*c*g*m - a*g*g*m - b*b*j*m + a*f*j*m)/det --}
+  {--       v' = [a',b',c',d',e',f',g',h',i',j',k',l',m',n',o'] --}
+  {--   pure $ fromArray v' --}
   det (Cov {v}) = d' where
     a = unsafePartial $ A.unsafeIndex v 0
     b = unsafePartial $ A.unsafeIndex v 1
@@ -1076,21 +1078,16 @@ choldc (Cov {v: a}) n = Jac {v: a'} where
     pure arr) >>= unsafeFreeze)
 
 -- | Matrix inversion using Cholesky decomposition
--- | based on Numerical Recipies formulat in 2.9
+-- | based on Numerical Recipies formula in 2.9
 --
 cholInv :: forall a. Cov a -> Int -> Cov a
 cholInv (Cov {v: a}) n = Cov {v: a'} where
-  w = n
   ll = n*n --n*(n+1)/2
-  idx :: Int -> Int -> Int
-  idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
-          | otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
-          --| otherwise = error "idx: i < j"
-  idx' j i | i >= j   = (i-1)*w + j-1
-           | otherwise = error "idx': i < j"
-  idx'' i j | i >= j   = (i-1)*w + j-1
-            | otherwise = error "idx'': i < j"
-  idx''' i j = (i-1)*w + j-1
+  idx :: Int -> Int -> Int -- index into values array of symmetric matrices
+  idx i j | i <= j    = ((i-1)*n - (i-1)*(i-2)/2 + j-i)
+          | otherwise = ((j-1)*n - (j-1)*(j-2)/2 + i-j)
+  idx' :: Int -> Int -> Int -- index into values array for full matrix
+  idx' i j = (i-1)*n + j-1
   uJust = unsafePartial $ fromJust
   l = pureST ((do
     -- make a STArray of n x n + space for diagonal +1 for summing
@@ -1098,55 +1095,55 @@ cholInv (Cov {v: a}) n = Cov {v: a'} where
     void $ pushAllSTArray arr (A.replicate (ll+n+1) 0.0)
 
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
-    forE 1 (w+1) \i -> do
-      forE i (w+1) \j -> do
+    forE 1 (n+1) \i -> do
+      forE i (n+1) \j -> do
           let aij = uidx a (idx i j)
           void $ if i==j then pokeSTArray arr (ll+i-1) aij
-                         else pokeSTArray arr (idx' i j) aij
+                         else pokeSTArray arr (idx' j i) aij
           forE 1 i \k -> do
-              maik <- peekSTArray arr (idx' k i)
-              majk <- peekSTArray arr (idx' k j)
+              maik <- peekSTArray arr (idx' i k)
+              majk <- peekSTArray arr (idx' j k)
               maij <- if i==j then peekSTArray arr (ll+i-1)
-                              else peekSTArray arr (idx' i j)
+                              else peekSTArray arr (idx' j i)
               let sum = (uJust maij) - (uJust maik) * (uJust majk)
               void $ if i==j then pokeSTArray arr (ll+i-1) sum
-                             else pokeSTArray arr (idx' i j) sum
+                             else pokeSTArray arr (idx' j i) sum
           msum <- if i==j then peekSTArray arr (ll+i-1)
-                          else peekSTArray arr (idx' i j)
+                          else peekSTArray arr (idx' j i)
           let sum' = uJust msum
               sum = if i==j && sum' < 0.0
-                       then error ("choldInv: not a positive definite matrix " <> show a)
+                       then error ("choldInv: not a positive definite matrix "
+                                    <> show a)
                        else sum'
           mp_i' <- peekSTArray arr (ll+i-1)
           let p_i' = uJust mp_i'
               p_i = if i == j then sqrt sum else p_i'
-          void $ if i==j
-                         then pokeSTArray arr (ll+i-1) p_i -- store diag terms outside main array
-                         else pokeSTArray arr (idx' i j) (sum/p_i)
+          void $ if i==j then pokeSTArray arr (ll+i-1) p_i
+                         else pokeSTArray arr (idx' j i) (sum/p_i)
           pure $ unit
 
     -- invert L -> L^(-1)
-    forE 1 (w+1) \i -> do
+    forE 1 (n+1) \i -> do
       mp_i <- peekSTArray arr (ll+i-1)
-      void $ pokeSTArray arr (idx'' i i) (1.0/(uJust mp_i))
-      forE (i+1) (w+1) \j -> do
-        void $ pokeSTArray arr (ll+w) 0.0
+      void $ pokeSTArray arr (idx' i i) (1.0/(uJust mp_i))
+      forE (i+1) (n+1) \j -> do
+        void $ pokeSTArray arr (ll+n) 0.0
         forE i j \k -> do
-          majk <- peekSTArray arr (idx'' j k)
-          maki <- peekSTArray arr (idx'' k i)
-          sum <- peekSTArray arr (ll+w)
-          void $ pokeSTArray arr (ll+w)
+          majk <- peekSTArray arr (idx' j k)
+          maki <- peekSTArray arr (idx' k i)
+          sum <- peekSTArray arr (ll+n)
+          void $ pokeSTArray arr (ll+n)
                     ((uJust sum) - (uJust majk) * (uJust maki))
-        msum <- peekSTArray arr (ll+w)
+        msum <- peekSTArray arr (ll+n)
         mp_j <- peekSTArray arr (ll+j-1)
-        void $ pokeSTArray arr (idx'' j i) ((uJust msum)/(uJust mp_j))
+        void $ pokeSTArray arr (idx' j i) ((uJust msum)/(uJust mp_j))
     pure arr) >>= unsafeFreeze)
   a' = do
     i <- A.range 1 n
     j <- A.range i n
     let aij = sum do
                   k <- A.range 1 n
-                  pure $ (uidx l (idx''' k i)) * (uidx l (idx''' k j))
+                  pure $ (uidx l (idx' k i)) * (uidx l (idx' k j))
     pure $ aij
 
 --C version Numerical Recipies 2.9
