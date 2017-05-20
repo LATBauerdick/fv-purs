@@ -923,8 +923,10 @@ instance tmat55 :: TransMat2 Dim5 Dim5 where
 --
 class TransMat a where
   ttransvec :: Cov a -> Vec a -> Vec a      -- Cov * Vec
-  sandwichcc :: Cov a -> Cov a -> Cov a     -- Cov * Cov * Cov
+  multiplycc :: Cov a -> Cov a -> Jac a a     -- Cov * Cov'
+  sandwichcc :: Cov a -> Cov a -> Cov a     -- Cov * Cov' * Cov
 infixr 7 ttransvec as *|
+infixr 7 multiplycc as **
 infixr 7 sandwichcc as ***
 instance tvec3 :: TransMat Dim3 where
   ttransvec c v = v' where
@@ -937,6 +939,11 @@ instance tvec3 :: TransMat Dim3 where
     mc2 = toMatrix c2
     mc' = mc1 * mc2 * mc1
     c' = fromArray $ M.toArray mc'
+  multiplycc c1 c2 = j where
+    mc1 = toMatrix c1
+    mc2 = toMatrix c2
+    mj = mc1 * mc2
+    j = fromArray $ M.toArray mj
 instance tvec4 :: TransMat Dim4 where
   ttransvec c v = v' where
     mc = toMatrix c
@@ -948,6 +955,11 @@ instance tvec4 :: TransMat Dim4 where
     mc2 = toMatrix c2
     mc' = mc1 * mc2 * mc1
     c' = fromArray $ M.toArray mc'
+  multiplycc c1 c2 = j where
+    mc1 = toMatrix c1
+    mc2 = toMatrix c2
+    mj = mc1 * mc2
+    j = fromArray $ M.toArray mj
 instance tvec5 :: TransMat Dim5 where
   ttransvec c v = v' where
     mc = toMatrix c
@@ -959,6 +971,11 @@ instance tvec5 :: TransMat Dim5 where
     mc2 = toMatrix c2
     mc' = mc1 * mc2 * mc1
     c' = fromArray $ M.toArray mc'
+  multiplycc c1 c2 = j where
+    mc1 = toMatrix c1
+    mc2 = toMatrix c2
+    mj = mc1 * mc2
+    j = fromArray $ M.toArray mj
 
 scaleDiag :: Number -> Cov3 -> Cov3
 scaleDiag s (Cov {v}) = (Cov {v: v'}) where
@@ -1009,14 +1026,14 @@ choldc :: forall a. Cov a -> Int -> Jac a a
 choldc (Cov {v: a}) n = Jac {v: a'} where
   w = n
   ll = n*n --n*(n+1)/2
+  idx :: Int -> Int -> Int
+  idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
+          --| otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
+          | otherwise = error "idx: i < j"
+  idx' :: Int -> Int -> Int
   idx' j i | i >= j   = (i-1)*w + j-1
            | otherwise = error "idx': i < j"
   uJust = unsafePartial $ fromJust
-  indexes :: Array (Tuple Int Int)
-  indexes = do
-    i <- A.range 1 w
-    j <- A.range i w
-    pure $ Tuple i j
   {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
   {-- run act = pureST (act >>= unsafeFreeze) --}
   {-- a' = run (do --}
@@ -1026,9 +1043,9 @@ choldc (Cov {v: a}) n = Jac {v: a'} where
     _ <- pushAllSTArray arr (A.replicate (ll+n) 0.0)
 
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
-    forE 0 (n*(n+1)/2) \c -> do
-          let Tuple i j = (uidx indexes c)
-              aij = uidx a c
+    forE 1 (w+1) \i -> do
+      forE i (w+1) \j -> do
+          let aij = uidx a (idx i j)
           _ <- pokeSTArray arr (idx' i j) aij
           let kmin = 1
               kmax = (i-1) + 1
@@ -1066,42 +1083,41 @@ cholInv :: forall a. Cov a -> Int -> Jac a a
 cholInv (Cov {v: a}) n = Jac {v: a'} where
   w = n
   ll = n*n --n*(n+1)/2
+  idx :: Int -> Int -> Int
+  idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
+          | otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
+          --| otherwise = error "idx: i < j"
   idx' j i | i >= j   = (i-1)*w + j-1
            | otherwise = error "idx': i < j"
-  idx'' i j | i >= j   = (j-1)*w + i-1
+  idx'' i j | i >= j   = (i-1)*w + j-1
             | otherwise = error "idx'': i < j"
+  idx''' i j | i < j   = (i-1)*w + j-1
+            | otherwise = error "idx''': i >= j"
   uJust = unsafePartial $ fromJust
-  indexes :: Array (Tuple Int Int)
-  indexes = do
-    i <- A.range 1 w
-    j <- A.range i w
-    pure $ Tuple i j
-  {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
-  {-- run act = pureST (act >>= unsafeFreeze) --}
-  {-- a' = run (do --}
   a' = pureST ((do
     -- make a STArray of n x n + space for diagonal
     arr <- emptySTArray
     _ <- pushAllSTArray arr (A.replicate (ll+n) 0.0)
 
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
-    forE 0 (n*(n+1)/2) \c -> do
-          let Tuple i j = (uidx indexes c)
-              aij = uidx a c
-          _ <- pokeSTArray arr (idx' i j) aij
-          let kmin = 1
-              kmax = (i-1) + 1
-          forE kmin kmax \k -> do
-              aik <- peekSTArray arr (idx' k i)
-              ajk <- peekSTArray arr (idx' k j)
-              aij <- peekSTArray arr (idx' i j)
-              void $ pokeSTArray arr (idx' i j) ((uJust aij)
-                                               - (uJust aik) * (uJust ajk))
-
-          msum <- peekSTArray arr (idx' i j)
+    forE 1 (w+1) \i -> do
+      forE i (w+1) \j -> do
+          let aij = uidx a (idx i j)
+          void $ if i==j then pokeSTArray arr (ll+i-1) aij
+                         else pokeSTArray arr (idx' i j) aij
+          forE 1 i \k -> do
+              maik <- peekSTArray arr (idx' k i)
+              majk <- peekSTArray arr (idx' k j)
+              maij <- if i==j then peekSTArray arr (ll+i-1)
+                              else peekSTArray arr (idx' i j)
+              let sum = (uJust maij) - (uJust maik) * (uJust majk)
+              void $ if i==j then pokeSTArray arr (ll+i-1) sum
+                             else pokeSTArray arr (idx' i j) sum
+          msum <- if i==j then peekSTArray arr (ll+i-1)
+                          else peekSTArray arr (idx' i j)
           let sum' = uJust msum
-              sum = if (i==j) && sum' < 0.0
-                       then error ("choldc: not a positive definite matrix " <> show a)
+              sum = if i==j && sum' < 0.0
+                       then error ("choldInv: not a positive definite matrix " <> show a)
                        else sum'
           mp_i' <- peekSTArray arr (ll+i-1)
           let p_i' = uJust mp_i'
@@ -1111,6 +1127,11 @@ cholInv (Cov {v: a}) n = Jac {v: a'} where
                          else pokeSTArray arr (idx' i j) (sum/p_i)
           pure $ unit
 
+    -- copy diagonal back into array
+    {-- forE 1 (w+1) \i -> do --}
+    {--       maii <- peekSTArray arr (ll+i-1) --}
+    {--       let aii = uJust maii --}
+    {--       void $ pokeSTArray arr (idx' i i) aii --}
     -- invert L -> L^(-1)
 --for (i=1;i<=n;i++) {
 --  a[i][i]=1.0/p[i];
@@ -1120,19 +1141,34 @@ cholInv (Cov {v: a}) n = Jac {v: a'} where
 --    a[j][i]=sum/p[j];
 --  }
 --}
-    {-- forE 1 (w+1) \i -> do --}
-    {--   maii <- peekSTArray arr (ll+i-1) --}
-    {--   void $ pokeSTArray arr (idx'' i i) (1.0/(uJust maii)) --}
-    {--   forE i (w+1) \j -> do --}
-    {--     void $ pokeSTArray arr (idx'' j i) 0.0 --}
-    {--     forE i j \k -> do --}
-    {--       majk <- peekSTArray arr (idx'' j k) --}
-    {--       maki <- peekSTArray arr (idx'' k i) --}
-    {--       maji <- peekSTArray arr (idx'' j i) --}
-    {--       void $ pokeSTArray arr (idx'' j i) ((uJust maji) --}
-    {--                                       - (uJust majk) * (uJust maki)) --}
-    {--     maji <- peekSTArray arr (idx'' j i) --}
-    {--     void $ pokeSTArray arr (idx'' i i) ((uJust maji)/(uJust maii)) --}
+    forE 1 (w+1) \i -> do
+      mp_i <- peekSTArray arr (ll+i-1)
+      void $ pokeSTArray arr (idx'' i i) (1.0/(uJust mp_i))
+
+    forE 1 (w+1) \i -> do
+      forE i (w+1) \j -> do
+        maij <- peekSTArray arr (idx'' j i)
+        let aij = uJust maij `debug` ("test: a" <> show j <> show i <> "=" <> show maij)
+        pure $ unit
+
+    forE 1 (w+1) \i -> do
+      forE (i+1) (w+1) \j -> do
+        void $ pokeSTArray arr (idx''' i j) 0.0
+                                          `debug` ("poke a" <> show i <> show j)
+        forE i j \k -> do
+          majk <- peekSTArray arr (idx'' j k)
+          maki <- peekSTArray arr (idx'' k i)
+          maij <- peekSTArray arr (idx''' i j)
+          void $ pokeSTArray arr (idx''' i j) ((uJust maij)
+                                          - (uJust majk) * (uJust maki))
+                                          `debug` ("loop a" <> show i <> show j <> show k <> "=" <> show (uJust maij) <> " " <> show (uJust majk) <> " " <> show (uJust maki) )
+        maij <- peekSTArray arr (idx''' i j)
+        mp_j <- peekSTArray arr (ll+j-1)
+        void $ pokeSTArray arr (idx'' j i) ((uJust maij)/(uJust mp_j))
+                                          `debug` ("poke a" <> show j <> show i <>"="<> show (uJust maij) <> "/" <> show (uJust mp_j))
+      forE 1 (w+1) \i -> do
+        forE (i+1) (w+1) \j -> do
+          void $ pokeSTArray arr (idx''' i j) 0.0
     pure arr) >>= unsafeFreeze)
 
 --C version Numerical Recipies 2.9
