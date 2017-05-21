@@ -55,8 +55,10 @@ type Jacs = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 
 -- access to arrays of symmetrical matrices
 uGet :: Array Number -> Int -> Int -> Int -> Number
-uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a ((i-1)*w - (i-1)*(i-2)/2 + j-i)
-             | otherwise = unsafePartial $ A.unsafeIndex a ((j-1)*w - (j-1)*(j-2)/2 + i-j)
+uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a
+                                        ((i-1)*w - (i-1)*(i-2)/2 + j-i)
+             | otherwise = unsafePartial $ A.unsafeIndex a
+                                        ((j-1)*w - (j-1)*(j-2)/2 + i-j)
 -------------------------------------------------------------------------
 -------------------------------------------------------------------------
 -------------------------------------------------------------------------
@@ -66,6 +68,45 @@ uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a ((i-1)*w - (i-1)*(i-2)/2
 -- while keeping info about dimensionality
 -- also define Semiring and Ring functions
 --
+data Matr a b = Covv MRec | Jacc MRec | Vecc MRec
+type MRec = { v :: Array Number }
+newtype CRec a = CRec { v :: Array Number }
+newtype VRec a = VRec { v :: Array Number }
+newtype JRec a b = JRec { v :: Array Number }
+type Covv3 = CRec Dim3
+type Vecc3 = VRec Dim3
+type Jacc33 = JRec Dim3 Dim3
+{-- newtype Covv a = Covv MRec --}
+{-- newtype Jacc a b = Jacc MRec --}
+{-- newtype Vecc a = Vevv MRec --}
+instance semiringMatr :: Semiring (Matr a a) where
+  mul (Covv {v:v1}) (Covv {v:v2}) = Jacc {v:v1}
+  mul (Jacc v1) (Jacc v2) = Jacc v1
+  mul (Covv v1) (Jacc v2) = Jacc v2
+  mul _ _ = undefined
+  add (Covv v1) (Covv v2) = Covv v1
+  add (Jacc v1) (Jacc v2) = Jacc v1
+  add _ _ = undefined
+  zero = undefined
+  one = undefined
+
+neu :: Matr Dim3 Dim3 -> Matr Dim3 Dim3 -> Matr Dim3 Dim3
+neu a b = j where
+  xx :: Matr Dim3 Dim3
+  xx = a * b
+  v0 = [1.0,2.0,3.0,4.0,5.0,6.0]
+  x0 :: Matr Dim3 Dim3
+  x0 = Covv {v:v0}
+  v1 = case a of
+        Covv {v:vv} -> vv
+        Jacc {v:vv} -> vv
+        Vecc {v:vv} -> vv
+  c5 :: Matr Dim4 Dim5
+  c5 = Covv {v:v1}
+  x1 = Covv {v:v1}
+  j = x1
+neu _ _ = undefined
+
 class Mat a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
@@ -349,20 +390,21 @@ instance symMatCov5 :: SymMat Dim5 where
     m = unsafePartial $ A.unsafeIndex v 12
     n = unsafePartial $ A.unsafeIndex v 13
     o = unsafePartial $ A.unsafeIndex v 14
-    d' = a*f*j*m*o - a*f*j*n*n - a*f*k*k*o + 2.0*a*f*k*l*n - a*f*l*l*m 
-      - a*g*g*m*o + a*g*g*n*n + 2.0*a*g*h*k*o - 2.0*a*g*h*l*n - 2.0*a*g*i*k*n 
-      + 2.0*a*g*i*l*m - a*h*h*j*o + a*h*h*l*l + 2.0*a*h*i*j*n - 2.0*a*h*i*k*l 
+    d' = a*f*j*m*o - a*f*j*n*n - a*f*k*k*o + 2.0*a*f*k*l*n - a*f*l*l*m
+      - a*g*g*m*o + a*g*g*n*n + 2.0*a*g*h*k*o - 2.0*a*g*h*l*n - 2.0*a*g*i*k*n
+      + 2.0*a*g*i*l*m - a*h*h*j*o + a*h*h*l*l + 2.0*a*h*i*j*n - 2.0*a*h*i*k*l
       - a*i*i*j*m + a*i*i*k*k - b*b*j*m*o + b*b*j*n*n + b*b*k*k*o
-      - 2.0*b*b*k*l*n + b*b*l*l*m + 2.0*b*c*g*m*o - 2.0*b*c*g*n*n - 2.0*b*c*h*k*o 
-      + 2.0*b*c*h*l*n + 2.0*b*c*i*k*n - 2.0*b*c*i*l*m - 2.0*b*d*g*k*o + 2.0*b*d*g*l*n 
-      + 2.0*b*d*h*j*o - 2.0*b*d*h*l*l - 2.0*b*d*i*j*n + 2.0*b*d*i*k*l + 2.0*b*e*g*k*n 
-      - 2.0*b*e*g*l*m - 2.0*b*e*h*j*n + 2.0*b*e*h*k*l + 2.0*b*e*i*j*m - 2.0*b*e*i*k*k 
-      - c*c*f*m*o + c*c*f*n*n + c*c*h*h*o - 2.0*c*c*h*i*n + c*c*i*i*m 
-      + 2.0*c*d*f*k*o - 2.0*c*d*f*l*n - 2.0*c*d*g*h*o + 2.0*c*d*g*i*n + 2.0*c*d*h*i*l 
-      - 2.0*c*d*i*i*k - 2.0*c*e*f*k*n + 2.0*c*e*f*l*m + 2.0*c*e*g*h*n - 2.0*c*e*g*i*m 
-      - 2.0*c*e*h*h*l + 2.0*c*e*h*i*k - d*d*f*j*o + d*d*f*l*l + d*d*g*g*o 
-      - 2.0*d*d*g*i*l + d*d*i*i*j + 2.0*d*e*f*j*n - 2.0*d*e*f*k*l - 2.0*d*e*g*g*n 
-      + 2.0*d*e*g*h*l + 2.0*d*e*g*i*k - 2.0*d*e*h*i*j - e*e*f*j*m + e*e*f*k*k 
+      - 2.0*b*b*k*l*n + b*b*l*l*m + 2.0*b*c*g*m*o - 2.0*b*c*g*n*n - 2.0*b*c*h*k*o
+      + 2.0*b*c*h*l*n + 2.0*b*c*i*k*n - 2.0*b*c*i*l*m - 2.0*b*d*g*k*o
+      + 2.0*b*d*g*l*n + 2.0*b*d*h*j*o - 2.0*b*d*h*l*l - 2.0*b*d*i*j*n
+      + 2.0*b*d*i*k*l + 2.0*b*e*g*k*n - 2.0*b*e*g*l*m - 2.0*b*e*h*j*n
+      + 2.0*b*e*h*k*l + 2.0*b*e*i*j*m - 2.0*b*e*i*k*k - c*c*f*m*o + c*c*f*n*n
+      + c*c*h*h*o - 2.0*c*c*h*i*n + c*c*i*i*m + 2.0*c*d*f*k*o - 2.0*c*d*f*l*n
+      - 2.0*c*d*g*h*o + 2.0*c*d*g*i*n + 2.0*c*d*h*i*l - 2.0*c*d*i*i*k
+      - 2.0*c*e*f*k*n + 2.0*c*e*f*l*m + 2.0*c*e*g*h*n - 2.0*c*e*g*i*m
+      - 2.0*c*e*h*h*l + 2.0*c*e*h*i*k - d*d*f*j*o + d*d*f*l*l + d*d*g*g*o
+      - 2.0*d*d*g*i*l + d*d*i*i*j + 2.0*d*e*f*j*n - 2.0*d*e*f*k*l - 2.0*d*e*g*g*n
+      + 2.0*d*e*g*h*l + 2.0*d*e*g*i*k - 2.0*d*e*h*i*j - e*e*f*j*m + e*e*f*k*k
       + e*e*g*g*m - 2.0*e*e*g*h*k + e*e*h*h*j
   diag (Cov {v}) = a where
     a11 = unsafePartial $ A.unsafeIndex v 0
