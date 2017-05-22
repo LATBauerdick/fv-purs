@@ -1,5 +1,5 @@
 {
-  "name": "ps",
+  "name": "fv.purs",
   "ignore": [
     "**/.*",
     "node_modules",
@@ -11,7 +11,6 @@
     "purescript-console": "^3.0.0",
     "purescript-math": "^2.0.0",
     "purescript-monoid": "^3.0.0",
-    "purescript-linear-algebra": "^0.1.1",
     "purescript-stringutils": "^0.0.6",
     "purescript-node-fs-aff": "^4.0.0",
     "purescript-psci-support": "^3.0.0",
@@ -21,7 +20,14 @@
     "purescript-format": "^3.0.0",
     "purescript-assert": "^3.0.0",
     "purescript-stats": "^0.2.0",
-    "purescript-random": "^3.0.0"
+    "purescript-random": "^3.0.0",
+    "purescript-maps": "^3.0.0",
+    "purescript-foldable-traversable": "^3.0.0",
+    "purescript-tuples": "^4.0.0",
+    "purescript-maybe": "^3.0.0",
+    "purescript-arrays": "^4.0.1",
+    "purescript-either": "^3.0.0",
+    "purescript-profunctor": "^3.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"

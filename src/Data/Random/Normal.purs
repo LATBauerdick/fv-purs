@@ -44,10 +44,12 @@ as repeatedly generating individual samples with e.g. 'normal'.
 -}
 
 
-module Data.Random.Normal  where
-  {-- -- * Pure interface --}
-  {--   normal --}
-  {-- , normals --}
+module Data.Random.Normal (
+  -- * Pure interface
+    {-- normal --}
+  normals
+  , class RandomGen
+  , next
   {-- , mkNormals --}
 
   {-- -- ** Custom mean and standard deviation --}
@@ -63,31 +65,54 @@ module Data.Random.Normal  where
   {-- , normalIO' --}
   {-- , normalsIO' --}
 
-  {-- ) where --}
+  ) where
 
-{-- import Prelude --}
+import Prelude
 {-- import Data.Traversable (mapAccumL) --}
-{-- import Control.Monad.Eff.Random --}
-{-- import Data.Tuple --}
-{-- import Data.List --}
+import Control.Monad.Eff ( Eff )
+import Control.Monad.Eff.Random ( random, RANDOM )
+import Data.Tuple
+import Math ( sin, cos, log, sqrt, pi )
+import Data.List
+import Stuff
 
+class RandomGen g where
+  next     :: forall e. (Eff (random :: RANDOM | e) g) -> (Tuple Number (Eff (random :: RANDOM | e) g))
+instance randomGenNumber :: RandomGen Number where
+  next g = (Tuple r g') where
+    r = 0.51111
+    
+      n <- random
+      pure n
+    g' = g
+    {-- g' = g --}
+    {-- r = do --}
+    {--   n <- random --}
+    {--   pure $ n --}
+
+data StdGen = StdGen Number
+
+class Random a where
+  randoms  :: forall g. g -> List a
+instance randomNumber :: Random Number where
+  randoms  g = undefined
 
 {-- -- Normal distribution approximation --}
 {-- -- --------------------------------- --}
 {-- -- | Box-Muller method for generating two normally distributed --}
 {-- -- independent random values from two uniformly distributed --}
 {-- -- independent random values. --}
-{-- boxMuller :: Num a => a -> a -> (Tuple a a) --}
-{-- boxMuller u1 u2 = (Tuple (r * cos t) (r * sin t)) where r = sqrt (-2 * log u1) --}
-{--                                                         t = 2 * pi * u2 --}
+boxMuller :: Number -> Number -> (Tuple Number Number)
+boxMuller u1 u2 = (Tuple (r * cos t) (r * sin t)) where r = sqrt (-2.0 * log u1)
+                                                        t = 2.0 * pi * u2
 
 {-- -- | Convert a list of uniformly distributed random values into a --}
 {-- -- list of normally distributed random values. The Box-Muller --}
 {-- -- algorithms converts values two at a time, so if the input list --}
 {-- -- has an uneven number of element the last one will be discarded. --}
-{-- boxMullers :: Field a => List a -> List a --}
-{-- boxMullers (u1:u2:us) = n1:n2:boxMullers us where (Tuple n1 n2) = boxMuller u1 u2 --}
-{-- boxMullers _          = Nil --}
+boxMullers :: List Number -> List Number
+boxMullers (u1:u2:us) = n1:n2:boxMullers us where (Tuple n1 n2) = boxMuller u1 u2
+boxMullers _          = Nil
 
 
 {-- -- API --}
@@ -105,11 +130,11 @@ module Data.Random.Normal  where
 {--      (Tuple u1 g1) = randomR (Tuple 0 1) g0 --}
 {--      (Tuple u2 g2) = randomR (Tuple 0 1) g1 --}
 
-{-- -- | Plural variant of 'normal', producing an infinite list of --}
-{-- -- random values instead of returning a new generator. This function --}
-{-- -- is analogous to 'Random.randoms'. --}
-{-- normals :: RandomGen g => Random a => Field a => g -> List a --}
-{-- normals = boxMullers <<< randoms --}
+-- | Plural variant of 'normal', producing an infinite list of
+-- random values instead of returning a new generator. This function
+-- is analogous to 'Random.randoms'.
+normals :: forall g. RandomGen g => g -> List Number
+normals = boxMullers <<< randoms
 
 {-- -- | Creates a infinite list of normally distributed random values --}
 {-- -- from the provided random generator seed. (In the implementation --}

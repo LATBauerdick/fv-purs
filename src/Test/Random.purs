@@ -8,6 +8,8 @@ import Control.Monad.Eff.Random ( )
 import Data.Random.Normal
 import Statistics.Sample ( mean, variance )
 
+{-- import Math.Probability --}
+
 import Data.Traversable ( mapAccumL )
 import Data.Cov ( chol )
 
