@@ -7,6 +7,7 @@ import Control.Monad.Eff (Eff)
 --import Control.Monad.Aff (launchAff)
 --import Control.Monad.Aff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Console (CONSOLE, log, logShow)
+import Control.Monad.Eff.Random ( RANDOM )
 --import Control.Monad.Eff.Exception (EXCEPTION)
 --import Node.FS (FS)
 --import Node.Encoding (Encoding(..))
@@ -19,12 +20,13 @@ import Data.Monoid ( mempty )
 import Data.Tuple ( Tuple(..) )
 import Data.Array ( length, zip, foldl )
 import Data.Foldable (sum, traverse_)
-import Data.Maybe ( fromJust )
 import Partial.Unsafe ( unsafePartial )
 import Data.List ( mapMaybe )
 
 import Test.Matrix (testMatrix)
 import Test.Cov (testCov)
+import Test.Random ( testRandom )
+import Stuff
 
 import FV.Types
   ( VHMeas, HMeas, QMeas
@@ -39,6 +41,7 @@ import Data.Number ( fromString )
 import Stuff (iflt, to1fix, words)
 
 main :: forall e.  Eff ( console :: CONSOLE
+                       , random :: RANDOM
                        --, exception :: EXCEPTION
                        --, fs :: FS
                        | e) Unit
@@ -52,7 +55,11 @@ main = do
   log "--Test Cov"
   log $ testCov 0
   log "--Test FVT"
-  testFVT
+  -- send the list of tau tracks and a VHMeas to testFVT
+  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412
+  log "--Test Random"
+  testRandom 10 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
+                <<< uJust <<< hSlurp $ tr05129e001412
 
 showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
 showMomentum h = log $ "pt,pz,fi,E ->" <> (show <<< fromHMeas) h
@@ -71,13 +78,11 @@ showProng (Prong pr@{nProng: n, fitVertex: v, fitMomenta: ql, fitChi2s: cl, meas
   log $ sc <> sd <> scl <> sm
   pure $ Prong pr
 
-testFVT :: forall e. Eff (console :: CONSOLE | e) Unit
-testFVT = do
-  let vm = unsafePartial fromJust $ hSlurp tr05129e001412
+testFVT :: forall e. Array Int -> VHMeas -> Eff (console :: CONSOLE | e) Unit
+testFVT l5 vm = do
   let hel = helices vm
   traverse_ showHelix hel
   traverse_ showMomentum hel
-  let l5 = [0,2,3,4,5] -- these are the tracks supposedly from the tau
   doFitTest vm l5
   _ <- showProng <<< fit <<< hFilter l5 <<< vBlowup 10000.0 $ vm
   pure unit

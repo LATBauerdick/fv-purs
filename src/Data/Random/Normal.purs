@@ -49,7 +49,9 @@ module Data.Random.Normal (
     {-- normal --}
   normals
   , class RandomGen
-  , next
+  , next, genRange
+  , newStdGen
+  , StdGen
   {-- , mkNormals --}
 
   {-- -- ** Custom mean and standard deviation --}
@@ -71,31 +73,82 @@ import Prelude
 {-- import Data.Traversable (mapAccumL) --}
 import Control.Monad.Eff ( Eff )
 import Control.Monad.Eff.Random ( random, RANDOM )
+import Data.Traversable ( traverse, for )
 import Data.Tuple
 import Math ( sin, cos, log, sqrt, pi )
-import Data.List
+import Data.List ( List ( Nil ), (:),  range, concat )
 import Stuff
 
+newStdGen ::  forall eff. Eff (random :: RANDOM | eff) Number
+newStdGen = random
+
 class RandomGen g where
-  next     :: forall e. (Eff (random :: RANDOM | e) g) -> (Tuple Number (Eff (random :: RANDOM | e) g))
-instance randomGenNumber :: RandomGen Number where
+  -- |The 'next' operation returns an 'Int' that is uniformly distributed
+  -- in the range returned by 'genRange' (including both end points),
+  -- and a new generator.
+  next     :: g -> (Tuple Number g)
+  -- |The 'genRange' operation yields the range of values returned by
+  -- the generator.
+  --
+  -- It is required that:
+  --
+  -- * If @(a,b) = 'genRange' g@, then @a < b@.
+  --
+  -- * 'genRange' always returns a pair of defined 'Int's.
+  --
+  -- The second condition ensures that 'genRange' cannot examine its
+  -- argument, and hence the value it returns can be determined only by the
+  -- instance of 'RandomGen'.  That in turn allows an implementation to make
+  -- a single call to 'genRange' to establish a generator's range, without
+  -- being concerned that the generator returned by (say) 'next' might have
+  -- a different range to the generator passed to 'next'.
+  --
+  -- The default definition spans the full range of 'Int'.
+  genRange :: g -> (Tuple Number Number)
+instance randomGenStd :: RandomGen StdGen  where
+  -- |The 'next' operation returns a Number that is uniformly distributed
+   -- in the range returned by 'genRange' (including both end points),
+   -- and a new generator.
   next g = (Tuple r g') where
     r = 0.51111
-    
-      n <- random
-      pure n
     g' = g
-    {-- g' = g --}
-    {-- r = do --}
+    {-- g'' = do --}
     {--   n <- random --}
-    {--   pure $ n --}
+    {--   pure n --}
+  genRange _ = (Tuple 0.0 1.0)
 
 data StdGen = StdGen Number
+  {-- forall e. (Eff (random :: RANDOM | e) g) --}
 
 class Random a where
-  randoms  :: forall g. g -> List a
+  randoms  :: forall g. RandomGen g => g -> List a
 instance randomNumber :: Random Number where
-  randoms  g = undefined
+  randoms g = (a:b:c:d:e:f:Nil) where
+    (Tuple n g') = next g
+    a = 0.123
+    b = 0.234
+    c = 0.345
+    d = 0.456
+    e = 0.567
+    f = 0.678
+
+{-- -- | Plural variant of 'random', producing an infinite list of --}
+{-- -- random values instead of returning a new generator. --}
+{-- randoms :: forall g a. RandomGen g => g -> List a --}
+{-- randoms g = build (\cons _nil -> buildRandoms cons random g) --}
+{-- -- | Produce an infinite list-equivalent of random values. --}
+{-- buildRandoms :: forall g a as. RandomGen g --}
+{--              => (a -> as -> as)  -- ^ E.g. '(:)' but subject to fusion --}
+{--              -> (g -> (Tuple a g))     -- ^ E.g. 'random' --}
+{--              -> g                -- ^ A 'RandomGen' instance --}
+{--              -> as --}
+buildRandoms cons rand = go
+  where
+    -- The seq fixes part of #4218 and also makes fused Core simpler.
+    go g = (x `cons` go g') where (Tuple x g') = rand g
+
+build :: forall a. ((a -> List a -> List a) -> List a -> List a) -> List a
+build g = g (:) Nil
 
 {-- -- Normal distribution approximation --}
 {-- -- --------------------------------- --}
@@ -115,27 +168,36 @@ boxMullers (u1:u2:us) = n1:n2:boxMullers us where (Tuple n1 n2) = boxMuller u1 u
 boxMullers _          = Nil
 
 
-{-- -- API --}
-{-- -- === --}
-{-- -- | Takes a random number generator g, and returns a random value --}
-{-- -- normally distributed with mean 0 and standard deviation 1, --}
-{-- -- together with a new generator. This function is analogous to --}
-{-- -- 'Random.random'. --}
-{-- normal :: RandomGen g => Random a => Field a => g -> (Tuple a g) --}
-{-- normal g0 = (Tuple (fst $ boxMuller u1 u2) g2) --}
-{--   -- While The Haskell 98 report says "For fractional types, the --}
-{--   -- range is normally the semi-closed interval [0,1)" we will --}
-{--   -- specify the range explicitly just to be sure. --}
-{--   where --}
-{--      (Tuple u1 g1) = randomR (Tuple 0 1) g0 --}
-{--      (Tuple u2 g2) = randomR (Tuple 0 1) g1 --}
+-- API
+-- ===
+-- | Takes a random number generator g, and returns a random value
+-- normally distributed with mean 0 and standard deviation 1,
+-- together with a new generator. This function is analogous to
+-- 'Random.random'.
+normal :: forall g. RandomGen g => g -> (Tuple Number g)
+normal g0 = (Tuple 0.5111 g0) where
+  g1 = do
+      u1 <- random
+      u2 <- random
+      let (Tuple uu _) = boxMuller u1 u2
+      pure $ uu
 
 -- | Plural variant of 'normal', producing an infinite list of
 -- random values instead of returning a new generator. This function
 -- is analogous to 'Random.randoms'.
-normals :: forall g. RandomGen g => g -> List Number
-normals = boxMullers <<< randoms
-
+{-- normals :: forall g. RandomGen g => g -> List Number --}
+{-- normals = boxMullers <<< randoms --}
+normals :: forall e. Int -> Eff (random :: RANDOM | e) (List Number)
+normals n = rs where
+  ns = range 0 (n-1)
+  rs = do
+    lln <- for ns \nn -> do
+          u1 <- random
+          u2 <- random
+          let n1 = sqrt (-2.0 * log u1)
+              n2 = 2.0 * pi * u2
+          pure $ (n1 : n2 : Nil)
+    pure $ concat lln
 {-- -- | Creates a infinite list of normally distributed random values --}
 {-- -- from the provided random generator seed. (In the implementation --}
 {-- -- the seed is fed to 'Random.mkStdGen' to produce the random --}

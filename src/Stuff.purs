@@ -10,7 +10,7 @@ import Data.Char (toCharCode)
 import Data.List ( List(..), (:))
 import Data.Array ( mapMaybe, unsafeIndex, range, length )
 import Data.Tuple ( Tuple(..), fst, snd )
-import Data.Maybe ( Maybe(..), fromMaybe' )
+import Data.Maybe ( Maybe(..), fromMaybe', fromJust )
 import Data.Foldable ( class Foldable, foldr )
 import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
@@ -93,6 +93,9 @@ mod' n d = n - (toNumber f) * d where
 -- | unsafe index to Array
 uidx :: forall a. Array a -> Int -> a
 uidx = unsafePartial unsafeIndex
+
+uJust :: forall a. Maybe a -> a
+uJust = unsafePartial $ fromJust
 
 -- | filter list of objects given list of indices in [a]
 -- | return list with only those b that have  indices that  are in rng [a]

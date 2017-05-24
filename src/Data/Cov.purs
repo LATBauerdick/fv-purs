@@ -20,7 +20,7 @@ import Data.Foldable ( sum )
 import Data.Tuple (Tuple (..))
 
 import Partial.Unsafe ( unsafePartial )
-import Data.Maybe (Maybe (..), fromJust)
+import Data.Maybe ( Maybe (..) )
 import Control.MonadZero (guard)
 import Math ( abs, sqrt )
 import Data.Int (toNumber, round)
@@ -184,7 +184,7 @@ instance matCov5 :: Mat (Cov Dim5) where
     a45 = unsafePartial $ A.unsafeIndex a 19
     a55 = unsafePartial $ A.unsafeIndex a 24
     a' = [a11,a12,a13,a14,a15,a22,a23,a24,a25,a33,a34,a35,a44,a45,a55]
-              | otherwise = error "Cov5 fromArray: wrong input array length"
+              | otherwise = error "Cov5 fromArray:  wrong input array length"
   toArray (Cov {v}) = vv where
     a11 = unsafePartial $ A.unsafeIndex v 0
     a12 = unsafePartial $ A.unsafeIndex v 1
@@ -285,7 +285,7 @@ class SymMat a where
   diag :: Cov a -> Array Number        -- | Array of diagonal elements
   chol :: Cov a -> Jac a a             -- | Cholsky decomposition
 instance symMatCov3 :: SymMat Dim3 where
-  inv m = unsafePartial $ fromJust (invMaybe m)
+  inv m = uJust (invMaybe m)
   invMaybe (Cov {v}) = do
     let
         a11 = unsafePartial $ A.unsafeIndex v 0
@@ -321,7 +321,7 @@ instance symMatCov3 :: SymMat Dim3 where
     a33 = unsafePartial $ A.unsafeIndex v 5
     a = [a11,a22,a33]
 instance symMatCov4 :: SymMat Dim4 where
-  inv m = unsafePartial $ fromJust (invMaybe m)
+  inv m = uJust (invMaybe m)
   invMaybe (Cov {v}) = do
     let
         a = unsafePartial $ A.unsafeIndex v 0
@@ -926,7 +926,6 @@ choldc (Cov {v: a}) n = Jac {v: a'} where
   idx' :: Int -> Int -> Int
   idx' j i | i >= j   = (i-1)*w + j-1
            | otherwise = error "idx': i < j"
-  uJust = unsafePartial $ fromJust
   {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
   {-- run act = pureST (act >>= unsafeFreeze) --}
   {-- a' = run (do --}
@@ -979,7 +978,6 @@ cholInv (Cov {v: a}) n = Cov {v: a'} where
           | otherwise = ((j-1)*n - (j-1)*(j-2)/2 + i-j)
   idx' :: Int -> Int -> Int -- index into values array for full matrix
   idx' i j = (i-1)*n + j-1
-  uJust = unsafePartial $ fromJust
   l = pureST ((do
     -- make a STArray of n x n + space for diagonal +1 for summing
     arr <- emptySTArray
