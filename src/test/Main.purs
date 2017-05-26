@@ -58,7 +58,7 @@ main = do
   -- send the list of tau tracks and a VHMeas to testFVT
   testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412
   log "--Test Random"
-  testRandom 10 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
+  testRandom 100 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
                 <<< uJust <<< hSlurp $ tr05129e001412
 
 showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
