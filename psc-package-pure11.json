@@ -1,0 +1,16 @@
+{
+    "name": "Main",
+    "set": "master",
+    "source": "https://github.com/pure11/package-sets.git",
+    "depends": [
+        "enums",
+        "exceptions",
+        "integers",
+        "strings",
+        "unsafe-coerce",
+        "lists",
+        "math",
+        "console",
+        "prelude"
+    ]
+}
