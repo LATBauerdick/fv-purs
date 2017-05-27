@@ -4,29 +4,17 @@ import Prelude
   (Unit, bind, discard, map, pure, show, unit
   , ($), (*), (<<<), (<>))
 import Control.Monad.Eff (Eff)
---import Control.Monad.Aff (launchAff)
---import Control.Monad.Aff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Random ( RANDOM )
---import Control.Monad.Eff.Exception (EXCEPTION)
---import Node.FS (FS)
---import Node.Encoding (Encoding(..))
---import Node.FS.Sync (readTextFile)
---import Node.FS.Aff (readTextFile)
---import Node.Path (FilePath)
---import Data.String.Utils (words)
-
 import Data.Monoid ( mempty )
 import Data.Tuple ( Tuple(..) )
 import Data.Array ( length, zip, foldl )
 import Data.Foldable (sum, traverse_)
-import Partial.Unsafe ( unsafePartial )
 import Data.List ( mapMaybe )
 
 import Test.Matrix (testMatrix)
 import Test.Cov (testCov)
 import Test.Random ( testRandom )
-import Stuff
 
 import FV.Types
   ( VHMeas, HMeas, QMeas
@@ -38,11 +26,11 @@ import Test.Input ( hSlurp, hSlurpMCtruth )
 import FV.Fit ( fit )
 
 import Data.Number ( fromString )
-import Stuff (iflt, to1fix, words)
+import Stuff ( iflt, to1fix, words, uJust )
 
 main :: forall e.  Eff ( console :: CONSOLE
                        , random :: RANDOM
-                       --, exception :: EXCEPTION
+                       {-- --, exception :: EXCEPTION --}
                        --, fs :: FS
                        | e) Unit
 --main = void $ launchAff do
@@ -53,7 +41,7 @@ main = do
   log "--Test Matrix"
   {-- testMatrix --}
   log "--Test Cov"
-  log $ testCov 0
+  {-- log $ testCov 0 --}
   log "--Test FVT"
   -- send the list of tau tracks and a VHMeas to testFVT
   testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412

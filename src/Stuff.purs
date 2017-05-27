@@ -3,12 +3,14 @@ module Stuff where
 import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Random ( random, RANDOM )
 import Math ( sqrt )
 import Data.Ord (signum)
 import Data.String ( takeWhile, dropWhile, toCharArray, fromCharArray, split, Pattern (..) )
 import Data.Char (toCharCode)
 import Data.List ( List(..), (:))
-import Data.Array ( mapMaybe, unsafeIndex, range, length )
+import Data.Array ( unsafeIndex, range, length, take, concat ) as A
+import Data.Unfoldable ( replicateA )
 import Data.Tuple ( Tuple(..), fst, snd )
 import Data.Maybe ( Maybe(..), fromMaybe', fromJust )
 import Data.Foldable ( class Foldable, foldr )
@@ -20,6 +22,7 @@ import Text.Format ( format, precision, width )
 import Data.Enum ( class Enum )
 import Control.MonadZero ( guard )
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
+import Math ( log, sqrt, pi, sin, cos ) as Math
 
 {-- -- | Basic numeric class. --}
 {-- class  Num a  where --}
@@ -92,7 +95,7 @@ mod' n d = n - (toNumber f) * d where
 
 -- | unsafe index to Array
 uidx :: forall a. Array a -> Int -> a
-uidx = unsafePartial unsafeIndex
+uidx = unsafePartial A.unsafeIndex
 
 uJust :: forall a. Maybe a -> a
 uJust = unsafePartial $ fromJust
@@ -107,7 +110,7 @@ iflt rng hl = do
 -- | remove element at index
 irem :: forall a. Int -> Array a -> Array a
 irem indx hl = do
-  i <- range 0 ((length hl)-1)
+  i <- A.range 0 ((A.length hl)-1)
   guard $ i /= indx
   pure $ uidx hl i
 
@@ -201,4 +204,20 @@ undefined = Unsafe.Coerce.unsafeCoerce unit
 
 error :: forall a. String -> a
 error = unsafeCrashWith
+
+-- | generate a list of n normally distributed random values
+-- | usinging the Box-Muller method and the random function
+boxMuller :: forall e. Eff (random :: RANDOM | e) (Array Number)
+boxMuller = do
+              u1 <- random
+              u2 <- random
+              let r = Math.sqrt (-2.0 * Math.log u1)
+                  t = 2.0 * Math.pi * u2
+                  b1 = r * Math.cos t
+                  b2 = r * Math.sin t
+              pure $ [ b1, b2 ]
+normals :: forall e. Int -> Eff (random :: RANDOM | e) (Array Number)
+normals n = do
+  ls <- replicateA ((n+1)/2) $ boxMuller
+  pure $ A.take n $ A.concat ls
 
