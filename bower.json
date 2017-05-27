@@ -24,9 +24,7 @@
     "purescript-maybe": "^3.0.0",
     "purescript-arrays": "^4.0.1",
     "purescript-either": "^3.0.0",
-    "purescript-profunctor": "^3.0.0",
-    "purescript-numbers": "^5.0.0",
-    "purescript-format": "^3.0.0"
+    "purescript-profunctor": "^3.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"
