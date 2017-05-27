@@ -7,13 +7,13 @@ import Control.Monad.Eff.Random ( RANDOM )
 import Data.List.Lazy ( replicateM )
 import Data.Array ( fromFoldable, zipWith ) as A
 import Data.Traversable ( for )
-import Statistics.Sample (mean, stddev)
+import Data.Tuple ( Tuple (..) )
 
 import Data.Cov ( chol, fromArray, toArray, (|||) )
 import FV.Fit ( fit )
 import FV.Types ( VHMeas(..), HMeas(..), MMeas(..)
   , invMass, fromQMeas, fitMomenta )
-import Stuff ( normals )
+import Stuff ( normals, stats )
 
 {-- import qualified Graphics.Gnuplot.Frame.OptionSet as Opts --}
 {-- import Graphics.Histogram --}
@@ -50,8 +50,7 @@ testRandom cnt vm = do
   log $ "Fit Mass  " <> (show <<< invMass <<< map fromQMeas
                         <<< fitMomenta <<< fit $ vm)
   ms <- replicateM cnt $ fitm <$> (randomize vm)
-  let m  = mean $ A.fromFoldable ms
-      dm = stddev $ A.fromFoldable ms
+  let (Tuple m dm) = stats $ A.fromFoldable ms
   log $ "Mean Mass " <> show (MMeas {m, dm})
   {-- let hist = histogram binSturges (V.toList hf) --}
   {-- _ <- plot "invMass.png" hist --}

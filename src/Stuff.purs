@@ -13,7 +13,7 @@ import Data.Array ( unsafeIndex, range, length, take, concat ) as A
 import Data.Unfoldable ( replicateA )
 import Data.Tuple ( Tuple(..), fst, snd )
 import Data.Maybe ( Maybe(..), fromMaybe', fromJust )
-import Data.Foldable ( class Foldable, foldr )
+import Data.Foldable ( class Foldable, foldr, sum )
 import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 import Data.List ( fromFoldable )
@@ -221,3 +221,9 @@ normals n = do
   ls <- replicateA ((n+1)/2) $ boxMuller
   pure $ A.take n $ A.concat ls
 
+-- | Calculate mean and standard deviation
+stats :: Array Number -> Tuple Number Number
+stats xs = Tuple mean stddev where
+  n = toNumber (A.length xs)
+  mean = sum xs / n
+  stddev = sqrt $ sum (map (\v -> sqr (v-mean)) xs) / n
