@@ -15,6 +15,8 @@ import Data.Maybe ( Maybe (..) )
 import Control.MonadZero (guard)
 import Data.Int ( toNumber, ceil )
 import Math ( abs, sqrt )
+import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
+
 import Data.SimpleMatrix
   ( Matrix
   , transpose
@@ -25,17 +27,32 @@ import Stuff
 newtype Dim3 = DDim3 Int
 newtype Dim4 = DDim4 Int
 newtype Dim5 = DDim5 Int
-data DDim = Dim3 | Dim4 | Dim5
+class DDim a where
+  ddim :: a -> Int
+instance ddim3 :: DDim Dim3 where
+  ddim _ = 3
+instance ddim4 :: DDim Dim4 where
+  ddim _ = 4
+instance ddim5 :: DDim Dim5 where
+  ddim _ = 5
+instance ddima :: DDim a where
+  ddim _ = undefined
+
+mapTo :: forall a. DDim a => Cov a -> Dim5
+mapTo = Unsafe.Coerce.unsafeCoerce
 class Dim a where
   dim :: a -> Int
-instance dim3 :: Dim Dim3 where
-  dim a = 3
-instance dim4 :: Dim Dim4 where
-  dim a = 4
-instance dim5 :: Dim Dim5 where
-  dim a = 5
+instance dima :: Dim (Cov a) where
+  dim ccc = n where
+    xx = mapTo ccc
+    n = ddim xx
+instance dim3 :: Dim (Cov Dim3) where
+  dim ccc = 3
+instance dim4 :: Dim (Cov Dim4) where
+  dim ccc = 4
+instance dim5 :: Dim (Cov Dim5) where
+  dim ccc = 5
 
-{-- newtype Cov (a :: DDim) = Cov { v :: Array Number } --}
 newtype Cov a = Cov { v :: Array Number }
 newtype Jac a b = Jac { v :: Array Number }
 newtype Vec a = Vec { v :: Array Number }
@@ -90,7 +107,7 @@ class Matt a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
   toArray :: a -> Array Number
-instance matCova :: Dim a => Matt (Cov a) where
+instance matCova :: Matt (Cov a) where
   val (Cov {v}) = v
   fromArray a = c' where
     l = A.length a
@@ -124,7 +141,7 @@ instance matJacab :: Matt (Jac a b) where
 
 class Matt1 a where
   toMatrix :: a -> M.Matrix
-instance mat1Cova :: Dim a => Matt1 (Cov a) where
+instance mat1Cova :: Matt1 (Cov a) where
   toMatrix a@(Cov {v}) = case A.length v of
                             6  -> M.fromArray2 3 3 v
                             10 -> M.fromArray2 4 4 v
@@ -133,7 +150,7 @@ instance mat1Cova :: Dim a => Matt1 (Cov a) where
                                           <> show (A.length v)
 instance mat1Veca :: Matt1 (Vec a) where
   toMatrix (Vec {v}) = M.fromArray (A.length v) v
-instance mat1Jacaa :: (Dim a, Dim b) => Matt1 (Jac a b) where
+instance mat1Jacaa :: Matt1 (Jac a b) where
   toMatrix j@(Jac {v}) = case A.length v of
                               9  -> M.fromArray2 3 3 v
                               16 -> M.fromArray2 4 4 v
@@ -150,7 +167,7 @@ instance mat1Jac53 :: Matt1 (Jac Dim5 Dim3) where
   toMatrix (Jac {v}) = M.fromArray2 5 3 v `debug` "WTF??? 5 3"
 instance mat1Jac35 :: Matt1 (Jac Dim3 Dim5) where
   toMatrix (Jac {v}) = M.fromArray2 3 5 v `debug` "WTF??? 3 5"
-{-- instance mat1Jacab :: (Dim a, Dim b) => Matt1 (Jac a b) where --}
+{-- instance mat1Jacab :: Matt1 (Jac a b) where --}
 {--   toMatrix (Jac {v}) =  error $ "xxxxxxxxxxxxxxxxxxxxtoMatrix Jac a b " --}
 {--                                 <> show (A.length v) --}
 --{{{
@@ -412,37 +429,37 @@ instance symMatCov5 :: SymMat Dim5 where
 class MulMat a b c | a b -> c where
   mulm :: a -> b -> c
 infixr 7 mulm as *.
-instance mulMata :: Dim a => MulMat (Cov a) (Cov a) (Jac a a) where
+instance mulMata :: MulMat (Cov a) (Cov a) (Jac a a) where
   mulm c1 c2 = j' where
     mc1 = toMatrix c1
     mc2 = toMatrix c2
     mj' = mc1 * mc2
     j' = fromArray $ M.toArray mj'
-instance mulMatJC :: (Dim a, Dim b) => MulMat (Jac a b) (Cov b) (Jac a b) where
+instance mulMatJC :: MulMat (Jac a b) (Cov b) (Jac a b) where
   mulm j c = j' where
     mj = toMatrix j
     mc = toMatrix c
     mj' = mj * mc
     j' = fromArray $ M.toArray mj'
-instance mulMatCJ :: (Dim a, Dim b) => MulMat (Cov a) (Jac a b) (Jac a b) where
+instance mulMatCJ :: MulMat (Cov a) (Jac a b) (Jac a b) where
   mulm c j = j' where
     mc = toMatrix c
     mj = toMatrix j
     mj' = mc * mj
     j' = fromArray $ M.toArray mj'
-instance mulMatJV :: (Dim a, Dim b) => MulMat (Jac a b) (Vec b) (Vec a) where
+instance mulMatJV :: MulMat (Jac a b) (Vec b) (Vec a) where
   mulm j v = v' where
     mj = toMatrix j
     mv = toMatrix v
     mv' = mj * mv
     v' = fromArray $ M.toArray mv'
-instance mulMatJJ :: (Dim a, Dim b) => MulMat (Jac a b) (Jac b a) (Jac a a) where
+instance mulMatJJ :: MulMat (Jac a b) (Jac b a) (Jac a a) where
   mulm j1 j2 = j' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
     mj' = mj1 * mj2
     j' = fromArray $ M.toArray mj'
-instance mulMatCV :: Dim a => MulMat (Cov a) (Vec a) (Vec a) where
+instance mulMatCV :: MulMat (Cov a) (Vec a) (Vec a) where
   mulm c v = v' where
     mc = toMatrix c
     mv = toMatrix v
@@ -454,7 +471,7 @@ class TrMat a b | a -> b where
   tr :: a -> b
 instance trMatC :: TrMat (Cov a) (Cov a) where
   tr c = c
-instance trMatJ :: (Dim a, Dim b) => TrMat (Jac a b) (Jac b a) where
+instance trMatJ :: TrMat (Jac a b) (Jac b a) where
   tr j = jt where
     mj = toMatrix j
     mjt = M.transpose mj
@@ -462,13 +479,13 @@ instance trMatJ :: (Dim a, Dim b) => TrMat (Jac a b) (Jac b a) where
 class SW a b c | a b -> c where
   sw :: a -> b -> c
 infixl 7 sw as <.>
-instance swVec :: Dim a => SW (Vec a) (Cov a) Number where
+instance swVec :: SW (Vec a) (Cov a) Number where
   sw v c = n where
     mv = toMatrix v
     mc = toMatrix c
     mc' = M.transpose mv * mc * mv
     n = uidx (M.toArray mc') 0
-instance swJac :: (Dim a, Dim b) => SW (Jac a b) (Cov a) (Cov b) where
+instance swJac :: SW (Jac a b) (Cov a) (Cov b) where
   sw j c = c' where
     mj = toMatrix j
     mc = toMatrix c
@@ -522,7 +539,7 @@ instance semiringJac :: Semiring (Jac a b) where
   one = undefined
 instance ringJac :: Ring (Jac a b) where
   sub (Jac {v: v1}) (Jac {v: v2}) = Jac {v: A.zipWith (-) v1 v2}
-instance showJac :: (Dim a, Dim b) => Show (Jac a b) where
+instance showJac :: Show (Jac a b) where
   show a = "Show Jac\n" <> show (toMatrix a)
 
 -- Instances for Vec -- these are always column vectors
@@ -565,7 +582,7 @@ class Chi2 a where
 infix 7 chi2 as |*|
 infix 7 sandwichvv as |.|
 
-instance chi2Dim :: Dim a => Chi2 a where
+instance chi2Dim :: Chi2 a where
   chi2 v c = x where
     mv = toMatrix v
     mc = toMatrix c
