@@ -90,8 +90,6 @@ class Matt a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
   toArray :: a -> Array Number
-class Matt1 a where
-  toMatrix :: a -> M.Matrix
 instance matCova :: Dim a => Matt (Cov a) where
   val (Cov {v}) = v
   fromArray a = c' where
@@ -115,39 +113,46 @@ instance matCova :: Dim a => Matt (Cov a) where
                   i0 <- A.range 0 (n-1)
                   j0 <- A.range 0 (n-1)
                   pure $ uidx v (idx i0 j0)
+instance matVeca :: Matt (Vec a) where
+  val (Vec {v}) = v
+  fromArray a = Vec {v: a}
+  toArray (Vec {v}) = v
+instance matJacab :: Matt (Jac a b) where
+  val (Jac {v}) = v
+  fromArray a = Jac {v: a}
+  toArray (Jac {v}) = v
+
+class Matt1 a where
+  toMatrix :: a -> M.Matrix
 instance mat1Cova :: Dim a => Matt1 (Cov a) where
   toMatrix a@(Cov {v}) = case A.length v of
                             6  -> M.fromArray2 3 3 v
                             10 -> M.fromArray2 4 4 v
                             15 -> M.fromArray2 5 5 v
-                            _ -> error $ "--------------matCova toMatrix "
+                            _ -> error $ "--------------mat1Cova toMatrix "
                                           <> show (A.length v)
-instance matVeca :: Matt (Vec a) where
-  val (Vec {v}) = v
-  fromArray a = Vec {v: a}
-  toArray (Vec {v}) = v
 instance mat1Veca :: Matt1 (Vec a) where
   toMatrix (Vec {v}) = M.fromArray (A.length v) v
-instance matJacab :: Matt (Jac a b) where
-  val (Jac {v}) = v
-  fromArray a = Jac {v: a}
-  toArray (Jac {v}) = v
-instance mat1Jac33 :: Matt1 (Jac Dim3 Dim3) where
-  toMatrix (Jac {v}) = M.fromArray2 3 3 v
-instance mat1Jac44 :: Matt1 (Jac Dim4 Dim4) where
-  toMatrix (Jac {v}) = M.fromArray2 4 4 v
-instance mat1Jac55 :: Matt1 (Jac Dim5 Dim5) where
-  toMatrix (Jac {v}) = M.fromArray2 5 5 v
+instance mat1Jacaa :: (Dim a, Dim b) => Matt1 (Jac a b) where
+  toMatrix j@(Jac {v}) = case A.length v of
+                              9  -> M.fromArray2 3 3 v
+                              16 -> M.fromArray2 4 4 v
+                              25 -> M.fromArray2 5 5 v
+                              12 -> M.fromArray2 4 3 v `debug` "this should not have happened ??????????????????? 4 3"
+                              15 -> M.fromArray2 5 3 v `debug` "this should not have happened ??????????????????? 4 3"
+                              _  -> error $ "----------------mat1Jacaa toMatrix "
+                                          <> show (A.length v)
 instance mat1Jac43 :: Matt1 (Jac Dim4 Dim3) where
-  toMatrix (Jac {v}) = M.fromArray2 4 3 v
+  toMatrix (Jac {v}) = M.fromArray2 4 3 v `debug` "WTF??? 4 3"
 instance mat1Jac34 :: Matt1 (Jac Dim3 Dim4) where
-  toMatrix (Jac {v}) = M.fromArray2 3 4 v
+  toMatrix (Jac {v}) = M.fromArray2 3 4 v `debug` "WTF??? 3 4"
 instance mat1Jac53 :: Matt1 (Jac Dim5 Dim3) where
-  toMatrix (Jac {v}) = M.fromArray2 5 3 v
+  toMatrix (Jac {v}) = M.fromArray2 5 3 v `debug` "WTF??? 5 3"
 instance mat1Jac35 :: Matt1 (Jac Dim3 Dim5) where
-  toMatrix (Jac {v}) = M.fromArray2 3 5 v
-instance mat1Jacab :: (Dim a, Dim b) => Matt1 (Jac a b) where
-  toMatrix this = error "xxxxxxxxxxxxxxxxxxxxtoMatrix Jac a b"
+  toMatrix (Jac {v}) = M.fromArray2 3 5 v `debug` "WTF??? 3 5"
+{-- instance mat1Jacab :: (Dim a, Dim b) => Matt1 (Jac a b) where --}
+{--   toMatrix (Jac {v}) =  error $ "xxxxxxxxxxxxxxxxxxxxtoMatrix Jac a b " --}
+{--                                 <> show (A.length v) --}
 --{{{
 {-- instance matCov3 :: Matt (Cov Dim3) where --}
 {--   val (Cov {v}) = v --}
