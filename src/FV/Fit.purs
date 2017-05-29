@@ -54,9 +54,9 @@ kAdd' (XMeas v0 uu0) (HMeas h gg w0) x_e q_e 𝜒2_0 iter = x_k where
                 uu    = uu0 + aa ||*|| gb
                 cc    = inv uu
                 m     = h - h0
-                v     = cc *| (uu0 *| v0 + aaT ||| gb *| m)
+                v     = cc *. (uu0 *. v0 + aaT ||| gb *. m)
                 dm    = m - aa ||| v
-                q     = ww *| bbT ||| gg *| dm
+                q     = ww *. (bbT ||| gg *. dm)
                 𝜒2    = (dm - bb ||| q) |*| gg + (v - v0) |*| uu0
                 x_k'  = if goodEnough 𝜒2_0 𝜒2 iter -- `debug` ("--> kAdd' chi2 is " <> show 𝜒2)
                   then XMeas v cc
@@ -90,7 +90,7 @@ ksm (XMeas x cc) (HMeas h hh w0) = do
       aaT  = tr aa
       bbT  = tr bb
       dp   = (p - aa ||| x)
-      q    = ww *| bbT ||| gg *| dp
+      q    = ww *. (bbT ||| gg *. dp)
       mee   = (cc *|| aaT) |||| gg *|| bb ||* ww
       dd   = ww + mee ||*|| uu
       r    = p - aa ||| x - bb ||| q
@@ -107,7 +107,7 @@ ksm (XMeas x cc) (HMeas h hh w0) = do
                                                         <> show uu')
                     else cx'' where
                       cc'  = inv uu' -- `debug` ("--> ksm " ++ show uu')
-                      x'   = cc' *| (uu *| x - aaT ||| gb *| p)
+                      x'   = cc' *. (uu *. x - aaT ||| gb *. p)
                       dx   = x - x'
                       cx'  = dx |*| uu'
                       cx'' = if cx' < 0.0 then 2000.0 `debug` ("--> ksm chi2 is " <> show cx' <> ", " <> show ch <> ", " <> show ((max cx' 0.0) + ch))

@@ -12,7 +12,7 @@ import Data.Array ( length, zip, foldl )
 import Data.Foldable (sum, traverse_)
 import Data.List ( mapMaybe )
 
-import Test.Matrix (testMatrix)
+{-- import Test.Matrix (testMatrix) --}
 import Test.Cov (testCov)
 import Test.Random ( testRandom )
 
@@ -41,10 +41,10 @@ main = do
   log "--Test Matrix"
   {-- testMatrix --}
   log "--Test Cov"
-  {-- log $ testCov 0 --}
+  log $ testCov 0
   log "--Test FVT"
   -- send the list of tau tracks and a VHMeas to testFVT
-  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412
+  {-- testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412 --}
   log "--Test Random"
   testRandom 100 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
                 <<< uJust <<< hSlurp $ tr05129e001412

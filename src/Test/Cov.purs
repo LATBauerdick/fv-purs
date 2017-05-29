@@ -1,10 +1,10 @@
 module Test.Cov (testCov) where
 
 import Prelude
-import Data.Cov 
+import Data.Cov
   ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5
   , fromArray, inv, toMatrix, tr, chol, cholInv
-  , (*|), (|*|), (|.|), (||*||), (|||), (||||), (||*), (**)
+  , (*.), (|*|), (|.|), (||*||), (|||), (||||), (||*), (**), testCov2
   )
 import Data.SimpleMatrix as M
 
@@ -40,6 +40,7 @@ testCov cnt = "testCov: " <> show cnt
         <> "A^(-1) from cholInv " <> show (cholInv ch5 5)
         {-- <> "chol" <> show ch5 --}
         {-- <> show (chol ch5) <> show ( chol ch5 |||| tr (chol ch5)) --}
+        <> testCov2
         where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
@@ -64,7 +65,7 @@ testCov cnt = "testCov: " <> show cnt
   vv5 :: Vec5
   vv5 = j53 ||| v3
   vv3 :: Vec3
-  vv3 = tr j53 ||| j53 ||| c3 *| v3
+  vv3 = tr j53 ||| j53 ||| c3 *. v3
 
   m3 :: M.Matrix
   m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]

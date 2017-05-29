@@ -57,8 +57,8 @@ matrix n m f = M_ {nrows: n, ncols: m, roff: 0, coff: 0, vcols: m, values: val} 
 --   The list must have at least /rows*cols/ elements.
 --   An example:
 --
--- >                           ( 1 2 3 )
--- >                           ( 4 5 6 )
+-- >                            ( 1 2 3 )
+-- >                            ( 4 5 6 )
 -- > fromArray2 3 3 (1 .. 9) =  ( 7 8 9 )
 --
 -- | Create column vector from array
@@ -66,8 +66,21 @@ fromArray :: Int -> Array Number -> Matrix
 fromArray r vs = M_ {nrows: r, ncols: 1, roff: 0, coff: 0, vcols: 1, values: vs}
 -- | Create matrix from array
 fromArray2 :: Int -> Int -> Array Number -> Matrix
-fromArray2 r c vs = M_ {nrows: r, ncols: c, roff: 0, coff: 0, vcols: c, values: vs}
-
+fromArray2 r c vs | (A.length vs) == r*c
+                    = M_ {nrows: r, ncols: c
+                        , roff: 0, coff: 0 , vcols: c , values: vs}
+                  | r==c && (A.length vs) == r*(r+1)/2
+                    = M_ {nrows: n, ncols: n, roff: 0, coff: 0, vcols: n , values: vs'} where
+                        n = r
+                        idx :: Int -> Int -> Int -- index into values array of symmetric matrices
+                        idx i j | i <= j    = ((i-1)*n - (i-1)*(i-2)/2 + j-i)
+                                | otherwise = ((j-1)*n - (j-1)*(j-2)/2 + i-j)
+                        vs' = do
+                            i <- A.range 1 n
+                            j <- A.range 1 n
+                            pure $ uidx vs (idx i j)
+                  | otherwise = error $ "---- fromArray2 invalid array length "
+                                        <> show (A.length vs)
 -- | Just a cool way to output the size of a matrix.
 sizeStr :: Int -> Int -> String
 sizeStr n m = show n <> "x" <> show m
