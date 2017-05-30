@@ -44,7 +44,7 @@ main = do
   log $ testCov 0
   log "--Test FVT"
   -- send the list of tau tracks and a VHMeas to testFVT
-  {-- testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412 --}
+  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412
   log "--Test Random"
   testRandom 100 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
                 <<< uJust <<< hSlurp $ tr05129e001412
