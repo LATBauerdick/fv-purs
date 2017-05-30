@@ -85,28 +85,12 @@ uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a
 -- while keeping info about dimensionality
 -- also define Semiring and Ring functions
 --
--------------------------------------------------------------------------
--------------------------------------------------------------------------
--------------------------------------------------------------------------
 
-class AdderFunDeps a b c | a b -> c where
-    myPlusFunDeps :: a -> b -> c
-
-instance addIntInt :: AdderFunDeps Int Int Int where
-    myPlusFunDeps a b = a + b
-
-instance addNumNum :: AdderFunDeps Int Number Number where
-    myPlusFunDeps a b = toNumber a + b
-
-testFunDeps :: String
--- This works because of the fundeps.
-testFunDeps = show $ myPlusFunDeps (3 :: Int) (4 :: Int)
-
-class Matt a where
+class Mat a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
   toArray :: a -> Array Number
-instance matCova :: Matt (Cov a) where
+instance matCova :: Mat (Cov a) where
   val (Cov {v}) = v
   fromArray a = c' where
     l = A.length a
@@ -129,27 +113,27 @@ instance matCova :: Matt (Cov a) where
                   i0 <- A.range 0 (n-1)
                   j0 <- A.range 0 (n-1)
                   pure $ uidx v (idx i0 j0)
-instance matVeca :: Matt (Vec a) where
+instance matVeca :: Mat (Vec a) where
   val (Vec {v}) = v
   fromArray a = Vec {v: a}
   toArray (Vec {v}) = v
-instance matJacab :: Matt (Jac a b) where
+instance matJacab :: Mat (Jac a b) where
   val (Jac {v}) = v
   fromArray a = Jac {v: a}
   toArray (Jac {v}) = v
 
-class Matt1 a where
+class Mat1 a where
   toMatrix :: a -> M.Matrix
-instance mat1Cova :: Matt1 (Cov a) where
+instance mat1Cova :: Mat1 (Cov a) where
   toMatrix a@(Cov {v}) = case A.length v of
                             6  -> M.fromArray2 3 3 v
                             10 -> M.fromArray2 4 4 v
                             15 -> M.fromArray2 5 5 v
                             _ -> error $ "mat1Cova toMatrix "
                                           <> show (A.length v)
-instance mat1Veca :: Matt1 (Vec a) where
+instance mat1Veca :: Mat1 (Vec a) where
   toMatrix (Vec {v}) = M.fromArray (A.length v) v
-instance mat1Jacaa :: Matt1 (Jac a b) where
+instance mat1Jacaa :: Mat1 (Jac a b) where
   toMatrix j@(Jac {v}) = case A.length v of
                               9  -> M.fromArray2 3 3 v
                               16 -> M.fromArray2 4 4 v
@@ -159,12 +143,12 @@ instance mat1Jacaa :: Matt1 (Jac a b) where
                               _  -> error $ "mat1Jacaa toMatrix "
                                           <> show (A.length v)
 
-instance mat1Jac53 :: Matt1 (Jac Dim5 Dim3) where
+instance mat1Jac53 :: Mat1 (Jac Dim5 Dim3) where
   toMatrix (Jac {v}) = M.fromArray2 5 3 v -- `debug` "WTF??? 5 3"
-instance mat1Jac35 :: Matt1 (Jac Dim3 Dim5) where
+instance mat1Jac35 :: Mat1 (Jac Dim3 Dim5) where
   toMatrix (Jac {v}) = M.fromArray2 3 5 v -- `debug` "WTF??? 3 5"
 --{{{
-{-- instance matCov3 :: Matt (Cov Dim3) where --}
+{-- instance matCov3 :: Mat (Cov Dim3) where --}
 {--   val (Cov {v}) = v --}
 {--   fromArray a | A.length a == 6 = Cov {v: a} --}
 {--               | A.length a == 9 = Cov {v: a'} where --}
@@ -186,7 +170,7 @@ instance mat1Jac35 :: Matt1 (Jac Dim3 Dim5) where
 {--     a33 = unsafePartial $ A.unsafeIndex v 5 --}
 {--     vv = [a11, a12, a13, a12, a22, a23, a13, a23, a33] --}
 {--   toMatrix c = M.fromArray2 3 3 $ toArray c --}
-{-- instance matCov4 :: Matt (Cov Dim4) where --}
+{-- instance matCov4 :: Mat (Cov Dim4) where --}
 {--   val (Cov {v}) = v --}
 {--   fromArray a | A.length a == 10 = Cov {v: a} --}
 {--               | A.length a == 16 = Cov {v: a'} where --}
@@ -216,7 +200,7 @@ instance mat1Jac35 :: Matt1 (Jac Dim3 Dim5) where
 {--     a44 = unsafePartial $ A.unsafeIndex v 9 --}
 {--     vv = [a11,a12,a13,a14,a12,a22,a23,a24,a13,a23,a33,a34,a14,a24,a34,a44] --}
 {--   toMatrix c = M.fromArray2 4 4 $ toArray c --}
-{-- instance matCov5 :: Matt (Cov Dim5) where --}
+{-- instance matCov5 :: Mat (Cov Dim5) where --}
 {--   val (Cov {v}) = v --}
 {--   fromArray a | A.length a == 15 = Cov {v: a} --}
 {--               | A.length a == 25 = Cov {v: a'} where --}
@@ -257,21 +241,21 @@ instance mat1Jac35 :: Matt1 (Jac Dim3 Dim5) where
 {--          ,a13, a23, a33, a34, a35, a14, a24, a34, a44, a45 --}
 {--          ,a15, a25, a35, a45, a55] --}
 {--   toMatrix c = M.fromArray2 5 5 $ toArray c --}
-{-- instance matVec3 :: Matt (Vec Dim3) where --}
+{-- instance matVec3 :: Mat (Vec Dim3) where --}
 {--   val (Vec {v}) = v --}
 {--   fromArray a | A.length a /= 3 = --}
 {--                   error "Vec3 fromArray: wrong input array length" --}
 {--               | otherwise = Vec {v: a} --}
 {--   toArray (Vec {v}) = v --}
 {--   toMatrix (Vec {v}) = M.fromArray 3 v --}
-{-- instance matVec4 :: Matt (Vec Dim4) where --}
+{-- instance matVec4 :: Mat (Vec Dim4) where --}
 {--   val (Vec {v}) = v --}
 {--   fromArray a | A.length a /= 4 = --}
 {--                   error "Vec4 fromArray: wrong input array length" --}
 {--               | otherwise = Vec {v: a} --}
 {--   toArray (Vec {v}) = v --}
 {--   toMatrix (Vec {v}) = M.fromArray 4 v --}
-{-- instance matVec5 :: Matt (Vec Dim5) where --}
+{-- instance matVec5 :: Mat (Vec Dim5) where --}
 {--   val (Vec {v}) = v --}
 {--   fromArray a | A.length a /= 5 = --}
 {--                   error "Vec5 fromArray: wrong input array length" --}
