@@ -339,20 +339,12 @@ instance symMatCov4 :: SymMat Dim4 where
         j' = (-h*b*b + 2.0*c*f*b - a*f*f - c*c*e + a*e*h)/det
         v' = [a',b',c',d',e',f',g',h',i',j']
     pure $ fromArray v'
-  det (Cov {v}) = d' where
-    a = unsafePartial $ A.unsafeIndex v 0
-    b = unsafePartial $ A.unsafeIndex v 1
-    c = unsafePartial $ A.unsafeIndex v 2
-    d = unsafePartial $ A.unsafeIndex v 3
-    e = unsafePartial $ A.unsafeIndex v 4
-    f = unsafePartial $ A.unsafeIndex v 5
-    g = unsafePartial $ A.unsafeIndex v 6
-    h = unsafePartial $ A.unsafeIndex v 7
-    i = unsafePartial $ A.unsafeIndex v 8
-    j = unsafePartial $ A.unsafeIndex v 9
-    d' = (a*e*h*j - a*e*i*i - a*f*f*j + 2.0*a*f*g*i - a*g*g*h
+  det (Cov {v}) = _det v where
+    _det [a,b,c,d,e,f,g,h,i,j] =
+        (a*e*h*j - a*e*i*i - a*f*f*j + 2.0*a*f*g*i - a*g*g*h
           - b*b*h*j + b*b*i*i - 2.0*d*(b*f*i - b*g*h - c*e*i + c*f*g)
           + b*c*(2.0*f*j - 2.0*g*i) + c*c*(g*g - e*j) + d*d*(f*f - e*h))
+    _det _ = undefined
   diag (Cov {v}) = a where
     a11 = unsafePartial $ A.unsafeIndex v 0
     a22 = unsafePartial $ A.unsafeIndex v 4
@@ -363,22 +355,7 @@ instance symMatCov4 :: SymMat Dim4 where
 instance symMatCov5 :: SymMat Dim5 where
   inv m = cholInv m 5
   invMaybe m = Just (cholInv m 5)
-  det (Cov {v}) = d' where
-    a = unsafePartial $ A.unsafeIndex v 0
-    b = unsafePartial $ A.unsafeIndex v 1
-    c = unsafePartial $ A.unsafeIndex v 2
-    d = unsafePartial $ A.unsafeIndex v 3
-    e = unsafePartial $ A.unsafeIndex v 4
-    f = unsafePartial $ A.unsafeIndex v 5
-    g = unsafePartial $ A.unsafeIndex v 6
-    h = unsafePartial $ A.unsafeIndex v 7
-    i = unsafePartial $ A.unsafeIndex v 8
-    j = unsafePartial $ A.unsafeIndex v 9
-    k = unsafePartial $ A.unsafeIndex v 10
-    l = unsafePartial $ A.unsafeIndex v 11
-    m = unsafePartial $ A.unsafeIndex v 12
-    n = unsafePartial $ A.unsafeIndex v 13
-    o = unsafePartial $ A.unsafeIndex v 14
+  det (Cov {v}) = _det v where
     _det [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] =
       a*f*j*m*o - a*f*j*n*n - a*f*k*k*o + 2.0*a*f*k*l*n - a*f*l*l*m
       - a*g*g*m*o + a*g*g*n*n + 2.0*a*g*h*k*o - 2.0*a*g*h*l*n - 2.0*a*g*i*k*n
@@ -396,7 +373,7 @@ instance symMatCov5 :: SymMat Dim5 where
       - 2.0*d*d*g*i*l + d*d*i*i*j + 2.0*d*e*f*j*n - 2.0*d*e*f*k*l - 2.0*d*e*g*g*n
       + 2.0*d*e*g*h*l + 2.0*d*e*g*i*k - 2.0*d*e*h*i*j - e*e*f*j*m + e*e*f*k*k
       + e*e*g*g*m - 2.0*e*e*g*h*k + e*e*h*h*j
-    d' = _det v
+    _det _ = undefined
   diag (Cov {v}) = a where
     a11 = unsafePartial $ A.unsafeIndex v 0
     a22 = unsafePartial $ A.unsafeIndex v 5

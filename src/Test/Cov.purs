@@ -3,7 +3,7 @@ module Test.Cov (testCov) where
 import Prelude
 import Data.Cov
   ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5
-  , fromArray, inv, toMatrix, tr, chol, cholInv
+  , fromArray, inv, toMatrix, tr, chol, cholInv, det
   , (*.), (.*.), testCov2
   )
 import Data.SimpleMatrix as M
@@ -38,9 +38,10 @@ testCov cnt = "testCov: " <> show cnt
         {-- <> "L * L^T             " <> show ((chol ch5) *. tr (chol ch5)) --}
         <> "A^(-1) = L' * L'^T  " <> show (inv ch5)
         <> "A^(-1) from cholInv " <> show (cholInv ch5 5)
+        <> "det this            " <> show (det ch5)
         {-- <> "chol" <> show ch5 --}
         {-- <> show (chol ch5) <> show ( chol ch5 *. tr (chol ch5)) --}
-        <> testCov2
+        <> "\n" <> testCov2
         where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
