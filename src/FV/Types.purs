@@ -134,7 +134,7 @@ showQMeas (QMeas q cq w2pt) = s' where
               [ -wp/w/w, -wp/w/w*tl, 0.0, -(pz*pz + pt*pt)/w/e
               , 0.0, wp/w, 0.0, pt*pt*tl/e
               , 0.0, 0.0, 1.0, 0.0]
-  cq'        = jj ||*|| cq
+  cq'        = jj .*. cq
   p'         = [pt, pz, psi, e]
   dp         = map sqrt $ diag cq'
   d1         = uidx dp 0
@@ -282,8 +282,8 @@ instance posXMeas :: Pos XMeas where
     d  = sqrt(sqr(x0-x1) + sqr(y0-y1) + sqr(z0-z1))
     dd :: Vec3
     dd = fromArray [(x0-x1)/d, (y0-y1)/d, (z0-z1)/d]
-    tem0 = dd |*| vv0
-    tem1 = dd |*| vv1
+    tem0 = dd .*. vv0
+    tem1 = dd .*. vv1
     sd   = sqrt (tem0 + tem1)
 
 data XMeas = XMeas Vec3 Cov3

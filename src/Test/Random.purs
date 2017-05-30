@@ -9,7 +9,7 @@ import Data.Array ( fromFoldable, zipWith ) as A
 import Data.Traversable ( for )
 import Data.Tuple ( Tuple (..) )
 
-import Data.Cov ( chol, fromArray, toArray, (|||) )
+import Data.Cov ( chol, fromArray, toArray, (*.), Vec5 )
 import FV.Fit ( fit )
 import FV.Types ( VHMeas(..), HMeas(..), MMeas(..)
   , invMass, fromQMeas, fitMomenta )
@@ -28,7 +28,7 @@ instance randomizableHMeas :: Randomizable HMeas where
   randomize (HMeas h hh w0) = do
     rs <- normals 5
     let h' = fromArray $ A.zipWith (+) (toArray h)
-                                       (toArray (chol hh ||| fromArray rs))
+                                       (toArray (chol hh *. (fromArray rs)::Vec5))
     pure $ HMeas h' hh w0
 
 --| randomize a vertex measurement by randomizing each helix parameter measurement

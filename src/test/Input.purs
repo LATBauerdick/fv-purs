@@ -123,7 +123,7 @@ nxtH' _ ds = do
       h'                = fromArray [w, tl, h2, h3, h4]
       ch' :: Cov5
       ch'               = fromArray $ take 25 $ drop 5 ds
-      ch''              = jj ||*|| ch'
+      ch''              = jj .*. ch'
 
   pure $ HMeas h' ch'' w0
 

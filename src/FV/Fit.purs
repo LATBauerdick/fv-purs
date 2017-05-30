@@ -47,17 +47,17 @@ kAdd' (XMeas v0 uu0) (HMeas h gg w0) x_e q_e 𝜒2_0 iter = x_k where
   h0    = jj.h0
   aaT   = tr aa
   bbT   = tr bb
-  x_k   = case invMaybe (bb ||*|| gg) of
+  x_k   = case invMaybe (bb .*. gg) of
             Nothing  -> XMeas v0 (inv uu0) `debug` "... can't invert in kAdd'"
             Just ww  -> let
-                gb    = gg - gg *** (bbT ||*|| ww)
-                uu    = uu0 + aa ||*|| gb
+                gb    = gg - gg .*. (bbT .*. ww)
+                uu    = uu0 + aa .*. gb
                 cc    = inv uu
                 m     = h - h0
-                v     = cc *. (uu0 *. v0 + aaT ||| gb *. m)
-                dm    = m - aa ||| v
-                q     = ww *. (bbT ||| gg *. dm)
-                𝜒2    = (dm - bb ||| q) |*| gg + (v - v0) |*| uu0
+                v     = cc *. (uu0 *. v0 + aaT *. gb *. m)
+                dm    = m - aa *. v
+                q     = ww *. (bbT *. gg *. dm)
+                𝜒2    = (dm - bb *. q) .*. gg + (v - v0) .*. uu0
                 x_k'  = if goodEnough 𝜒2_0 𝜒2 iter -- `debug` ("--> kAdd' chi2 is " <> show 𝜒2)
                   then XMeas v cc
                   else kAdd' (XMeas v0 uu0) (HMeas h gg w0) v q 𝜒2 (iter+1)
@@ -78,25 +78,24 @@ kSmooth (VHMeas {vertex: v0, helices: hl}) v = pr' where
 ksm :: XMeas -> HMeas -> Maybe (Tuple QMeas Chi2)
 ksm (XMeas x cc) (HMeas h hh w0) = do
   let
-      {-- HMeas (V5 h) (M5 hh) w0 = hm --}
       jj = J.expand x (J.hv2q h x)
       aa = jj.aa
       bb = jj.bb
       h0 = jj.h0
       gg   = inv hh
-  ww <- invMaybe (bb ||*|| gg)
+  ww <- invMaybe (bb .*. gg)
   let p    = h - h0
       uu   = inv cc
       aaT  = tr aa
       bbT  = tr bb
-      dp   = (p - aa ||| x)
-      q    = ww *. (bbT ||| gg *. dp)
-      mee   = (cc *|| aaT) |||| gg *|| bb ||* ww
-      dd   = ww + mee ||*|| uu
-      r    = p - aa ||| x - bb ||| q
-      ch   = r |*| gg
-      gb   = gg - gg *** (bbT ||*|| ww)
-      uu'  = uu - aa ||*|| gb
+      dp   = (p - aa *. x)
+      q    = ww *. (bbT *. gg *. dp)
+      mee   = (cc *. aaT) |||| gg *. bb *. ww
+      dd   = ww + mee .*. uu
+      r    = p - aa *. x - bb *. q
+      ch   = r .*. gg
+      gb   = gg - gg .*. (bbT .*. ww)
+      uu'  = uu - aa .*. gb
       duu  = det uu'
       xxx = "-------->>>>>>>>"
               <> show (uu')
@@ -107,9 +106,9 @@ ksm (XMeas x cc) (HMeas h hh w0) = do
                                                         <> show uu')
                     else cx'' where
                       cc'  = inv uu' -- `debug` ("--> ksm " ++ show uu')
-                      x'   = cc' *. (uu *. x - aaT ||| gb *. p)
+                      x'   = cc' *. (uu *. x - aaT *. gb *. p)
                       dx   = x - x'
-                      cx'  = dx |*| uu'
+                      cx'  = dx .*. uu'
                       cx'' = if cx' < 0.0 then 2000.0 `debug` ("--> ksm chi2 is " <> show cx' <> ", " <> show ch <> ", " <> show ((max cx' 0.0) + ch))
                                         else cx'
       𝜒2 = cx + ch

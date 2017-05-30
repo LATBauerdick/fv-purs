@@ -60,9 +60,8 @@ type Cov3 = Cov Dim3
 type Cov4 = Cov Dim4
 type Cov5 = Cov Dim5
 type Jac53 = Jac Dim5 Dim3
-type Jac43 = Jac Dim4 Dim3
+{-- type Jac43 = Jac Dim4 Dim3 --}
 type Jac34 = Jac Dim3 Dim4
-{-- type Jac35 = Jac Dim3 Dim5 --}
 type Jac33 = Jac Dim3 Dim3
 type Jac44 = Jac Dim4 Dim4
 type Jac55 = Jac Dim5 Dim5
@@ -146,7 +145,7 @@ instance mat1Cova :: Matt1 (Cov a) where
                             6  -> M.fromArray2 3 3 v
                             10 -> M.fromArray2 4 4 v
                             15 -> M.fromArray2 5 5 v
-                            _ -> error $ "--------------mat1Cova toMatrix "
+                            _ -> error $ "mat1Cova toMatrix "
                                           <> show (A.length v)
 instance mat1Veca :: Matt1 (Vec a) where
   toMatrix (Vec {v}) = M.fromArray (A.length v) v
@@ -155,21 +154,15 @@ instance mat1Jacaa :: Matt1 (Jac a b) where
                               9  -> M.fromArray2 3 3 v
                               16 -> M.fromArray2 4 4 v
                               25 -> M.fromArray2 5 5 v
-                              12 -> M.fromArray2 4 3 v `debug` "this should not have happened ??????????????????? 4 3"
-                              15 -> M.fromArray2 5 3 v `debug` "this should not have happened ??????????????????? 4 3"
-                              _  -> error $ "----------------mat1Jacaa toMatrix "
+                              12 -> M.fromArray2 3 4 v `debug` "this should not have happened ??????????????????? 4 3"
+                              15 -> M.fromArray2 5 3 v `debug` "this should not have happened ??????????????????? 5 3"
+                              _  -> error $ "mat1Jacaa toMatrix "
                                           <> show (A.length v)
-instance mat1Jac43 :: Matt1 (Jac Dim4 Dim3) where
-  toMatrix (Jac {v}) = M.fromArray2 4 3 v `debug` "WTF??? 4 3"
-instance mat1Jac34 :: Matt1 (Jac Dim3 Dim4) where
-  toMatrix (Jac {v}) = M.fromArray2 3 4 v `debug` "WTF??? 3 4"
+
 instance mat1Jac53 :: Matt1 (Jac Dim5 Dim3) where
-  toMatrix (Jac {v}) = M.fromArray2 5 3 v `debug` "WTF??? 5 3"
+  toMatrix (Jac {v}) = M.fromArray2 5 3 v -- `debug` "WTF??? 5 3"
 instance mat1Jac35 :: Matt1 (Jac Dim3 Dim5) where
-  toMatrix (Jac {v}) = M.fromArray2 3 5 v `debug` "WTF??? 3 5"
-{-- instance mat1Jacab :: Matt1 (Jac a b) where --}
-{--   toMatrix (Jac {v}) =  error $ "xxxxxxxxxxxxxxxxxxxxtoMatrix Jac a b " --}
-{--                                 <> show (A.length v) --}
+  toMatrix (Jac {v}) = M.fromArray2 3 5 v -- `debug` "WTF??? 3 5"
 --{{{
 {-- instance matCov3 :: Matt (Cov Dim3) where --}
 {--   val (Cov {v}) = v --}
@@ -436,29 +429,58 @@ instance mulMata :: MulMat (Cov a) (Cov a) (Jac a a) where
     mj' = mc1 * mc2
     j' = fromArray $ M.toArray mj'
 instance mulMatJC :: MulMat (Jac a b) (Cov b) (Jac a b) where
-  mulm j c = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mj * mc
-    j' = fromArray $ M.toArray mj'
+  mulm j@(Jac {v: va}) c@(Cov {v: vb}) = Jac {v: v'} where
+    nb = case A.length vb of
+              6  -> 3
+              10 -> 4
+              15 -> 5
+              _  -> error $ "mulMatJC wrong length of Cov v "
+                            <> show (A.length vb)
+    na = (A.length va)/nb
+    n = nb
+    idx i0 j0 | i0 <= j0  = (i0*n - i0*(i0-1)/2 + j0-i0)
+              | otherwise = (j0*n - j0*(j0-1)/2 + i0-j0)
+    v' = do
+      i0 <- A.range 0 (na-1)
+      j0 <- A.range 0 (nb-1)
+      pure $ sum do
+        k0 <- A.range 0 (nb-1)
+        pure $ (uidx va (i0*nb+k0)) * (uidx vb (idx k0 j0))
 instance mulMatCJ :: MulMat (Cov a) (Jac a b) (Jac a b) where
-  mulm c j = j' where
-    mc = toMatrix c
-    mj = toMatrix j
-    mj' = mc * mj
-    j' = fromArray $ M.toArray mj'
+  mulm c@(Cov {v: va}) j@(Jac {v: vb}) = Jac {v: v'} where
+    na = case A.length va of
+              6  -> 3
+              10 -> 4
+              15 -> 5
+              _  -> error $ "mulMatCJ wrong length of Cov v "
+                            <> show (A.length va)
+    nb = (A.length vb)/na
+    n = na
+    idx i0 j0 | i0 <= j0  = (i0*n - i0*(i0-1)/2 + j0-i0)
+              | otherwise = (j0*n - j0*(j0-1)/2 + i0-j0)
+    v' = do
+      i0 <- A.range 0 (na-1)
+      j0 <- A.range 0 (nb-1)
+      pure $ sum do
+        k0 <- A.range 0 (na-1)
+        pure $ (uidx va (idx i0 k0)) * (uidx vb (k0*nb+j0))
 instance mulMatJV :: MulMat (Jac a b) (Vec b) (Vec a) where
-  mulm j v = v' where
-    mj = toMatrix j
-    mv = toMatrix v
-    mv' = mj * mv
-    v' = fromArray $ M.toArray mv'
+  mulm j@(Jac {v: va}) v@(Vec {v: vb}) = Vec {v: v'} where
+    nb = A.length vb
+    na = (A.length va)/nb
+    v' = do
+      i0 <- A.range 0 (na-1)
+      let j0 = 0
+      pure $ sum do
+        k0 <- A.range 0 (nb-1)
+        pure $ (uidx va (i0*nb+k0)) * (uidx vb (k0))
 instance mulMatJJ :: MulMat (Jac a b) (Jac b a) (Jac a a) where
   mulm j1 j2 = j' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
     mj' = mj1 * mj2
     j' = fromArray $ M.toArray mj'
+    xx = j' `debug` ("xxxxxJJ" ) --}
 instance mulMatCV :: MulMat (Cov a) (Vec a) (Vec a) where
   mulm c v = v' where
     mc = toMatrix c
@@ -472,25 +494,95 @@ class TrMat a b | a -> b where
 instance trMatC :: TrMat (Cov a) (Cov a) where
   tr c = c
 instance trMatJ :: TrMat (Jac a b) (Jac b a) where
-  tr j = jt where
-    mj = toMatrix j
-    mjt = M.transpose mj
-    jt = fromArray $ M.toArray mjt
+  tr j@(Jac {v}) = Jac {v:v'} where
+    l = A.length v
+    na = case l of
+              9 -> 3
+              15 -> 5
+              16 -> 4
+              25 -> 5
+              _  -> error $ "trMatJ: sorry, can't do anything but 5x3 and square "
+                            <> show (A.length v)
+    nb = l/na
+    v' = do
+      i0 <- A.range 0 (nb-1)
+      j0 <- A.range 0 (na-1)
+      pure $ (uidx v (j0*nb+i0))
 class SW a b c | a b -> c where
   sw :: a -> b -> c
-infixl 7 sw as <.>
+infixl 7 sw as .*.
 instance swVec :: SW (Vec a) (Cov a) Number where
   sw v c = n where
     mv = toMatrix v
     mc = toMatrix c
     mc' = M.transpose mv * mc * mv
     n = uidx (M.toArray mc') 0
+instance swCov :: SW (Cov a) (Cov a) (Cov a) where
+  sw c1 c2 = c' where
+    j' = c1 *. c2 *. c1
+    c' = fromArray $ toArray j'
 instance swJac :: SW (Jac a b) (Cov a) (Cov b) where
-  sw j c = c' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mc' = M.transpose mj * mc * mj
-    c' = fromArray $ M.toArray mc'
+  sw j@(Jac {v: va}) c@(Cov {v: vb}) = Cov {v: v'} where
+    {-- mj = toMatrix j --}
+    {-- mc = toMatrix c --}
+    {-- mc' = M.transpose mj * mc * mj --}
+
+    l = A.length vb
+    n = case l of
+              6  -> 3
+              10 -> 4
+              15 -> 5
+              _  -> error $ "swJac: don'w know how to " <> show l
+    m = (A.length va)/n -- > mxn * nxn * nxm -> mxm
+    -- vaT * vb * va
+    {-- vat= do --}
+    {--   i0 <- A.range 0 (m-1) --}
+    {--   j0 <- A.range 0 (n-1) --}
+    {--   pure $ (uidx va (j0*m+i0)) --}
+    {-- mjt = M.fromArray2 m n vat --}
+    {-- mjt''' = M.transpose mj --}
+
+    idx i0 j0 | i0 <= j0  = (i0*n - i0*(i0-1)/2 + j0-i0)
+              | otherwise = (j0*n - j0*(j0-1)/2 + i0-j0)
+   {-- vb''' = do --}
+    {--   i0 <- A.range 0 (n-1) --}
+    {--   j0 <- A.range 0 (n-1) --}
+    {--   pure $ (uidx vb (idx i0 j0)) --}
+    {-- mb''' = M.fromArray2 n n vb''' --}
+
+    {-- va''' = do --}
+    {--   i0 <- A.range 0 (n-1) --}
+    {--   j0 <- A.range 0 (m-1) --}
+    {--   pure $ (uidx va (i0*m+j0)) --}
+    {-- mj''' = M.fromArray2 n m va''' --}
+
+
+    vint = do
+      i0 <- A.range 0 (n-1)
+      j0 <- A.range 0 (m-1)
+      pure $ sum do
+        k0 <- A.range 0 (n-1)
+        pure $ (uidx vb (idx i0 k0)) * (uidx va (k0*m+j0))
+    vf = do
+      i0 <- A.range 0 (m-1)
+      j0 <- A.range i0 (m-1)
+      pure $ sum do
+        k0 <- A.range 0 (n-1)
+        pure $ (uidx va (k0*m+i0) ) * (uidx vint (k0*m+j0))
+
+    {-- vf = M.toArray mc' --}
+    lf = A.length vf
+    v' = case lf of
+              6   -> vf
+              10  -> vf
+              15  -> vf
+              _   -> error $ "swJac: wrong result " <> show lf
+
+    {-- mv' = M.fromArray2 m m v' --}
+    {-- xx = n `debug` ("--jT---->\n" <> show mjt''' <> show mjt) --}
+    {-- yx = n `debug` ("--c----->\n" <> show mc <> show mb''') --}
+    {-- xy = n `debug` ("--j----->\n" <> show mj <> show mj''') --}
+    {-- yy = n `debug` ("-jT*c*j->\n" <> show mc' <> show mv') --}
 testCov2 :: String
 testCov2 = s where
   s = "Test Cov 2----------------------------------------------\n"
@@ -498,7 +590,7 @@ testCov2 = s where
     <> "Cov *. Cov = " <> show ((one::Cov3) *. inv (one::Cov3)) <> "\n"
     <> "Vec + Vec = " <> show (v5 + v5) <> "\n"
     <> "chol Cov = " <> show (chol (one::Cov5)) <> "\n"
-    <> "Vec <.> Cov = " <> show (v5 <.> inv (one::Cov5)) <> "\n"
+    <> "Vec .*. Cov = " <> show (v5 .*. inv (one::Cov5)) <> "\n"
   v3 = fromArray [1.0,1.0,1.0] :: Vec3
   v5 = fromArray [1.0,1.0,1.0,1.0,1.0] :: Vec5
 
@@ -576,20 +668,20 @@ instance showVec :: Show (Vec a) where
 -- Chi2 for Vec * Vec and Vev^T * Cov * Vec, resulting in Number
 -- operators |.| and |*|
 --
-class Chi2 a where
-  chi2 :: Vec a -> Cov a -> Number
-  sandwichvv :: Vec a -> Vec a -> Number
-infix 7 chi2 as |*|
-infix 7 sandwichvv as |.|
+{-- class Chi2 a where --}
+{--   chi2 :: Vec a -> Cov a -> Number --}
+{--   sandwichvv :: Vec a -> Vec a -> Number --}
+{-- {1-- infix 7 chi2 as |*| --1} --}
+{-- {1-- infix 7 sandwichvv as |.| --1} --}
 
-instance chi2Dim :: Chi2 a where
-  chi2 v c = x where
-    mv = toMatrix v
-    mc = toMatrix c
-    mx = M.transpose mv * mc * mv
-    x = uidx (M.toArray mx) 0
-  sandwichvv (Vec {v:v1}) (Vec {v:v2}) = vv where
-    vv = A.foldl (+) zero $ A.zipWith (*) v1 v2
+{-- instance chi2Dim :: Chi2 a where --}
+{--   chi2 v c = x where --}
+{--     mv = toMatrix v --}
+{--     mc = toMatrix c --}
+{--     mx = M.transpose mv * mc * mv --}
+{--     x = uidx (M.toArray mx) 0 --}
+{--   sandwichvv (Vec {v:v1}) (Vec {v:v2}) = vv where --}
+{--     vv = A.foldl (+) zero $ A.zipWith (*) v1 v2 --}
 {-- instance chi2Dim5 :: Chi2 Dim5 where --}
 {--   chi2 v c = x where --}
 {--     mv = toMatrix v --}
@@ -613,39 +705,39 @@ instance chi2Dim :: Chi2 a where
 -- operators follow convetion of | for Vec, * for Cov and || for Jac
 --   e.g. ||* to multiply Jac * Cov, and ||*||  for Jac^T * Cov * Jac
 class TransMat2 a b where
-  sandwich :: Jac a b -> Cov a -> Cov b        -- Jac^T * Cov * Jac
-  transcov :: Jac a b -> Cov b -> Jac a b      -- Jac * Cov
-  transvoc :: Cov a -> Jac a b -> Jac a b      -- Cov * Jac
-  transvec :: Jac a b -> Vec b -> Vec a        -- Jac * Vec
+  {-- sandwich :: Jac a b -> Cov a -> Cov b        -- Jac^T * Cov * Jac --}
+  {-- transcov :: Jac a b -> Cov b -> Jac a b      -- Jac * Cov --}
+  {-- transvoc :: Cov a -> Jac a b -> Jac a b      -- Cov * Jac --}
+  {-- transvec :: Jac a b -> Vec b -> Vec a        -- Jac * Vec --}
   sandwichjj :: Jac a b -> Jac b a -> Jac a a  -- Jac * Jac
   {-- tr :: Jac a b -> Jac b a --}
-infixr 7 sandwich as ||*||
-infixr 7 transcov as ||*
-infixr 7 transvoc as *||
-infixr 7 transvec as |||
+{-- infixr 7 sandwich as ||*|| --}
+{-- infixr 7 transcov as ||* --}
+{-- infixr 7 transvoc as *|| --}
+{-- infixr 7 transvec as ||| --}
 infixr 7 sandwichjj as ||||
 
 instance tmat33 :: TransMat2 Dim3 Dim3 where
-  sandwich j c = c' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mc' = M.transpose mj * mc * mj
-    c' = fromArray $ M.toArray mc'
-  transcov j c = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mj * mc
-    j' = fromArray $ M.toArray mj'
-  transvoc c j = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mc * mj
-    j' = fromArray $ M.toArray mj'
-  transvec j v = v' where
-    mj = toMatrix j
-    mv = toMatrix v
-    mv' = mj * mv
-    v' = fromArray $ M.toArray mv'
+  {-- sandwich j c = c' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mc' = M.transpose mj * mc * mj --}
+  {--   c' = fromArray $ M.toArray mc' --}
+  {-- transcov j c = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mj * mc --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvoc c j = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mc * mj --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvec j v = v' where --}
+  {--   mj = toMatrix j --}
+  {--   mv = toMatrix v --}
+  {--   mv' = mj * mv --}
+  {--   v' = fromArray $ M.toArray mv' --}
   sandwichjj j1 j2 = c' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
@@ -656,26 +748,26 @@ instance tmat33 :: TransMat2 Dim3 Dim3 where
   {--   mjt = M.transpose mj --}
   {--   jt = fromArray $ M.toArray mjt --}
 instance tmat34 :: TransMat2 Dim3 Dim4 where
-  sandwich j c = c' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mc' = M.transpose mj * mc * mj
-    c' = fromArray $ M.toArray mc'
-  transcov j c = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mj * mc
-    j' = fromArray $ M.toArray mj'
-  transvoc c j = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mc * mj
-    j' = fromArray $ M.toArray mj'
-  transvec j v = v' where
-    mj = toMatrix j
-    mv = toMatrix v
-    mv' = mj * mv
-    v' = fromArray $ M.toArray mv'
+  {-- sandwich j c = c' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mc' = M.transpose mj * mc * mj --}
+  {--   c' = fromArray $ M.toArray mc' --}
+  {-- transcov j c = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mj * mc --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvoc c j = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mc * mj --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvec j v = v' where --}
+  {--   mj = toMatrix j --}
+  {--   mv = toMatrix v --}
+  {--   mv' = mj * mv --}
+  {--   v' = fromArray $ M.toArray mv' --}
   sandwichjj j1 j2 = c' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
@@ -686,26 +778,26 @@ instance tmat34 :: TransMat2 Dim3 Dim4 where
   {--   mjt = M.transpose mj --}
   {--   jt = fromArray $ M.toArray mjt --}
 instance tmat35 :: TransMat2 Dim3 Dim5 where
-  sandwich j c = c' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mc' = M.transpose mj * mc * mj
-    c' = fromArray $ M.toArray mc'
-  transcov j c = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mj * mc
-    j' = fromArray $ M.toArray mj'
-  transvoc c j = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mc * mj
-    j' = fromArray $ M.toArray mj'
-  transvec j v = v' where
-    mj = toMatrix j
-    mv = toMatrix v
-    mv' = mj * mv
-    v' = fromArray $ M.toArray mv'
+  {-- sandwich j c = c' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mc' = M.transpose mj * mc * mj --}
+  {--   c' = fromArray $ M.toArray mc' --}
+  {-- transcov j c = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mj * mc --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvoc c j = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mc * mj --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvec j v = v' where --}
+  {--   mj = toMatrix j --}
+  {--   mv = toMatrix v --}
+  {--   mv' = mj * mv --}
+  {--   v' = fromArray $ M.toArray mv' --}
   sandwichjj j1 j2 = c' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
@@ -716,26 +808,26 @@ instance tmat35 :: TransMat2 Dim3 Dim5 where
   {--   mjt = M.transpose mj --}
   {--   jt = fromArray $ M.toArray mjt --}
 instance tmat43 :: TransMat2 Dim4 Dim3 where
-  sandwich j c = c' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mc' = M.transpose mj * mc * mj
-    c' = fromArray $ M.toArray mc'
-  transcov j c = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mj * mc
-    j' = fromArray $ M.toArray mj'
-  transvoc c j = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mc * mj
-    j' = fromArray $ M.toArray mj'
-  transvec j v = v' where
-    mj = toMatrix j
-    mv = toMatrix v
-    mv' = mj * mv
-    v' = fromArray $ M.toArray mv'
+  {-- sandwich j c = c' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mc' = M.transpose mj * mc * mj --}
+  {--   c' = fromArray $ M.toArray mc' --}
+  {-- transcov j c = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mj * mc --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvoc c j = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mc * mj --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvec j v = v' where --}
+  {--   mj = toMatrix j --}
+  {--   mv = toMatrix v --}
+  {--   mv' = mj * mv --}
+  {--   v' = fromArray $ M.toArray mv' --}
   sandwichjj j1 j2 = c' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
@@ -746,26 +838,26 @@ instance tmat43 :: TransMat2 Dim4 Dim3 where
   {--   mjt = M.transpose mj --}
   {--   jt = fromArray $ M.toArray mjt --}
 instance tmat53 :: TransMat2 Dim5 Dim3 where
-  sandwich j c = c' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mc' = M.transpose mj * mc * mj
-    c' = fromArray $ M.toArray mc'
-  transcov j c = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mj * mc
-    j' = fromArray $ M.toArray mj'
-  transvoc c j = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mc * mj
-    j' = fromArray $ M.toArray mj'
-  transvec j v = v' where
-    mj = toMatrix j
-    mv = toMatrix v
-    mv' = mj * mv
-    v' = fromArray $ M.toArray mv'
+  {-- sandwich j c = c' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mc' = M.transpose mj * mc * mj --}
+  {--   c' = fromArray $ M.toArray mc' --}
+  {-- transcov j c = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mj * mc --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvoc c j = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mc * mj --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvec j v = v' where --}
+  {--   mj = toMatrix j --}
+  {--   mv = toMatrix v --}
+  {--   mv' = mj * mv --}
+  {--   v' = fromArray $ M.toArray mv' --}
   sandwichjj j1 j2 = c' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
@@ -789,26 +881,26 @@ instance tmat53 :: TransMat2 Dim5 Dim3 where
   {--   a53 = unsafePartial $ A.unsafeIndex v 14 --}
   {--   v' = [a11,a21,a31,a41,a51,a12,a22,a32,a42,a52,a13,a23,a33,a43,a53] --}
 instance tmat55 :: TransMat2 Dim5 Dim5 where
-  sandwich j c = c' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mc' = M.transpose mj * mc * mj
-    c' = fromArray $ M.toArray mc'
-  transcov j c = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mj * mc
-    j' = fromArray $ M.toArray mj'
-  transvoc c j = j' where
-    mj = toMatrix j
-    mc = toMatrix c
-    mj' = mc * mj
-    j' = fromArray $ M.toArray mj'
-  transvec j v = v' where
-    mj = toMatrix j
-    mv = toMatrix v
-    mv' = mj * mv
-    v' = fromArray $ M.toArray mv'
+  {-- sandwich j c = c' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mc' = M.transpose mj * mc * mj --}
+  {--   c' = fromArray $ M.toArray mc' --}
+  {-- transcov j c = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mj * mc --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvoc c j = j' where --}
+  {--   mj = toMatrix j --}
+  {--   mc = toMatrix c --}
+  {--   mj' = mc * mj --}
+  {--   j' = fromArray $ M.toArray mj' --}
+  {-- transvec j v = v' where --}
+  {--   mj = toMatrix j --}
+  {--   mv = toMatrix v --}
+  {--   mv' = mj * mv --}
+  {--   v' = fromArray $ M.toArray mv' --}
   sandwichjj j1 j2 = c' where
     mj1 = toMatrix j1
     mj2 = toMatrix j2
@@ -822,61 +914,61 @@ instance tmat55 :: TransMat2 Dim5 Dim5 where
 -- TransMat for operations that need only dimensional parameters
 -- TransMat for Cov * Vec and Cov * Cov * Cov
 --
-class TransMat a where
-  ttransvec :: Cov a -> Vec a -> Vec a      -- Cov * Vec
-  multiplycc :: Cov a -> Cov a -> Jac a a     -- Cov * Cov'
-  sandwichcc :: Cov a -> Cov a -> Cov a     -- Cov * Cov' * Cov
-infixr 7 ttransvec as *|
-infixr 7 multiplycc as **
-infixr 7 sandwichcc as ***
-instance tvec3 :: TransMat Dim3 where
-  ttransvec c v = v' where
-    mc = toMatrix c
-    mv = toMatrix v
-    mv' = mc * mv
-    v' = fromArray $ M.toArray mv'
-  sandwichcc c1 c2 = c' where
-    mc1 = toMatrix c1
-    mc2 = toMatrix c2
-    mc' = mc1 * mc2 * mc1
-    c' = fromArray $ M.toArray mc'
-  multiplycc c1 c2 = j where
-    mc1 = toMatrix c1
-    mc2 = toMatrix c2
-    mj = mc1 * mc2
-    j = fromArray $ M.toArray mj
-instance tvec4 :: TransMat Dim4 where
-  ttransvec c v = v' where
-    mc = toMatrix c
-    mv = toMatrix v
-    mv' = mc * mv
-    v' = fromArray $ M.toArray mv'
-  sandwichcc c1 c2 = c' where
-    mc1 = toMatrix c1
-    mc2 = toMatrix c2
-    mc' = mc1 * mc2 * mc1
-    c' = fromArray $ M.toArray mc'
-  multiplycc c1 c2 = j where
-    mc1 = toMatrix c1
-    mc2 = toMatrix c2
-    mj = mc1 * mc2
-    j = fromArray $ M.toArray mj
-instance tvec5 :: TransMat Dim5 where
-  ttransvec c v = v' where
-    mc = toMatrix c
-    mv = toMatrix v
-    mv' = mc * mv
-    v' = fromArray $ M.toArray mv'
-  sandwichcc c1 c2 = c' where
-    mc1 = toMatrix c1
-    mc2 = toMatrix c2
-    mc' = mc1 * mc2 * mc1
-    c' = fromArray $ M.toArray mc'
-  multiplycc c1 c2 = j where
-    mc1 = toMatrix c1
-    mc2 = toMatrix c2
-    mj = mc1 * mc2
-    j = fromArray $ M.toArray mj
+{-- class TransMat a where --}
+{--   ttransvec :: Cov a -> Vec a -> Vec a      -- Cov * Vec --}
+{--   multiplycc :: Cov a -> Cov a -> Jac a a     -- Cov * Cov' --}
+{--   sandwichcc :: Cov a -> Cov a -> Cov a     -- Cov * Cov' * Cov --}
+{-- infixr 7 ttransvec as *| --}
+{-- infixr 7 multiplycc as ** --}
+{-- infixr 7 sandwichcc as *** --}
+{-- instance tvec3 :: TransMat Dim3 where --}
+{--   ttransvec c v = v' where --}
+{--     mc = toMatrix c --}
+{--     mv = toMatrix v --}
+{--     mv' = mc * mv --}
+{--     v' = fromArray $ M.toArray mv' --}
+{--   sandwichcc c1 c2 = c' where --}
+{--     mc1 = toMatrix c1 --}
+{--     mc2 = toMatrix c2 --}
+{--     mc' = mc1 * mc2 * mc1 --}
+{--     c' = fromArray $ M.toArray mc' --}
+{--   multiplycc c1 c2 = j where --}
+{--     mc1 = toMatrix c1 --}
+{--     mc2 = toMatrix c2 --}
+{--     mj = mc1 * mc2 --}
+{--     j = fromArray $ M.toArray mj --}
+{-- instance tvec4 :: TransMat Dim4 where --}
+{--   ttransvec c v = v' where --}
+{--     mc = toMatrix c --}
+{--     mv = toMatrix v --}
+{--     mv' = mc * mv --}
+{--     v' = fromArray $ M.toArray mv' --}
+{--   sandwichcc c1 c2 = c' where --}
+{--     mc1 = toMatrix c1 --}
+{--     mc2 = toMatrix c2 --}
+{--     mc' = mc1 * mc2 * mc1 --}
+{--     c' = fromArray $ M.toArray mc' --}
+{--   multiplycc c1 c2 = j where --}
+{--     mc1 = toMatrix c1 --}
+{--     mc2 = toMatrix c2 --}
+{--     mj = mc1 * mc2 --}
+{--     j = fromArray $ M.toArray mj --}
+{-- instance tvec5 :: TransMat Dim5 where --}
+{--   ttransvec c v = v' where --}
+{--     mc = toMatrix c --}
+{--     mv = toMatrix v --}
+{--     mv' = mc * mv --}
+{--     v' = fromArray $ M.toArray mv' --}
+{--   sandwichcc c1 c2 = c' where --}
+{--     mc1 = toMatrix c1 --}
+{--     mc2 = toMatrix c2 --}
+{--     mc' = mc1 * mc2 * mc1 --}
+{--     c' = fromArray $ M.toArray mc' --}
+{--   multiplycc c1 c2 = j where --}
+{--     mc1 = toMatrix c1 --}
+{--     mc2 = toMatrix c2 --}
+{--     mj = mc1 * mc2 --}
+{--     j = fromArray $ M.toArray mj --}
 
 scaleDiag :: Number -> Cov3 -> Cov3
 scaleDiag s (Cov {v}) = (Cov {v: v'}) where

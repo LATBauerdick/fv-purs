@@ -4,7 +4,7 @@ import Prelude
 import Data.Cov
   ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5
   , fromArray, inv, toMatrix, tr, chol, cholInv
-  , (*.), (|*|), (|.|), (||*||), (|||), (||||), (||*), (**), testCov2
+  , (*.), (.*.), (||||), testCov2
   )
 import Data.SimpleMatrix as M
 
@@ -23,7 +23,7 @@ testCov cnt = "testCov: " <> show cnt
         {-- <> "tj3 " <> show tj3 --}
         {-- <> "vv3 " <> show vv3 --}
         {-- <> show (v3 |*| c3) --}
-        {-- <> "\n(tr j53 ||*|| c3)" <> show (tr j53 ||*|| c3) --}
+        {-- <> "\n(tr j53 .*. c3)" <> show (tr j53 .*. c3) --}
         {-- <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5) --}
         {-- <> show (c3 ** (inv c3)) --}
         {-- <> show (c4 ** (inv c4)) --}
@@ -61,11 +61,11 @@ testCov cnt = "testCov: " <> show cnt
   j53 :: Jac53
   j53 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
   tj3 :: Cov3
-  tj3 = j53 ||*|| c5
+  tj3 = j53 .*. c5
   vv5 :: Vec5
-  vv5 = j53 ||| v3
+  vv5 = j53 *. v3
   vv3 :: Vec3
-  vv3 = tr j53 ||| j53 ||| c3 *. v3
+  vv3 = tr j53 *. j53 *. c3 *. v3
 
   m3 :: M.Matrix
   m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]
