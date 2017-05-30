@@ -1,4 +1,3 @@
-
 module Test.Input ( hSlurp, hSlurpMCtruth ) where
 
 import Prelude
