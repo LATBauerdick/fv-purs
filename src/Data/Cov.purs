@@ -534,9 +534,9 @@ subm2 n (Cov {v:v}) = Cov {v: v'} where
   a11 = unsafePartial $ A.unsafeIndex v 0
   a12 = unsafePartial $ A.unsafeIndex v 1
   a13 = unsafePartial $ A.unsafeIndex v 2
-  a22 = unsafePartial $ A.unsafeIndex v 5
-  a23 = unsafePartial $ A.unsafeIndex v 6
-  a33 = unsafePartial $ A.unsafeIndex v 9
+  a22 = unsafePartial $ A.unsafeIndex v 4
+  a23 = unsafePartial $ A.unsafeIndex v 5
+  a33 = unsafePartial $ A.unsafeIndex v 8
   v' = [a11,a12,a13,a22,a23,a33]
 
 
