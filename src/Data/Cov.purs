@@ -13,7 +13,7 @@ import Data.Foldable ( sum )
 import Partial.Unsafe ( unsafePartial )
 import Data.Maybe ( Maybe (..) )
 import Control.MonadZero (guard)
-import Data.Int ( toNumber, ceil )
+import Data.Int ( toNumber, floor )
 import Math ( abs, sqrt )
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 
@@ -38,20 +38,20 @@ instance ddim5 :: DDim Dim5 where
 instance ddima :: DDim a where
   ddim _ = undefined
 
-mapTo :: forall a. DDim a => Cov a -> Dim5
-mapTo = Unsafe.Coerce.unsafeCoerce
-class Dim a where
-  dim :: a -> Int
-instance dima :: Dim (Cov a) where
-  dim ccc = n where
-    xx = mapTo ccc
-    n = ddim xx
-instance dim3 :: Dim (Cov Dim3) where
-  dim ccc = 3
-instance dim4 :: Dim (Cov Dim4) where
-  dim ccc = 4
-instance dim5 :: Dim (Cov Dim5) where
-  dim ccc = 5
+{-- mapTo :: forall a. DDim a => Cov a -> Dim5 --}
+{-- mapTo = Unsafe.Coerce.unsafeCoerce --}
+{-- class Dim a where --}
+{--   dim :: a -> Int --}
+{-- instance dima :: Dim (Cov a) where --}
+{--   dim ccc = n where --}
+{--     xx = mapTo ccc --}
+{--     n = ddim xx --}
+{-- instance dim3 :: Dim (Cov Dim3) where --}
+{--   dim ccc = 3 --}
+{-- instance dim4 :: Dim (Cov Dim4) where --}
+{--   dim ccc = 4 --}
+{-- instance dim5 :: Dim (Cov Dim5) where --}
+{--   dim ccc = 5 --}
 
 newtype Cov a = Cov { v :: Array Number }
 newtype Jac a b = Jac { v :: Array Number }
@@ -72,11 +72,11 @@ type Vec5 = Vec Dim5
 type Jacs = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 
 -- access to arrays of symmetrical matrices
-uGet :: Array Number -> Int -> Int -> Int -> Number
-uGet a w i j | i <= j = unsafePartial $ A.unsafeIndex a
-                                        ((i-1)*w - (i-1)*(i-2)/2 + j-i)
-             | otherwise = unsafePartial $ A.unsafeIndex a
-                                        ((j-1)*w - (j-1)*(j-2)/2 + i-j)
+indV :: Int -> Int -> Int -> Int
+indV w i0 j0 = (i0*w+j0)
+indVs :: Int -> Int -> Int -> Int
+indVs w i0 j0 | i0 <= j0  = (i0*w - (i0*(i0-1)) `div` 2 + j0-i0)
+              | otherwise = (j0*w - (j0*(j0-1)) `div` 2 + i0-j0)
 -------------------------------------------------------------------------
 -------------------------------------------------------------------------
 -------------------------------------------------------------------------
@@ -99,21 +99,26 @@ instance matCova :: Mat (Cov a) where
               6   -> Cov {v: a}
               10  -> Cov {v: a}
               15  -> Cov {v: a}
-              _   -> Cov {v: do -- only upper triangle
-                            let n =ceil (sqrt (toNumber l))
-                            i0 <- A.range 0 (n-1)
-                            j0 <- A.range i0 (n-1)
-                            pure $ uidx a (i0*n+j0) }
+              _   -> Cov {v: let
+                            n = floor <<< sqrt <<< toNumber $ l
+                            iv = indV n
+                            in do -- only upper triangle
+                              i0 <- A.range 0 (n-1)
+                              j0 <- A.range i0 (n-1)
+                              pure $ uidx a (iv i0 j0) }
   toArray c@(Cov {v}) = v' where
           l = A.length v
-          n = ceil ((sqrt(8.0 * (toNumber l) + 1.0) - 1.0)/2.0)
-          idx :: Int -> Int -> Int -- index into values array of symmetric matrices
-          idx i0 j0 | i0 <= j0    = (i0*n - i0*(i0-1)/2 + j0-i0)
-                    | otherwise = (j0*n - j0*(j0-1)/2 + i0-j0)
+          n = case l of -- ceil ((sqrt(8.0 * (toNumber l) + 1.0) - 1.0)/2.0)
+            6  -> 3
+            10 -> 4
+            15 -> 5
+            _  -> error $ "matCova: toArray not supported for lenght "
+                        <> show l
+          iv = indVs n
           v' = do
                   i0 <- A.range 0 (n-1)
                   j0 <- A.range 0 (n-1)
-                  pure $ uidx v (idx i0 j0)
+                  pure $ uidx v (iv i0 j0)
 instance matVeca :: Mat (Vec a) where
   val (Vec {v}) = v
   fromArray a = Vec {v: a}
@@ -134,6 +139,10 @@ instance mat1Cova :: Mat1 (Cov a) where
                                           <> show (A.length v)
 instance mat1Veca :: Mat1 (Vec a) where
   toMatrix (Vec {v}) = M.fromArray (A.length v) v
+instance mat1Jac53 :: Mat1 (Jac Dim5 Dim3) where
+  toMatrix (Jac {v}) = M.fromArray2 5 3 v
+instance mat1Jac35 :: Mat1 (Jac Dim3 Dim5) where
+  toMatrix (Jac {v}) = M.fromArray2 3 5 v
 instance mat1Jacaa :: Mat1 (Jac a b) where
   toMatrix j@(Jac {v}) = case A.length v of
                               9  -> M.fromArray2 3 3 v
@@ -144,12 +153,6 @@ instance mat1Jacaa :: Mat1 (Jac a b) where
                               _  -> error $ "mat1Jacaa toMatrix "
                                           <> show (A.length v)
 
-instance mat1Jac53 :: Mat1 (Jac Dim5 Dim3) where
-  toMatrix (Jac {v}) = M.fromArray2 5 3 v -- `debug` "WTF??? 5 3"
-instance mat1Jac35 :: Mat1 (Jac Dim3 Dim5) where
-  toMatrix (Jac {v}) = M.fromArray2 3 5 v -- `debug` "WTF??? 3 5"
---{{{
---}}}
 -----------------------------------------------------------------
 -- | funcitons for symetric matrices: Cov
 -- | type class SymMat
