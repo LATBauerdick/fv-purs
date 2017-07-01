@@ -161,30 +161,33 @@ class SymMat a where
   invMaybe :: Cov a -> Maybe (Cov a)   -- | Maybe inverse matrix
   det :: Cov a -> Number               -- | determinant
   diag :: Cov a -> Array Number        -- | Array of diagonal elements
-  chol :: Cov a -> Jac a a             -- | Cholsky decomposition
+  {-- chol :: Cov a -> Jac a a       -- | Cholsky decomposition --}
 instance symMatCov3 :: SymMat Dim3 where
-  inv m = uJust (invMaybe m)
-  invMaybe (Cov {v}) = do
-    let
-        a11 = unsafePartial $ A.unsafeIndex v 0
-        a12 = unsafePartial $ A.unsafeIndex v 1
-        a13 = unsafePartial $ A.unsafeIndex v 2
-        a22 = unsafePartial $ A.unsafeIndex v 3
-        a23 = unsafePartial $ A.unsafeIndex v 4
-        a33 = unsafePartial $ A.unsafeIndex v 5
-        det = (a33*a12*a12 - 2.0*a13*a23*a12 + a13*a13*a22
-            +a11*(a23*a23 - a22*a33))
-    guard $ (abs det) > 1.0e-50
-    let
-        b11 = (a23*a23 - a22*a33)/det
-        b12 = (a12*a33 - a13*a23)/det
-        b13 = (a13*a22 - a12*a23)/det
-        b22 = (a13*a13 - a11*a33)/det
-        b23 = (a11*a23 - a12*a13)/det
-        b33 = (a12*a12 - a11*a22)/det
-        v' = [b11,b12,b13,b22,b23,b33]
-    pure $ fromArray v'
-  chol a = choldc a 3
+--  inv m | trace ( "inv " <> (show m) ) False = undefined
+  inv m = m' where
+    mm = invMaybe m
+    m' = case mm of
+           Nothing -> error $ "can't invert 3x3 matrix " <> show m
+           Just x -> x
+  invMaybe (Cov {v}) = _inv v where
+    _inv :: Array Number -> Maybe (Cov Dim3)
+    _inv = unsafePartial $ \[a11,a12,a13,a22,a23,a33] -> do
+      let det = (a33*a12*a12 - 2.0*a13*a23*a12 + a13*a13*a22
+                + a11*(a23*a23 - a22*a33))
+      guard $ (abs det) > 1.0e-50
+      let
+          b11 = (a23*a23 - a22*a33)/det
+          b12 = (a12*a33 - a13*a23)/det
+          b13 = (a13*a22 - a12*a23)/det
+          b22 = (a13*a13 - a11*a33)/det
+          b23 = (a11*a23 - a12*a13)/det
+          b33 = (a12*a12 - a11*a22)/det
+          v' = [b11,b12,b13,b22,b23,b33]
+      pure $ Cov {v: v'}
+  det (Cov {v}) = _det v where
+    _det :: Array Number -> Number
+    _det = unsafePartial $ \[a,b,c,d,e,f] ->
+            a*d*f - a*e*e - b*b*f + 2.0*b*c*e - c*c*d
   det (Cov {v}) = dd where
         a = unsafePartial $ A.unsafeIndex v 0
         b = unsafePartial $ A.unsafeIndex v 1
@@ -240,7 +243,6 @@ instance symMatCov4 :: SymMat Dim4 where
     a33 = unsafePartial $ A.unsafeIndex v 7
     a44 = unsafePartial $ A.unsafeIndex v 9
     a = [a11,a22,a33,a44]
-  chol a = choldc a 4
 instance symMatCov5 :: SymMat Dim5 where
   inv m = cholInv m 5
   invMaybe m = Just (cholInv m 5)
@@ -270,7 +272,6 @@ instance symMatCov5 :: SymMat Dim5 where
     a44 = unsafePartial $ A.unsafeIndex v 12
     a55 = unsafePartial $ A.unsafeIndex v 14
     a = [a11,a22,a33,a44,a55]
-  chol a = choldc a 5
 
 class MulMat a b c | a b -> c where
   mulm :: a -> b -> c
@@ -563,10 +564,18 @@ subm2 n (Cov {v:v}) = Cov {v: v'} where
 -- except for its diagonal elements which are returned in p[1..n].
 
 
-choldc :: forall a. Cov a -> Int -> Jac a a
-choldc (Cov {v: a}) n = Jac {v: a'} where
-  w = n
-  ll = n*n --n*(n+1)/2
+chol :: forall a. Cov a -> Jac a a
+chol = choldc
+choldc :: forall a. Cov a -> Jac a a
+choldc (Cov {v: a}) = Jac {v: a'} where
+  n  = case A.length a of
+        6  -> 3
+        10 -> 4
+        15 -> 5
+        _  -> error $ "choldc: cannot deal with A.length "
+                    <> show (A.length a)
+  ll = n*n
+  w  = n
   idx :: Int -> Int -> Int
   idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
           --| otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
