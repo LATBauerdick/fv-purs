@@ -203,46 +203,32 @@ instance symMatCov3 :: SymMat Dim3 where
     a = [a11,a22,a33]
 instance symMatCov4 :: SymMat Dim4 where
   inv m = uJust (invMaybe m)
-  invMaybe (Cov {v}) = do
-    let
-        a = unsafePartial $ A.unsafeIndex v 0
-        b = unsafePartial $ A.unsafeIndex v 1
-        c = unsafePartial $ A.unsafeIndex v 2
-        d = unsafePartial $ A.unsafeIndex v 3
-        e = unsafePartial $ A.unsafeIndex v 4
-        f = unsafePartial $ A.unsafeIndex v 5
-        g = unsafePartial $ A.unsafeIndex v 6
-        h = unsafePartial $ A.unsafeIndex v 7
-        i = unsafePartial $ A.unsafeIndex v 8
-        j = unsafePartial $ A.unsafeIndex v 9
-    let det = (a*e*h*j - a*e*i*i - a*f*f*j + 2.0*a*f*g*i - a*g*g*h
-          - b*b*h*j + b*b*i*i - 2.0*d*(b*f*i - b*g*h - c*e*i + c*f*g)
-          + b*c*(2.0*f*j - 2.0*g*i) + c*c*(g*g - e*j) + d*d*(f*f - e*h))
-    guard $ (abs det) > 1.0e-50
-    let a' = (-j*f*f + 2.0*g*i*f - e*i*i - g*g*h + e*h*j)/det
-        b' = (b*i*i - d*f*i - c*g*i + d*g*h + c*f*j - b*h*j)/det
-        c' = (c*g*g - d*f*g - b*i*g + d*e*i - c*e*j + b*f*j)/det
-        d' = (d*f*f - c*g*f - b*i*f - d*e*h + b*g*h + c*e*i)/det
-        e' = (-j*c*c + 2.0*d*i*c - a*i*i - d*d*h + a*h*j)/det
-        f' = (f*d*d - c*g*d - b*i*d + a*g*i + b*c*j - a*f*j)/det
-        g' = (g*c*c - d*f*c - b*i*c + b*d*h - a*g*h + a*f*i)/det
-        h' = (-j*b*b + 2.0*d*g*b - a*g*g - d*d*e + a*e*j)/det
-        i' = (i*b*b - d*f*b - c*g*b + c*d*e + a*f*g - a*e*i)/det
-        j' = (-h*b*b + 2.0*c*f*b - a*f*f - c*c*e + a*e*h)/det
-        v' = [a',b',c',d',e',f',g',h',i',j']
-    pure $ fromArray v'
+  invMaybe (Cov {v}) = _inv v where
+    _inv :: Array Number -> Maybe (Cov Dim4)
+    _inv = unsafePartial $ \[a,b,c,d,e,f,g,h,i,j] -> do
+      let det = (a*e*h*j - a*e*i*i - a*f*f*j + 2.0*a*f*g*i - a*g*g*h
+            - b*b*h*j + b*b*i*i - 2.0*d*(b*f*i - b*g*h - c*e*i + c*f*g)
+            + b*c*(2.0*f*j - 2.0*g*i) + c*c*(g*g - e*j) + d*d*(f*f - e*h))
+      guard $ (abs det) > 1.0e-50
+      let a' = (-j*f*f + 2.0*g*i*f - e*i*i - g*g*h + e*h*j)/det
+          b' = (b*i*i - d*f*i - c*g*i + d*g*h + c*f*j - b*h*j)/det
+          c' = (c*g*g - d*f*g - b*i*g + d*e*i - c*e*j + b*f*j)/det
+          d' = (d*f*f - c*g*f - b*i*f - d*e*h + b*g*h + c*e*i)/det
+          e' = (-j*c*c + 2.0*d*i*c - a*i*i - d*d*h + a*h*j)/det
+          f' = (f*d*d - c*g*d - b*i*d + a*g*i + b*c*j - a*f*j)/det
+          g' = (g*c*c - d*f*c - b*i*c + b*d*h - a*g*h + a*f*i)/det
+          h' = (-j*b*b + 2.0*d*g*b - a*g*g - d*d*e + a*e*j)/det
+          i' = (i*b*b - d*f*b - c*g*b + c*d*e + a*f*g - a*e*i)/det
+          j' = (-h*b*b + 2.0*c*f*b - a*f*f - c*c*e + a*e*h)/det
+      pure $ fromArray [a',b',c',d',e',f',g',h',i',j']
   det (Cov {v}) = _det v where
-    _det [a,b,c,d,e,f,g,h,i,j] =
+    _det = unsafePartial $ \[a,b,c,d,e,f,g,h,i,j] ->
         (a*e*h*j - a*e*i*i - a*f*f*j + 2.0*a*f*g*i - a*g*g*h
           - b*b*h*j + b*b*i*i - 2.0*d*(b*f*i - b*g*h - c*e*i + c*f*g)
           + b*c*(2.0*f*j - 2.0*g*i) + c*c*(g*g - e*j) + d*d*(f*f - e*h))
-    _det _ = undefined
-  diag (Cov {v}) = a where
-    a11 = unsafePartial $ A.unsafeIndex v 0
-    a22 = unsafePartial $ A.unsafeIndex v 4
-    a33 = unsafePartial $ A.unsafeIndex v 7
-    a44 = unsafePartial $ A.unsafeIndex v 9
-    a = [a11,a22,a33,a44]
+  diag (Cov {v}) = _diag v where
+    _diag :: Array Number -> Array Number
+    _diag = unsafePartial $ \[a11,_,_,_,a22,_,_,a33,_,a44] -> [a11,a22,a33,a44]
 instance symMatCov5 :: SymMat Dim5 where
   inv m = cholInv m 5
   invMaybe m = Just (cholInv m 5)
