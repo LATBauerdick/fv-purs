@@ -267,18 +267,15 @@ instance mulMata :: MulMat (Cov a) (Cov a) (Jac a a) where
               15 -> 5
               _  -> error $ "mulMatCC wrong length of Cov v "
                             <> show (A.length va)
-    vc = A.create $ do
-      v <- MA.new $ na * na
+    vc = do
       let ixa = indVs na
           ixb = indVs na
           ixc = indV na
-      numLoop 0 (na-1) $ \i0 ->
-        numLoop 0 (na-1) $ \j0 ->
-          MA.unsafeWrite v (ixc i0 j0) $
-          sum $ do
+      i0 <- A.range 0 (na-1)
+      j0 <- A.range 0 (na-1)
+      pure $ sum $ do
                   k0 <- A.range 0 (na-1)
                   pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
-      pure v
   mulm c1 c2 = j' where
     mc1 = toMatrix c1
     mc2 = toMatrix c2
