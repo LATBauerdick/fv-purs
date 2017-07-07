@@ -32,12 +32,12 @@ testCov cnt = "testCov: " <> show cnt
         <> "L                   " <> show (chol ch3)
         {-- <> "L * L^T             " <> show ((chol ch3) *. tr (chol ch3)) --}
         <> "A^(-1) = L' * L'^T  " <> show (inv ch3)
-        <> "A^(-1) from cholInv " <> show (cholInv ch3 3)
+        <> "A^(-1) from cholInv " <> show (cholInv ch3)
         <> "A = L * L^T         " <> show ch5
         <> "L                   " <> show (chol ch5)
         {-- <> "L * L^T             " <> show ((chol ch5) *. tr (chol ch5)) --}
         <> "A^(-1) = L' * L'^T  " <> show (inv ch5)
-        <> "A^(-1) from cholInv " <> show (cholInv ch5 5)
+        <> "A^(-1) from cholInv " <> show (cholInv ch5)
         <> "det this            " <> show (det ch5)
         {-- <> "chol" <> show ch5 --}
         {-- <> show (chol ch5) <> show ( chol ch5 *. tr (chol ch5)) --}

@@ -91,6 +91,8 @@ class Mat a where
   val :: a -> Array Number
   fromArray :: Array Number -> a
   toArray :: a -> Array Number
+  elementwise :: (Number -> Number -> Number) -> a -> a -> a
+
 instance matCova :: Mat (Cov a) where
   val (Cov {v}) = v
   fromArray a = c' where
@@ -119,14 +121,21 @@ instance matCova :: Mat (Cov a) where
                   i0 <- A.range 0 (n-1)
                   j0 <- A.range 0 (n-1)
                   pure $ uidx v (iv i0 j0)
+  elementwise f (Cov {v: va}) (Cov {v: vb}) = (Cov {v: vc}) where
+    vc = A.zipWith f va vb
 instance matVeca :: Mat (Vec a) where
   val (Vec {v}) = v
   fromArray a = Vec {v: a}
   toArray (Vec {v}) = v
+  elementwise f (Vec {v: va}) (Vec {v: vb}) = (Vec {v: vc}) where
+    vc = A.zipWith f va vb
+
 instance matJacab :: Mat (Jac a b) where
   val (Jac {v}) = v
   fromArray a = Jac {v: a}
   toArray (Jac {v}) = v
+  elementwise f (Jac {v: va}) (Jac {v: vb}) = (Jac {v: vc}) where
+    vc = A.zipWith f va vb
 
 class Mat1 a where
   toMatrix :: a -> M.Matrix
@@ -162,6 +171,7 @@ class SymMat a where
   det :: Cov a -> Number               -- | determinant
   diag :: Cov a -> Array Number        -- | Array of diagonal elements
   {-- chol :: Cov a -> Jac a a       -- | Cholsky decomposition --}
+
 instance symMatCov3 :: SymMat Dim3 where
 --  inv m | trace ( "inv " <> (show m) ) False = undefined
   inv m = m' where
@@ -188,19 +198,9 @@ instance symMatCov3 :: SymMat Dim3 where
     _det :: Array Number -> Number
     _det = unsafePartial $ \[a,b,c,d,e,f] ->
             a*d*f - a*e*e - b*b*f + 2.0*b*c*e - c*c*d
-  det (Cov {v}) = dd where
-        a = unsafePartial $ A.unsafeIndex v 0
-        b = unsafePartial $ A.unsafeIndex v 1
-        c = unsafePartial $ A.unsafeIndex v 2
-        d = unsafePartial $ A.unsafeIndex v 3
-        e = unsafePartial $ A.unsafeIndex v 4
-        f = unsafePartial $ A.unsafeIndex v 5
-        dd = a*d*f - a*e*e - b*b*f + 2.0*b*c*e - c*c*d
-  diag (Cov {v}) = a where
-    a11 = unsafePartial $ A.unsafeIndex v 0
-    a22 = unsafePartial $ A.unsafeIndex v 3
-    a33 = unsafePartial $ A.unsafeIndex v 5
-    a = [a11,a22,a33]
+  diag (Cov {v}) = _diag v where
+    _diag :: Array Number -> Array Number
+    _diag = unsafePartial $ \[a11,_,_,a22,_,a33] -> [a11,a22,a33]
 instance symMatCov4 :: SymMat Dim4 where
   inv m = uJust (invMaybe m)
   invMaybe (Cov {v}) = _inv v where
@@ -222,6 +222,7 @@ instance symMatCov4 :: SymMat Dim4 where
           j' = (-h*b*b + 2.0*c*f*b - a*f*f - c*c*e + a*e*h)/det
       pure $ fromArray [a',b',c',d',e',f',g',h',i',j']
   det (Cov {v}) = _det v where
+    _det :: Array Number -> Number
     _det = unsafePartial $ \[a,b,c,d,e,f,g,h,i,j] ->
         (a*e*h*j - a*e*i*i - a*f*f*j + 2.0*a*f*g*i - a*g*g*h
           - b*b*h*j + b*b*i*i - 2.0*d*(b*f*i - b*g*h - c*e*i + c*f*g)
@@ -230,10 +231,11 @@ instance symMatCov4 :: SymMat Dim4 where
     _diag :: Array Number -> Array Number
     _diag = unsafePartial $ \[a11,_,_,_,a22,_,_,a33,_,a44] -> [a11,a22,a33,a44]
 instance symMatCov5 :: SymMat Dim5 where
-  inv m = cholInv m 5
-  invMaybe m = Just (cholInv m 5)
+  inv m = cholInv m
+  invMaybe m = Just (cholInv m)
   det (Cov {v}) = _det v where
-    _det [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] =
+    _det :: Array Number -> Number
+    _det = unsafePartial $ \[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] ->
       a*f*j*m*o - a*f*j*n*n - a*f*k*k*o + 2.0*a*f*k*l*n - a*f*l*l*m
       - a*g*g*m*o + a*g*g*n*n + 2.0*a*g*h*k*o - 2.0*a*g*h*l*n - 2.0*a*g*i*k*n
       + 2.0*a*g*i*l*m - a*h*h*j*o + a*h*h*l*l + 2.0*a*h*i*j*n - 2.0*a*h*i*k*l
@@ -250,19 +252,33 @@ instance symMatCov5 :: SymMat Dim5 where
       - 2.0*d*d*g*i*l + d*d*i*i*j + 2.0*d*e*f*j*n - 2.0*d*e*f*k*l - 2.0*d*e*g*g*n
       + 2.0*d*e*g*h*l + 2.0*d*e*g*i*k - 2.0*d*e*h*i*j - e*e*f*j*m + e*e*f*k*k
       + e*e*g*g*m - 2.0*e*e*g*h*k + e*e*h*h*j
-    _det _ = undefined
-  diag (Cov {v}) = a where
-    a11 = unsafePartial $ A.unsafeIndex v 0
-    a22 = unsafePartial $ A.unsafeIndex v 5
-    a33 = unsafePartial $ A.unsafeIndex v 9
-    a44 = unsafePartial $ A.unsafeIndex v 12
-    a55 = unsafePartial $ A.unsafeIndex v 14
-    a = [a11,a22,a33,a44,a55]
+  diag (Cov {v}) = _diag v where
+    _diag :: Array Number -> Array Number
+    _diag = unsafePartial $ \[a,_,_,_,_,b,_,_,_,c,_,_,d,_,e] -> [a,b,c,d,e]
 
 class MulMat a b c | a b -> c where
   mulm :: a -> b -> c
 infixr 7 mulm as *.
 instance mulMata :: MulMat (Cov a) (Cov a) (Jac a a) where
+  mulm (Cov {v: va}) (Cov {v: vb}) = Jac {v: vc} where
+    na = case A.length va of
+              6  -> 3
+              10 -> 4
+              15 -> 5
+              _  -> error $ "mulMatCC wrong length of Cov v "
+                            <> show (A.length va)
+    vc = A.create $ do
+      v <- MA.new $ na * na
+      let ixa = indVs na
+          ixb = indVs na
+          ixc = indV na
+      numLoop 0 (na-1) $ \i0 ->
+        numLoop 0 (na-1) $ \j0 ->
+          MA.unsafeWrite v (ixc i0 j0) $
+          sum $ do
+                  k0 <- A.range 0 (na-1)
+                  pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
+      pure v
   mulm c1 c2 = j' where
     mc1 = toMatrix c1
     mc2 = toMatrix c2
@@ -613,8 +629,13 @@ choldc (Cov {v: a}) = Jac {v: a'} where
 -- | Matrix inversion using Cholesky decomposition
 -- | based on Numerical Recipies formula in 2.9
 --
-cholInv :: forall a. Cov a -> Int -> Cov a
-cholInv (Cov {v: a}) n = Cov {v: a'} where
+cholInv :: forall a. Cov a -> Cov a
+cholInv (Cov {v: a}) = Cov {v: a'} where
+  n = case A.length a of
+        6  -> 3
+        10 -> 4
+        15 -> 5
+        _  -> error $ "cholInv: not supported for length " <> show (A.length a)
   ll = n*n --n*(n+1)/2
   idx :: Int -> Int -> Int -- index into values array of symmetric matrices
   idx i j | i <= j    = ((i-1)*n - (i-1)*(i-2)/2 + j-i)
