@@ -507,13 +507,14 @@ scaleDiag s (Cov {v}) = (Cov {v: v'}) where
   a22 = s * (uidx v 3)
   a33 = s * (uidx v 5)
   v' = [a11, 0.0, 0.0, a22,0.0, a33]
+scaleDiag s (Cov {v: v}) = (Cov {v: _sc v}) where
+  _sc :: Array Number -> Array Number
+  _sc = unsafePartial $ \[a,_,_,b,_,c] -> [s*a,0.0,0.0,s*b,0.0,s*c]
 
 subm :: Int -> Vec5 -> Vec3
-subm n (Vec {v:v5}) = Vec {v: v'} where
-  a1 = unsafePartial $ A.unsafeIndex v5 0
-  a2 = unsafePartial $ A.unsafeIndex v5 1
-  a3 = unsafePartial $ A.unsafeIndex v5 2
-  v' = [a1,a2,a3]
+subm n (Vec {v: v}) = Vec {v: _subm v} where
+  _subm :: Array Number -> Array Number
+  _subm = unsafePartial $ \[a,b,c,_,_] -> [a,b,c]
 
 subm2 :: Int -> Cov5 -> Cov3
 subm2 n (Cov {v: v}) = Cov {v: _subm2 v} where
