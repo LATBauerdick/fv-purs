@@ -270,17 +270,11 @@ instance mulMata :: MulMat (Cov a) (Cov a) (Jac a a) where
     vc = do
       let ixa = indVs na
           ixb = indVs na
-          ixc = indV na
       i0 <- A.range 0 (na-1)
       j0 <- A.range 0 (na-1)
       pure $ sum $ do
                   k0 <- A.range 0 (na-1)
                   pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
-  mulm c1 c2 = j' where
-    mc1 = toMatrix c1
-    mc2 = toMatrix c2
-    mj' = mc1 * mc2
-    j' = fromArray $ M.toArray mj'
 instance mulMatJC :: MulMat (Jac a b) (Cov b) (Jac a b) where
   mulm j@(Jac {v: va}) c@(Cov {v: vb}) = Jac {v: v'} where
     nb = case A.length vb of
@@ -291,14 +285,14 @@ instance mulMatJC :: MulMat (Jac a b) (Cov b) (Jac a b) where
                             <> show (A.length vb)
     na = (A.length va)/nb
     n = nb
-    idx i0 j0 | i0 <= j0  = (i0*n - i0*(i0-1)/2 + j0-i0)
-              | otherwise = (j0*n - j0*(j0-1)/2 + i0-j0)
     v' = do
+      let ixa = indV nb
+          ixb = indVs nb
       i0 <- A.range 0 (na-1)
       j0 <- A.range 0 (nb-1)
       pure $ sum do
         k0 <- A.range 0 (nb-1)
-        pure $ (uidx va (i0*nb+k0)) * (uidx vb (idx k0 j0))
+        pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
 instance mulMatCJ :: MulMat (Cov a) (Jac a b) (Jac a b) where
   mulm c@(Cov {v: va}) j@(Jac {v: vb}) = Jac {v: v'} where
     na = case A.length va of
@@ -308,145 +302,134 @@ instance mulMatCJ :: MulMat (Cov a) (Jac a b) (Jac a b) where
               _  -> error $ "mulMatCJ wrong length of Cov v "
                             <> show (A.length va)
     nb = (A.length vb)/na
-    n = na
-    idx i0 j0 | i0 <= j0  = (i0*n - i0*(i0-1)/2 + j0-i0)
-              | otherwise = (j0*n - j0*(j0-1)/2 + i0-j0)
+    ixa = indVs na
+    ixb = indV nb
     v' = do
       i0 <- A.range 0 (na-1)
       j0 <- A.range 0 (nb-1)
       pure $ sum do
         k0 <- A.range 0 (na-1)
-        pure $ (uidx va (idx i0 k0)) * (uidx vb (k0*nb+j0))
+        pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
 instance mulMatJV :: MulMat (Jac a b) (Vec b) (Vec a) where
-  mulm j@(Jac {v: va}) v@(Vec {v: vb}) = Vec {v: v'} where
+  mulm j@(Jac {v: va}) v@(Vec {v: vb}) = Vec {v: vc} where
     nb = A.length vb
     na = (A.length va)/nb
-    v' = do
+    ixa = indV nb
+    vc = do
       i0 <- A.range 0 (na-1)
-      let j0 = 0
       pure $ sum do
         k0 <- A.range 0 (nb-1)
-        pure $ (uidx va (i0*nb+k0)) * (uidx vb (k0))
--- ???????????this needs to be generalized to (Jac a b)
-instance mulMatJJ :: MulMat (Jac Dim3 Dim5) (Jac Dim5 Dim3) (Jac Dim3 Dim3) where
-  mulm j1 j2 = j' where
-    mj1 = toMatrix j1
-    mj2 = toMatrix j2
-    mj' = mj1 * mj2
-    j' = fromArray $ M.toArray mj'
+        pure $ (uidx va (ixa i0 k0)) * (uidx vb k0)
+instance mulMatJJ :: MulMat (Jac a b) (Jac b a) (Jac a a) where -- Dim3 x Dim5
+{-- instance mulMatJJ :: MulMat (Jac Dim3 Dim5) (Jac Dim5 Dim3) (Jac Dim3 Dim3) where --}
+  mulm (Jac {v: va}) (Jac {v: vb}) = Jac {v: vc} where
+    nb = case A.length va of
+              12 -> 4
+              15 -> 5
+              9  -> 3
+              16 -> 4
+              25 -> 5
+              _  -> error $ "mulMatJJ can only do 3x5 * 5x3, 3x4 * 4*3, or squares"
+                            <> show (A.length vb)
+    na = (A.length va) / nb
+    ixa = indV nb
+    ixb = indV na
+    vc = do
+      i0 <- A.range 0 (na-1)
+      j0 <- A.range 0 (na-1)
+      pure $ sum do
+        k0 <- A.range 0 (nb-1)
+        pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
 instance mulMatCV :: MulMat (Cov a) (Vec a) (Vec a) where
-  mulm c v = v' where
-    mc = toMatrix c
-    mv = toMatrix v
-    mv' = mc * mv
-    v' = fromArray $ M.toArray mv'
+  mulm (Cov {v: va}) (Vec {v: vb}) = Vec {v: vc} where
+    nb = A.length vb
+    na = nb
+    ixa = indVs na
+    vc = do
+      i0 <- A.range 0 (na-1)
+      pure $ sum do
+        k0 <- A.range 0 (na-1)
+        pure $ (uidx va (ixa i0 k0)) * (uidx vb k0)
 instance mulMatVV :: MulMat (Vec a) (Vec a) Number where
-  mulm (Vec {v:v1}) (Vec {v:v2}) = A.foldl (+) zero $ A.zipWith (*) v1 v2
+  mulm (Vec {v:va}) (Vec {v:vb}) = A.foldl (+) zero $ A.zipWith (*) va vb
 class TrMat a b | a -> b where
   tr :: a -> b
 instance trMatC :: TrMat (Cov a) (Cov a) where
   tr c = c
 instance trMatJ :: TrMat (Jac a b) (Jac b a) where
-  tr j@(Jac {v}) = Jac {v:v'} where
-    l = A.length v
+  tr j@(Jac {v: va}) = Jac {v: vc} where
+    l = A.length va
     na = case l of
               9 -> 3
               15 -> 5
               16 -> 4
               25 -> 5
               _  -> error $ "trMatJ: sorry, can't do anything but 5x3 and square "
-                            <> show (A.length v)
+                            <> show (A.length va)
     nb = l/na
-    v' = do
+    ixa = indV nb
+    vc = do
       i0 <- A.range 0 (nb-1)
       j0 <- A.range 0 (na-1)
-      pure $ (uidx v (j0*nb+i0))
+      pure $ (uidx va (ixa j0 i0))
 class SW a b c | a b -> c where
   sw :: a -> b -> c
 infixl 7 sw as .*.
 instance swVec :: SW (Vec a) (Cov a) Number where
   sw v c = n where
-    mv = toMatrix v
-    mc = toMatrix c
-    mc' = M.transpose mv * mc * mv
-    n = uidx (M.toArray mc') 0
+    n = v *. (c *. v)
 instance swCov :: SW (Cov a) (Cov a) (Cov a) where
-  sw c1 c2 = c' where
-    j' = c1 *. c2 *. c1
-    c' = fromArray $ toArray j'
-instance swJac :: SW (Jac a b) (Cov a) (Cov b) where
-  sw j@(Jac {v: va}) c@(Cov {v: vb}) = Cov {v: v'} where
-    {-- mj = toMatrix j --}
-    {-- mc = toMatrix c --}
-    {-- mc' = M.transpose mj * mc * mj --}
-
+  sw (Cov {v: va}) (Cov {v: vb}) = Cov {v: v'} where
     l = A.length vb
     n = case l of
               6  -> 3
               10 -> 4
               15 -> 5
-              _  -> error $ "swJac: don'w know how to " <> show l
-    m = (A.length va)/n -- > mxn * nxn * nxm -> mxm
-    -- vaT * vb * va
-    {-- vat= do --}
-    {--   i0 <- A.range 0 (m-1) --}
-    {--   j0 <- A.range 0 (n-1) --}
-    {--   pure $ (uidx va (j0*m+i0)) --}
-    {-- mjt = M.fromArray2 m n vat --}
-    {-- mjt''' = M.transpose mj --}
-
-    idx i0 j0 | i0 <= j0  = (i0*n - i0*(i0-1)/2 + j0-i0)
-              | otherwise = (j0*n - j0*(j0-1)/2 + i0-j0)
-   {-- vb''' = do --}
-    {--   i0 <- A.range 0 (n-1) --}
-    {--   j0 <- A.range 0 (n-1) --}
-    {--   pure $ (uidx vb (idx i0 j0)) --}
-    {-- mb''' = M.fromArray2 n n vb''' --}
-
-    {-- va''' = do --}
-    {--   i0 <- A.range 0 (n-1) --}
-    {--   j0 <- A.range 0 (m-1) --}
-    {--   pure $ (uidx va (i0*m+j0)) --}
-    {-- mj''' = M.fromArray2 n m va''' --}
-
-
+              _  -> error $ "sw cov cov: don't know how to " <> show l
+    m = n -- > mxn * nxn * nxm -> mxm
     vint = do
+      let ixa = indVs n
+      let ixb = indVs m
+      let ixc = indV m
       i0 <- A.range 0 (n-1)
       j0 <- A.range 0 (m-1)
       pure $ sum do
         k0 <- A.range 0 (n-1)
-        pure $ (uidx vb (idx i0 k0)) * (uidx va (k0*m+j0))
-    vf = do
+        pure $ (uidx vb (ixa i0 k0)) * (uidx va (ixb k0 j0))
+    v' = do
+      let ixa = indVs m
+          ixb = indV m
+          ixc = indVs m
       i0 <- A.range 0 (m-1)
       j0 <- A.range i0 (m-1)
       pure $ sum do
         k0 <- A.range 0 (n-1)
-        pure $ (uidx va (k0*m+i0) ) * (uidx vint (k0*m+j0))
-
-    {-- vf = M.toArray mc' --}
-    lf = A.length vf
-    v' = case lf of
-              6   -> vf
-              10  -> vf
-              15  -> vf
-              _   -> error $ "swJac: wrong result " <> show lf
-
-    {-- mv' = M.fromArray2 m m v' --}
-    {-- xx = n `debug` ("--jT---->\n" <> show mjt''' <> show mjt) --}
-    {-- yx = n `debug` ("--c----->\n" <> show mc <> show mb''') --}
-    {-- xy = n `debug` ("--j----->\n" <> show mj <> show mj''') --}
-    {-- yy = n `debug` ("-jT*c*j->\n" <> show mc' <> show mv') --}
-testCov2 :: String
-testCov2 = s where
-  s = "Test Cov 2----------------------------------------------\n"
-    <> "Vec *. Vec = " <> show (v3 *. v3) <> "\n"
-    <> "Cov *. Cov = " <> show ((one::Cov3) *. inv (one::Cov3)) <> "\n"
-    <> "Vec + Vec = " <> show (v5 + v5) <> "\n"
-    <> "chol Cov = " <> show (chol (one::Cov5)) <> "\n"
-    <> "Vec .*. Cov = " <> show (v5 .*. inv (one::Cov5)) <> "\n"
-  v3 = fromArray [1.0,1.0,1.0] :: Vec3
-  v5 = fromArray [1.0,1.0,1.0,1.0,1.0] :: Vec5
-
+        pure $ (uidx va (ixa k0 i0 )) * (uidx vint (ixb k0 j0))
+instance swJac :: SW (Jac a b) (Cov a) (Cov b) where
+  sw j@(Jac {v: va}) c@(Cov {v: vb}) = Cov {v: v'} where
+    l = A.length vb
+    n = case l of
+              6  -> 3
+              10 -> 4
+              15 -> 5
+              _  -> error $ "swJac: don't know how to " <> show l
+    m = (A.length va)/n -- > mxn * nxn * nxm -> mxm
+    vint = do
+      let ixa = indVs n
+      let ixb = indV m
+      i0 <- A.range 0 (n-1)
+      j0 <- A.range 0 (m-1)
+      pure $ sum do
+        k0 <- A.range 0 (n-1)
+        pure $ (uidx vb (ixa i0 k0)) * (uidx va (ixb k0 j0))
+    v' = do
+      let ixa = indV m
+          ixb = indV m
+      i0 <- A.range 0 (m-1)
+      j0 <- A.range i0 (m-1)
+      pure $ sum do
+        k0 <- A.range 0 (n-1)
+        pure $ (uidx va (ixa k0 i0)) * (uidx vint (ixb k0 j0))
 instance semiringCov3 :: Semiring (Cov Dim3) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
   zero = Cov {v: A.replicate 6 0.0 }
@@ -533,15 +516,9 @@ subm n (Vec {v:v5}) = Vec {v: v'} where
   v' = [a1,a2,a3]
 
 subm2 :: Int -> Cov5 -> Cov3
-subm2 n (Cov {v:v}) = Cov {v: v'} where
-  a11 = unsafePartial $ A.unsafeIndex v 0
-  a12 = unsafePartial $ A.unsafeIndex v 1
-  a13 = unsafePartial $ A.unsafeIndex v 2
-  a22 = unsafePartial $ A.unsafeIndex v 5
-  a23 = unsafePartial $ A.unsafeIndex v 6
-  a33 = unsafePartial $ A.unsafeIndex v 9
-  v' = [a11,a12,a13,a22,a23,a33]
-
+subm2 n (Cov {v: v}) = Cov {v: _subm2 v} where
+  _subm2 :: Array Number -> Array Number
+  _subm2 = unsafePartial $ \[a,b,c,_,_,d,e,_,_,f,_,_,_,_,_] -> [a,b,c,d,e,f]
 
 -- CHOLESKY DECOMPOSITION
 
@@ -716,3 +693,98 @@ cholInv (Cov {v: a}) = Cov {v: a'} where
 --    a[j][i]=sum/p[j];
 --  }
 --}
+
+testCov2 :: String
+testCov2 = s where
+  xc3 :: Cov Dim3
+  xc3 = Cov {v: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
+  xj3 :: Jac Dim3 Dim3
+  xj3 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]}
+  xj31 :: Jac Dim3 Dim3
+  xj31 = Jac {v: [1.0,0.0,0.0,1.0,1.0,0.0,1.0,1.0,1.0]}
+  xj32 :: Jac Dim3 Dim3
+  xj32 = Jac {v: [0.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,0.0]}
+  xj33 :: Jac Dim3 Dim3
+  xj33 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]}
+  xj53 :: Jac Dim5 Dim3
+  xj53 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]}
+  xvc3 = toArray xc3
+  xv3 = fromArray [1.0,1.0,1.0] :: Vec3
+  xv5 = fromArray [1.0,1.0,1.0,1.0,1.0] :: Vec5
+  s =  "Test Cov 2----------------------------------------------\n"
+    <> "Vec *. Vec = " <> show (v3 *. v3) <> "\n"
+    <> "Cov *. Cov = " <> show (((fromArray[1.0,2.0,3.0,4.0,5.0,6.0])::Cov3) *. ((fromArray [0.0,0.0,1.0,1.0,0.0,0.0])::Cov3) *. inv (one::Cov3)) <> "\n"
+--    <> "Vec + Vec = " <> show (v5 + v5) <> "\n"
+--    <> "chol Cov = " <> show (chol (one::Cov5)) <> "\n"
+--    <> "Vec .*. Cov = " <> show (v5 .*. inv (one::Cov5)) <> "\n"
+    <> "xc3 :: Cov Dim3 " <> show xc3
+    <> show (toArray $ xc3) <> "\n"
+    <> "xj53 ---> " <> show xj53
+    <> "xj53 *. xc3 ---> " <> show (xj53 *. xc3)
+    <> show xvc3 <> "\n"
+        {-- <> show md <> "\n" --}
+        {-- <> show mm3 --}
+        {-- <> show mm5 --}
+        {-- <> "exp v3 " <> show ( (v3 + v3) |.| v3 ) <> "\n" --}
+        {-- <> show (j53) --}
+        {-- <> show (tr j53) --}
+        {-- <> "tj3 " <> show tj3 --}
+        {-- <> "vv3 " <> show vv3 --}
+        {-- <> show (v3 |*| c3) --}
+        {-- <> "\n(tr j53 .*. c3)" <> show (tr j53 .*. c3) --}
+        {-- <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5) --}
+        {-- <> show (c3 ** (inv c3)) --}
+        {-- <> show (c4 ** (inv c4)) --}
+    <> "chol: -----------------\n"
+    <> "A = L * L^T         " <> show ch3
+    <> "L                   " <> show (choldc ch3)
+    <> "L * L^T             " <> show ((choldc ch3) *. tr (choldc ch3))
+    <> "A^(-1) = L' * L'^T  " <> show (cholInv ch3)
+    <> "A * A^(-1)          " <> show (ch3 *. cholInv ch3)
+    <> "A = L * L^T         " <> show ch5
+    <> "L                   " <> show (choldc ch5)
+    <> "L * L^T             " <> show ((choldc ch5) *. tr (choldc ch5))
+    <> "A^(-1) = L' * L'^T  " <> show (cholInv ch5)
+    <> "A * A^(-1)          " <> show (ch5 *. cholInv ch5)
+    <> "det this            " <> show (det ch5)
+    <> "\n" -- <> testCov2
+  c3 :: Cov3
+  c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
+  c4 :: Cov4
+  c4 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
+  c5 :: Cov5
+  c5 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
+  c50 :: Cov5
+  c50 = fromArray [15.0,14.0,13.0,12.0,11.0,10.0,9.0,8.0,7.0,6.0,5.0,4.0,3.0,2.0,1.0]
+  c50m :: Cov5
+  c50m = fromArray $ M.toArray $ toMatrix c50
+  c51 :: Cov5
+  c51 = one
+  v3 :: Vec3
+  v3 = fromArray [10.0,11.0,12.0]
+  v5 :: Vec5
+  v5 = fromArray [10.0,11.0,12.0,13.0,14.0]
+  j53 :: Jac53
+  j53 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
+--  tj3 :: Cov3
+--  tj3 = j53 .*. c5
+--  vv5 :: Vec5
+--  vv5 = j53 *. v3
+--  vv3 :: Vec3
+--  vv3 = tr j53 *. j53 *. c3 *. v3
+
+  m3 :: M.Matrix
+  m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]
+--  mm3 = (m3+m3)*m3
+  m5 :: M.Matrix
+  m5 = M.fromArray2 5 5 [1.0,2.0,3.0,4.0,5.0, 2.0,6.0,7.0,8.0,9.0
+                        ,3.0,7.0,10.0,11.0,12.0, 4.0,8.0,11.0,13.0,14.0
+                        ,5.0,9.0,12.0,14.0,15.0]
+--  mm5 = (m5+m5)*m5
+  ch3 :: Cov3
+  ch3 = fromArray [2.0, -1.0, 0.0, 2.0, -1.0, 2.0]
+  cch3 = choldc ch3
+  ich3 = cholInv ch3
+
+  ch5 :: Cov5
+  ch5 = fromArray [2.0, -1.0, 0.0, 0.0, 0.0, 2.0, -1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 2.0, 0.0, 2.0]
