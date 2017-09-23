@@ -21,7 +21,7 @@
       "unfoldable"
     ],
     "repo": "https://github.com/LATBauerdick/purescript-arrays.git",
-    "version": "head"
+    "version": "master"
   },
   "assert": {
     "dependencies": [
