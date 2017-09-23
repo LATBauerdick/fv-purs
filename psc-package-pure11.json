@@ -1,6 +1,6 @@
 {
     "name": "Main",
-    "set": "master",
+    "set": "working",
     "source": "https://github.com/pure11/package-sets.git",
     "depends": [
         "enums",

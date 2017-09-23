@@ -1,20 +1,14 @@
 {
     "name": "fv",
-    "set": "psc-0.11.4",
-    "source": "https://github.com/purescript/package-sets.git",
+    "set": "working",
+    "source": "https://github.com/pure11/package-sets.git",
     "depends": [
-        "maps",
-        "gen",
-        "control",
-        "arrays",
-        "lists",
-        "random",
-        "psci-support",
         "enums",
         "exceptions",
         "integers",
         "strings",
         "unsafe-coerce",
+        "lists",
         "math",
         "console",
         "prelude"
