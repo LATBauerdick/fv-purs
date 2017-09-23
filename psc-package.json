@@ -1,8 +1,9 @@
 {
     "name": "fv",
-    "set": "working",
-    "source": "https://github.com/pure11/package-sets.git",
+    "set": "master",
+    "source": "https://github.com/LATBauerdick/fv.purs",
     "depends": [
+        "arrays",
         "enums",
         "exceptions",
         "integers",

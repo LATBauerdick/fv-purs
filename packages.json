@@ -20,8 +20,8 @@
       "tuples",
       "unfoldable"
     ],
-    "repo": "https://github.com/pure11/purescript-arrays.git",
-    "version": "master"
+    "repo": "https://github.com/LATBauerdick/purescript-arrays.git",
+    "version": "head"
   },
   "assert": {
     "dependencies": [
