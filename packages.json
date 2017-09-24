@@ -1028,9 +1028,9 @@
     "repo": "https://github.com/pure11/purescript-unsafe-coerce.git",
     "version": "master"
   },
-  "global": {
+  "globals": {
     "dependencies": [],
-    "repo": "https://github.com/LATBauerdick/purescript-global.git",
+    "repo": "https://github.com/LATBauerdick/purescript-globals.git",
     "version": "master"
   },
   "validation": {

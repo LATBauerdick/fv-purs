@@ -13,7 +13,7 @@
         "math",
         "console",
         "random",
-        "global",
+        "globals",
         "prelude"
     ]
 }
