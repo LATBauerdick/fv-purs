@@ -153,7 +153,7 @@
       "prelude"
     ],
     "repo": "https://github.com/purescript/purescript-either.git",
-    "version": "v2.1.0"
+    "version": "v3.0.0"
   },
   "enums": {
     "dependencies": [
@@ -172,7 +172,7 @@
       "unfoldable"
     ],
     "repo": "https://github.com/purescript/purescript-enums.git",
-    "version": "v2.0.1"
+    "version": "v3.2.1"
   },
   "exceptions": {
     "dependencies": [
