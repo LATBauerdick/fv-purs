@@ -304,6 +304,17 @@
     "repo": "https://github.com/purescript/purescript-functors.git",
     "version": "v1.0.0"
   },
+  "gen": {
+    "dependencies": [
+      "integers",
+      "nonempty",
+      "tailrec",
+      "type-equality",
+      "unfoldable"
+    ],
+    "repo": "https://github.com/purescript/purescript-gen.git",
+    "version": "v1.1.0"
+  },
   "generics": {
     "dependencies": [
       "arrays",
