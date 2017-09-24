@@ -2,7 +2,7 @@ module Stuff where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Console (log)
 import Control.Monad.Eff.Random ( random, RANDOM )
 import Math ( sqrt )
 import Data.Ord (signum)
@@ -16,10 +16,8 @@ import Data.Maybe ( Maybe(..), fromMaybe', fromJust )
 import Data.Foldable ( class Foldable, foldr, sum )
 import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
-import Data.List ( fromFoldable )
 import Data.Int ( round, toNumber, floor )
 import Text.Format ( format, precision, width )
-import Data.Enum ( class Enum )
 import Control.MonadZero ( guard )
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Math ( log, sqrt, pi, sin, cos ) as Math

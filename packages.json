@@ -1046,6 +1046,15 @@
     "repo": "https://github.com/LATBauerdick/purescript-globals.git",
     "version": "master"
   },
+  "numbers": {
+    "dependencies": [
+      "globals",
+      "math",
+      "maybe"
+    ],
+    "repo": "https://github.com/sharkdp/purescript-numbers.git",
+    "version": "v5.0.0"
+  },
   "validation": {
     "dependencies": [
       "bifunctors",
