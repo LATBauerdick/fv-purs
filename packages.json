@@ -187,7 +187,7 @@
       "newtype",
       "prelude"
     ],
-    "repo": "https://github.com/pure11/purescript-exceptions.git",
+    "repo": "https://github.com/LATBauerdick/purescript-exceptions.git",
     "version": "master"
   },
   "exists": {
