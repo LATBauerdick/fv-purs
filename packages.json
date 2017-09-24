@@ -949,7 +949,7 @@
       "st"
     ],
     "repo": "https://github.com/purescript/purescript-tailrec.git",
-    "version": "v2.0.1"
+    "version": "v3.3.0"
   },
   "transformers": {
     "dependencies": [
