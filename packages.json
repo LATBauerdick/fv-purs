@@ -916,6 +916,7 @@
       "maybe",
       "monoid",
       "newtype",
+      "gen",
       "partial",
       "prelude"
     ],
