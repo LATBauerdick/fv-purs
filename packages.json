@@ -1028,6 +1028,11 @@
     "repo": "https://github.com/pure11/purescript-unsafe-coerce.git",
     "version": "master"
   },
+  "global": {
+    "dependencies": [],
+    "repo": "https://github.com/LATBauerdick/purescript-global.git",
+    "version": "master"
+  },
   "validation": {
     "dependencies": [
       "bifunctors",
