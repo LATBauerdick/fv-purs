@@ -132,7 +132,7 @@
       "prelude"
     ],
     "repo": "https://github.com/purescript/purescript-distributive.git",
-    "version": "v2.0.0"
+    "version": "v3.0.0"
   },
   "eff": {
     "dependencies": [
@@ -1040,13 +1040,6 @@
     "dependencies": [],
     "repo": "https://github.com/pure11/purescript-unsafe-coerce.git",
     "version": "master"
-  },
-  "distributive": {
-    "dependencies": [
-      "identity"
-    ],
-    "repo": "https://github.com/purescript/purescript-distributive.git",
-    "version": "v3.0.0"
   },
   "globals": {
     "dependencies": [],
