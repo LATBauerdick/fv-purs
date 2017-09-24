@@ -12,6 +12,7 @@
         "lists",
         "math",
         "console",
+        "random",
         "prelude"
     ]
 }
