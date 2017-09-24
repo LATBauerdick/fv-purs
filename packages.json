@@ -1003,7 +1003,7 @@
       "prelude",
       "tuples"
     ],
-    "repo": "https://github.com/pure11/purescript-unfoldable.git",
+    "repo": "https://github.com/LATBauerdick/purescript-unfoldable.git",
     "version": "master"
   },
   "unicode": {
