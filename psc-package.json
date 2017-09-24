@@ -1,7 +1,7 @@
 {
     "name": "fv",
-    "set": "master",
-    "source": "https://github.com/LATBauerdick/fv.purs",
+    "set": "working",
+    "source": "https://github.com/LATBauerdick/package-sets.git",
     "depends": [
         "arrays",
         "enums",
