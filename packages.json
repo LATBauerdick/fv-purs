@@ -705,7 +705,7 @@
   "proxy": {
     "dependencies": [],
     "repo": "https://github.com/purescript/purescript-proxy.git",
-    "version": "v1.0.0"
+    "version": "v2.1.0"
   },
   "quickcheck": {
     "dependencies": [
