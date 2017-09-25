@@ -16,7 +16,7 @@
 #
 PCC    := /usr/local/bin/pcc
 SRC    := src
-SRC-PCC    := src-pcc
+#############SRC-PCC    := src-pcc
 OUTPUT := output-pcc
 BIN    := main
 

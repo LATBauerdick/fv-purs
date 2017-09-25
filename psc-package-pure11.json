@@ -1,8 +1,9 @@
 {
-    "name": "Main",
+    "name": "fv",
     "set": "working",
-    "source": "https://github.com/pure11/package-sets.git",
+    "source": "https://github.com/LATBauerdick/package-sets.git",
     "depends": [
+        "arrays",
         "enums",
         "exceptions",
         "integers",
@@ -11,6 +12,8 @@
         "lists",
         "math",
         "console",
+        "random",
+        "globals",
         "prelude"
     ]
 }
