@@ -16,7 +16,7 @@
 #
 PCC    := /usr/local/bin/pcc
 SRC    := src
-#############SRC-PCC    := src-pcc
+SRC-PCC    := src-pcc
 OUTPUT := output-pcc
 BIN    := main
 
@@ -55,7 +55,7 @@ debug: codegen
 	@$(MAKE) $(BIN) CXXFLAGS+=$(DEBUG)
 
 codegen: PURESCRIPT_PKG_SRCS=$(foreach d,$(PACKAGE_SOURCES),$(call rwildcard,$(firstword $(subst *, ,$(d))),*.purs))
-codegen: PURESCRIPT_SRCS=$(call rwildcard,$(SRC)/,*.purs) $(call rwildcard,$(SRC-PCC)/,*.purs)
+codegen: PURESCRIPT_SRCS=$(call rwildcard,$(SRC)/,*.purs)
 #
 codegen: $(PURESCRIPT_PKGS)
 	@$(PCC) $(PCCFLAGS) --output $(OUTPUT) $(PURESCRIPT_PKG_SRCS) $(PURESCRIPT_SRCS)
