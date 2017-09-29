@@ -1,4 +1,4 @@
-module Data.Cov
+ module Data.Cov
     where
 
 import Prelude
@@ -54,7 +54,7 @@ instance ddima :: DDim a where
 {--   dim ccc = 5 --}
 
 newtype Cov a = Cov { v :: Array Number }
-newtype Jac a b = Jac { v :: Array Number }
+newtype Jac a b = Jac { v :: Array Number, nr :: Int }
 newtype Vec a = Vec { v :: Array Number }
 type Cov3 = Cov Dim3
 type Cov4 = Cov Dim4
@@ -130,12 +130,12 @@ instance matVeca :: Mat (Vec a) where
   elementwise f (Vec {v: va}) (Vec {v: vb}) = (Vec {v: vc}) where
     vc = A.zipWith f va vb
 
-instance matJacab :: Mat (Jac a b) where
-  val (Jac {v}) = v
-  fromArray a = Jac {v: a}
-  toArray (Jac {v}) = v
-  elementwise f (Jac {v: va}) (Jac {v: vb}) = (Jac {v: vc}) where
-    vc = A.zipWith f va vb
+{-- instance matJacab :: Mat (Jac a b) where --}
+{--   val (Jac {v}) = v --}
+{--   fromArray a = Jac {v: a} --}
+{--   toArray (Jac {v}) = v --}
+{--   elementwise f (Jac {v: va}) (Jac {v: vb}) = (Jac {v: vc}) where --}
+{--     vc = A.zipWith f va vb --}
 
 class Mat1 a where
   toMatrix :: a -> M.Matrix
@@ -153,14 +153,7 @@ instance mat1Jac53 :: Mat1 (Jac Dim5 Dim3) where
 instance mat1Jac35 :: Mat1 (Jac Dim3 Dim5) where
   toMatrix (Jac {v}) = M.fromArray2 3 5 v
 instance mat1Jacaa :: Mat1 (Jac a b) where
-  toMatrix j@(Jac {v}) = case A.length v of
-                              9  -> M.fromArray2 3 3 v
-                              16 -> M.fromArray2 4 4 v
-                              25 -> M.fromArray2 5 5 v
-                              12 -> M.fromArray2 3 4 v `debug` "this should not have happened ??????????????????? 4 3"
-                              15 -> M.fromArray2 5 3 v `debug` "this should not have happened ??????????????????? 5 3"
-                              _  -> error $ "mat1Jacaa toMatrix "
-                                          <> show (A.length v)
+  toMatrix j@(Jac {v: va, nr: r}) = M.fromArray2 r ((A.length va)/r) va
 
 -----------------------------------------------------------------
 -- | funcitons for symetric matrices: Cov
@@ -260,13 +253,12 @@ class MulMat a b c | a b -> c where
   mulm :: a -> b -> c
 infixr 7 mulm as *.
 instance mulMata :: MulMat (Cov a) (Cov a) (Jac a a) where
-  mulm (Cov {v: va}) (Cov {v: vb}) = Jac {v: vc} where
+  mulm (Cov {v: va}) (Cov {v: vb}) = Jac {v: vc, nr: na} where
     na = case A.length va of
               6  -> 3
               10 -> 4
               15 -> 5
-              _  -> error $ "mulMatCC wrong length of Cov v "
-                            <> show (A.length va)
+              _  -> 0 -- error $ "mulMatCC wrong length of Cov v " <> show (A.length va)
     vc = do
       let ixa = indVs na
           ixb = indVs na
@@ -276,13 +268,12 @@ instance mulMata :: MulMat (Cov a) (Cov a) (Jac a a) where
                   k0 <- A.range 0 (na-1)
                   pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
 instance mulMatJC :: MulMat (Jac a b) (Cov b) (Jac a b) where
-  mulm j@(Jac {v: va}) c@(Cov {v: vb}) = Jac {v: v'} where
+  mulm j@(Jac {v: va, nr: r}) c@(Cov {v: vb}) = Jac {v: v', nr: r} where
     nb = case A.length vb of
               6  -> 3
               10 -> 4
               15 -> 5
-              _  -> error $ "mulMatJC wrong length of Cov v "
-                            <> show (A.length vb)
+              _  -> 0 -- error $ "mulMatJC wrong length of Cov v " <> show (A.length vb)
     na = (A.length va)/nb
     n = nb
     v' = do
@@ -294,13 +285,12 @@ instance mulMatJC :: MulMat (Jac a b) (Cov b) (Jac a b) where
         k0 <- A.range 0 (nb-1)
         pure $ (uidx va (ixa i0 k0)) * (uidx vb (ixb k0 j0))
 instance mulMatCJ :: MulMat (Cov a) (Jac a b) (Jac a b) where
-  mulm c@(Cov {v: va}) j@(Jac {v: vb}) = Jac {v: v'} where
+  mulm c@(Cov {v: va}) j@(Jac {v: vb}) = Jac {v: v', nr: na} where
     na = case A.length va of
               6  -> 3
               10 -> 4
               15 -> 5
-              _  -> error $ "mulMatCJ wrong length of Cov v "
-                            <> show (A.length va)
+              _  -> 0 -- error $ "mulMatCJ wrong length of Cov v " <> show (A.length va)
     nb = (A.length vb)/na
     ixa = indVs na
     ixb = indV nb
@@ -322,15 +312,14 @@ instance mulMatJV :: MulMat (Jac a b) (Vec b) (Vec a) where
         pure $ (uidx va (ixa i0 k0)) * (uidx vb k0)
 instance mulMatJJ :: MulMat (Jac a b) (Jac b a) (Jac a a) where -- Dim3 x Dim5
 {-- instance mulMatJJ :: MulMat (Jac Dim3 Dim5) (Jac Dim5 Dim3) (Jac Dim3 Dim3) where --}
-  mulm (Jac {v: va}) (Jac {v: vb}) = Jac {v: vc} where
+  mulm (Jac {v: va, nr: r}) (Jac {v: vb}) = Jac {v: vc, nr: r} where
     nb = case A.length va of
-              12 -> 4
-              15 -> 5
+              12 -> 12/r
+              15 -> 15/r
               9  -> 3
               16 -> 4
               25 -> 5
-              _  -> error $ "mulMatJJ can only do 3x5 * 5x3, 3x4 * 4*3, or squares"
-                            <> show (A.length vb)
+              _  -> 0 -- error $ "mulMatJJ can only do 3x5 * 5x3, 3x4 * 4*3, or squares" <> show (A.length vb)
     na = (A.length va) / nb
     ixa = indV nb
     ixb = indV na
@@ -357,15 +346,16 @@ class TrMat a b | a -> b where
 instance trMatC :: TrMat (Cov a) (Cov a) where
   tr c = c
 instance trMatJ :: TrMat (Jac a b) (Jac b a) where
-  tr j@(Jac {v: va}) = Jac {v: vc} where
+  tr j@(Jac {v: va, nr: r}) = Jac {v: vc, nr: nb} where
     l = A.length va
-    na = case l of
-              9 -> 3
-              15 -> 5
-              16 -> 4
-              25 -> 5
-              _  -> error $ "trMatJ: sorry, can't do anything but 5x3 and square "
-                            <> show (A.length va)
+    na = r
+    {-- na = case l of --}
+    {--           9 -> 3 --}
+    {--           15 -> 5 --}
+    {--           16 -> 4 --}
+    {--           25 -> 5 --}
+    {--           _  -> error $ "trMatJ: sorry, can't do anything but 5x3 and square " --}
+    {--                         <> show (A.length va) --}
     nb = l/na
     ixa = indV nb
     vc = do
@@ -461,12 +451,12 @@ instance showCov5 :: Show (Cov Dim5) where
   show c = "Show (Cov Dim5)\n" <> (show $ toMatrix c)
 
 instance semiringJac :: Semiring (Jac a b) where
-  add (Jac {v: v1}) (Jac {v: v2}) = Jac {v: A.zipWith (+) v1 v2}
+  add (Jac {v: v1}) (Jac {v: v2, nr: r}) = Jac {v: A.zipWith (+) v1 v2, nr: r}
   zero = undefined
   mul (Jac {v: v1}) (Jac {v: v2}) = undefined -- Cov {v: cov5StdMult v1 v2}
   one = undefined
 instance ringJac :: Ring (Jac a b) where
-  sub (Jac {v: v1}) (Jac {v: v2}) = Jac {v: A.zipWith (-) v1 v2}
+  sub (Jac {v: v1}) (Jac {v: v2, nr: r}) = Jac {v: A.zipWith (-) v1 v2, nr: r}
 instance showJac :: Show (Jac a b) where
   show a = "Show Jac\n" <> show (toMatrix a)
 
@@ -489,15 +479,23 @@ instance semiringVec5 :: Semiring (Vec Dim5) where
   mul (Vec {v: v1}) (Vec {v: v2}) = undefined
   one = Vec { v: A.replicate 5 1.0 }
 
-instance semiringVec :: Semiring (Vec a) where
-  add (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2}
-  {-- zero = error "error calling zero for Vec a" -- Vec {v: A.replicate 5 0.0 } --}
-  zero = Vec {v: A.replicate 5 0.0 } `debug` "xxxxxxxxxxx>>> called Vec zero"
-  mul (Vec {v: v1}) (Vec {v: v2}) = undefined
-  {-- one = error "error calling one for Vec a" -- Vec { v: A.replicate 5 1.0 } --}
-  one = Vec { v: A.replicate 5 1.0 } `debug` "xxxxxxxxxxx>>> called Vec one"
-instance ringVec :: Ring (Vec a) where
+instance ringVec3 :: Ring (Vec Dim3) where
   sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
+instance ringVec4 :: Ring (Vec Dim4) where
+  sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
+instance ringVec5 :: Ring (Vec Dim5) where
+  sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2}
+
+{-- instance semiringVec :: Semiring (Vec a) where --}
+{--   add (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (+) v1 v2} --}
+{--   {1-- zero = error "error calling zero for Vec a" -- Vec {v: A.replicate 5 0.0 } --1} --}
+{--   zero = Vec {v: A.replicate 5 0.0 } `debug` "xxxxxxxxxxx>>> called Vec zero" --}
+{--   mul (Vec {v: v1}) (Vec {v: v2}) = undefined --}
+{--   {1-- one = error "error calling one for Vec a" -- Vec { v: A.replicate 5 1.0 } --1} --}
+{--   one = Vec { v: A.replicate 5 1.0 } `debug` "xxxxxxxxxxx>>> called Vec one" --}
+{-- instance ringVec :: Ring (Vec a) where --}
+{--   sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2} --}
+
 instance showVec :: Show (Vec a) where
   show v = "Show Vec\n" <> show (toMatrix v)
 
@@ -544,13 +542,12 @@ subm2 n (Cov {v: v}) = Cov {v: _subm2 v} where
 chol :: forall a. Cov a -> Jac a a
 chol = choldc
 choldc :: forall a. Cov a -> Jac a a
-choldc (Cov {v: a}) = Jac {v: a'} where
+choldc (Cov {v: a}) = Jac {v: a', nr: n} where
   n  = case A.length a of
         6  -> 3
         10 -> 4
         15 -> 5
-        _  -> error $ "choldc: cannot deal with A.length "
-                    <> show (A.length a)
+        _  -> 0 -- error $ "choldc: cannot deal with A.length " <> show (A.length a)
   ll = n*n
   w  = n
   idx :: Int -> Int -> Int
@@ -610,7 +607,7 @@ cholInv (Cov {v: a}) = Cov {v: a'} where
         6  -> 3
         10 -> 4
         15 -> 5
-        _  -> error $ "cholInv: not supported for length " <> show (A.length a)
+        _  -> 0 -- error $ "cholInv: not supported for length " <> show (A.length a)
   ll = n*n --n*(n+1)/2
   idx :: Int -> Int -> Int -- index into values array of symmetric matrices
   idx i j | i <= j    = ((i-1)*n - (i-1)*(i-2)/2 + j-i)
@@ -700,15 +697,15 @@ testCov2 = s where
   xc3 :: Cov Dim3
   xc3 = Cov {v: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]}
   xj3 :: Jac Dim3 Dim3
-  xj3 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]}
+  xj3 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0], nr: 3}
   xj31 :: Jac Dim3 Dim3
-  xj31 = Jac {v: [1.0,0.0,0.0,1.0,1.0,0.0,1.0,1.0,1.0]}
+  xj31 = Jac {v: [1.0,0.0,0.0,1.0,1.0,0.0,1.0,1.0,1.0], nr: 3}
   xj32 :: Jac Dim3 Dim3
-  xj32 = Jac {v: [0.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,0.0]}
+  xj32 = Jac {v: [0.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0,0.0], nr: 3}
   xj33 :: Jac Dim3 Dim3
-  xj33 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]}
+  xj33 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0], nr: 3}
   xj53 :: Jac Dim5 Dim3
-  xj53 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]}
+  xj53 = Jac {v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0], nr: 5}
   xvc3 = toArray xc3
   xv3 = fromArray [1.0,1.0,1.0] :: Vec3
   xv5 = fromArray [1.0,1.0,1.0,1.0,1.0] :: Vec5
@@ -766,7 +763,7 @@ testCov2 = s where
   v5 :: Vec5
   v5 = fromArray [10.0,11.0,12.0,13.0,14.0]
   j53 :: Jac53
-  j53 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
+  j53 = Jac { v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0], nr: 5}
 --  tj3 :: Cov3
 --  tj3 = j53 .*. c5
 --  vv5 :: Vec5

@@ -7,7 +7,7 @@ import Prelude
 import Math ( sqrt, atan2, cos, sin, atan, pi )
 
 import Stuff (mod', uidx, debug)
-import Data.Cov (Jacs, Vec3, Vec5, fromArray, val)
+import Data.Cov (Jacs, Vec3, Vec5, fromArray, val, Jac (..) )
 
 -- | calculate q 3-vector for a given helix parameterization near vertex position
 hv2q :: Vec5 -> Vec3 -> Vec3
@@ -132,8 +132,8 @@ expand v q = {aa: aa, bb: bb, h0: h0} where
       psi0 - a31*v01 - a32*v02 - b31*q01 - b33*q03,
       d0 - a41*v01 - a42*v02 - b41*q01 - b43*q03,
       z0 - a51*v01 - a52*v02 - a53*v03 - b51*q01 - b52*q02 - b53*q03]
-  aa = fromArray [a11,a12,a13,a21,a22,a23,a31,a32,a33,a41,a42,a43,a51,a52,a53]
-  bb = fromArray [b11,b12,b13,b21,b22,b23,b31,b32,b33,b41,b42,b43,b51,b52,b53]
+  aa = Jac { v: [a11,a12,a13,a21,a22,a23,a31,a32,a33,a41,a42,a43,a51,a52,a53], nr: 5}
+  bb = Jac { v: [b11,b12,b13,b21,b22,b23,b31,b32,b33,b41,b42,b43,b51,b52,b53], nr: 5}
   {-- aaT = tr aa `debug` ( "v0 --->> " <> (show v) <> --}
   {--                        "q0 --->> " <> (show q) <> --}
   {--                        "aa --->> " <> show aa <> --}

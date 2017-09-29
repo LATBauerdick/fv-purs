@@ -2,7 +2,7 @@ module Test.Cov (testCov) where
 
 import Prelude
 import Data.Cov
-  ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5
+  ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5, Jac (..)
   , fromArray, inv, toMatrix, tr, chol, cholInv, det
   , (*.), (.*.), testCov2
   )
@@ -60,7 +60,7 @@ testCov cnt = "testCov: " <> show cnt
   v5 :: Vec5
   v5 = fromArray [10.0,11.0,12.0,13.0,14.0]
   j53 :: Jac53
-  j53 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
+  j53 = Jac { v: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0], nr: 5 }
   tj3 :: Cov3
   tj3 = j53 .*. c5
   vv5 :: Vec5
