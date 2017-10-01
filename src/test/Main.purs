@@ -36,9 +36,9 @@ main :: forall e.  Eff ( console :: CONSOLE
 --main = void $ launchAff do
 main = do
   log "FVT Test Suite"
-  log "--Test hSlurp"
+  {-- log "--Test hSlurp" --}
   {-- testHSlurp --}
-  log "--Test Matrix"
+  {-- log "--Test Matrix" --}
   {-- testMatrix --}
   log "--Test Cov"
   log $ testCov 0

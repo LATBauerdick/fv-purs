@@ -13,35 +13,40 @@ instance showMD :: Show MD where
   show (MakeMD {m3, m5}) = "Show MD,\nm3=" <> show m3 <> "\nm5=" <> show m5
 
 testCov :: Int -> String
-testCov cnt = "testCov: " <> show cnt
+testCov cnt = "testCov: " <> show cnt <> "\n"
         {-- <> show md <> "\n" --}
         {-- <> show mm3 --}
         {-- <> show mm5 --}
-        {-- <> "exp v3 " <> show ( (v3 + v3) |.| v3 ) <> "\n" --}
+        {-- <> "exp v3 " <> show ( (v3 + v3) *. v3 ) <> "\n" --}
         {-- <> show (j53) --}
         {-- <> show (tr j53) --}
         {-- <> "tj3 " <> show tj3 --}
         {-- <> "vv3 " <> show vv3 --}
-        {-- <> show (v3 |*| c3) --}
+        {-- <> show (v3 .*. c3) <> "\n" --}
         {-- <> "\n(tr j53 .*. c3)" <> show (tr j53 .*. c3) --}
-        {-- <> "(tr j53 ||| v5)" <> show (tr j53 ||| v5) --}
-        {-- <> show (c3 ** (inv c3)) --}
-        {-- <> show (c4 ** (inv c4)) --}
-        <> "chol: -----------------\n"
+        {-- <> "(tr j53 *. v5)" <> show (tr j53 *. v5) --}
+        {-- <> show (c3 *. (inv c3)) --}
+        {-- <> show (c4 *. (inv c4)) --}
+        {-- <> show c5 --}
+        {-- <> show (inv c5) --}
+        {-- <> show (c5 *. (inv c5)) --}
+        <> "test chol: -----------------------------------\n"
         <> "A = L * L^T         " <> show ch3
         <> "L                   " <> show (chol ch3)
-        {-- <> "L * L^T             " <> show ((chol ch3) *. tr (chol ch3)) --}
-        <> "A^(-1) = L' * L'^T  " <> show (inv ch3)
-        <> "A^(-1) from cholInv " <> show (cholInv ch3)
-        <> "A = L * L^T         " <> show ch5
-        <> "L                   " <> show (chol ch5)
-        {-- <> "L * L^T             " <> show ((chol ch5) *. tr (chol ch5)) --}
-        <> "A^(-1) = L' * L'^T  " <> show (inv ch5)
-        <> "A^(-1) from cholInv " <> show (cholInv ch5)
-        <> "det this            " <> show (det ch5)
-        {-- <> "chol" <> show ch5 --}
-        {-- <> show (chol ch5) <> show ( chol ch5 *. tr (chol ch5)) --}
-        <> "\n" <> testCov2
+
+
+{--         {1-- <> "L * L^T             " <> show ((chol ch3) *. tr (chol ch3)) --1} --}
+{--         <> "A^(-1) = L' * L'^T  " <> show (inv ch3) --}
+{--         <> "A^(-1) from cholInv " <> show (cholInv ch3) --}
+{--         <> "A = L * L^T         " <> show ch5 --}
+{--         <> "L                   " <> show (chol ch5) --}
+{--         {1-- <> "L * L^T             " <> show ((chol ch5) *. tr (chol ch5)) --1} --}
+{--         <> "A^(-1) = L' * L'^T  " <> show (inv ch5) --}
+{--         <> "A^(-1) from cholInv " <> show (cholInv ch5) --}
+{--         <> "det this            " <> show (det ch5) --}
+{--         {1-- <> "chol" <> show ch5 --1} --}
+{--         {1-- <> show (chol ch5) <> show ( chol ch5 *. tr (chol ch5)) --1} --}
+{--         <> "\n" <> testCov2 --}
         where
   c3 :: Cov3
   c3 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0]
