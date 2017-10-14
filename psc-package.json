@@ -1,1 +1,21 @@
-psc-package-pure11.json
+{
+    "name": "fv",
+    "set": "working",
+    "source": "https://github.com/LATBauerdick/package-sets.git",
+    "depends": [
+        "numbers",
+        "format",
+        "arrays",
+        "enums",
+        "exceptions",
+        "integers",
+        "strings",
+        "unsafe-coerce",
+        "lists",
+        "math",
+        "console",
+        "random",
+        "globals",
+        "prelude"
+    ]
+}
