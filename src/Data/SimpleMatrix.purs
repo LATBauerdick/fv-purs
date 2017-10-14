@@ -1,7 +1,6 @@
-module Data.SimpleMatrix 
+module Data.SimpleMatrix
   ( Matrix (..)
-  , transpose
-  , fromArray, fromArray2, toArray
+  , fromArray, fromArray2
   ) where
 
 import Prelude

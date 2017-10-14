@@ -6,13 +6,18 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Random ( RANDOM )
+import Control.Monad.Eff.Exception ( EXCEPTION )
+import Control.Bind ( (=<<) )
+{-- import Node.FS.Sync (readTextFile) --}
+{-- import Node.FS (FS) --}
+{-- import Node.Encoding (Encoding(..)) --}
+
 import Data.Monoid ( mempty )
 import Data.Tuple ( Tuple(..) )
 import Data.Array ( length, zip, foldl )
 import Data.Foldable (sum, traverse_)
-import Data.List ( mapMaybe )
+import Data.List ( List (..), mapMaybe )
 
-{-- import Test.Matrix (testMatrix) --}
 import Test.Cov (testCov)
 import Test.Random ( testRandom )
 
@@ -30,21 +35,22 @@ import Stuff ( iflt, to1fix, words, uJust )
 
 main :: forall e.  Eff ( console :: CONSOLE
                        , random :: RANDOM
-                       {-- --, exception :: EXCEPTION --}
-                       --, fs :: FS
+                       , exception :: EXCEPTION
+                       {-- , fs :: FS --}
                        | e) Unit
---main = void $ launchAff do
 main = do
   log "FVT Test Suite"
-  {-- log "--Test hSlurp" --}
-  {-- testHSlurp --}
-  {-- log "--Test Matrix" --}
-  {-- testMatrix --}
+  log "--Test hSlurp"
+
+  log "Test hSlurp dat/tr05129e001412.dat"
+  {-- ds <- readTextFile UTF8 "dat/tr05129e001412.dat" --}
+  let ds = tr05129e001412
+  testHSlurp ds
   log "--Test Cov"
   log $ testCov 0
-  log "--Test FVT"
-  -- send the list of tau tracks and a VHMeas to testFVT
-  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412
+  {-- log "--Test FVT" --}
+  {-- -- send the list of tau tracks and a VHMeas to testFVT --}
+  {-- testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412 --}
   log "--Test Random"
   testRandom 100 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
                 <<< uJust <<< hSlurp $ tr05129e001412
@@ -113,19 +119,13 @@ doFitTest vm' l5 = do
   log $           "Final vertex -> " <> show fitVertex
   log $           "end of doFitTest------------------------------------------"
 
-testHSlurp :: forall e. Eff (console :: CONSOLE | e) Unit
-testHSlurp = do
-  log "Test hSlurp dat/tr05129e001412.dat"
-  {-- ds <- readTextFile UTF8 "dat/tr05129e001412.dat" --}
-  {-- let ws = mapMaybe fromString $ words ds --}
-  let ws = tr05129e001412
-  log "Test hSlurp dat/tav-4.dat"
-  logShow $ mapMaybe fromString $ words tav4
+testHSlurp :: String -> forall e. Eff (console :: CONSOLE
+                                          {-- , fs :: FS --}
+                                          | e) Unit
+testHSlurp ds = do
+  logShow $ hSlurp ds
   logShow $ hSlurp tav4
-  logShow $ hSlurp ws
-  --logShow =<< hSlurp tav4
-  let mc = hSlurpMCtruth tav4
-  logShow mc
+  logShow $ hSlurpMCtruth tav4
 
 
 tr05129e001412 :: String

@@ -3,10 +3,9 @@ module Test.Cov (testCov) where
 import Prelude
 import Data.Cov
   ( Cov3, Cov4, Cov5, Jac53, Vec3, Vec5, Jac (..)
-  , fromArray, inv, toMatrix, tr, chol, cholInv, det
+  , fromArray, inv, tr, chol, cholInv, det
   , (*.), (.*.), testCov2
   )
-import Data.SimpleMatrix as M
 
 newtype MD = MakeMD {m3 :: Cov3, m5 :: Cov5}
 instance showMD :: Show MD where
@@ -33,8 +32,6 @@ testCov cnt = "testCov: " <> show cnt <> "\n"
         <> "test chol: -----------------------------------\n"
         <> "A = L * L^T         " <> show ch3
         <> "L                   " <> show (chol ch3)
-
-
 {--         {1-- <> "L * L^T             " <> show ((chol ch3) *. tr (chol ch3)) --1} --}
 {--         <> "A^(-1) = L' * L'^T  " <> show (inv ch3) --}
 {--         <> "A^(-1) from cholInv " <> show (cholInv ch3) --}
@@ -56,8 +53,6 @@ testCov cnt = "testCov: " <> show cnt <> "\n"
   c5 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
   c50 :: Cov5
   c50 = fromArray [15.0,14.0,13.0,12.0,11.0,10.0,9.0,8.0,7.0,6.0,5.0,4.0,3.0,2.0,1.0]
-  c50m :: Cov5
-  c50m = fromArray $ M.toArray $ toMatrix c50
   c51 :: Cov5
   c51 = one
   v3 :: Vec3
@@ -73,14 +68,6 @@ testCov cnt = "testCov: " <> show cnt <> "\n"
   vv3 :: Vec3
   vv3 = tr j53 *. j53 *. c3 *. v3
 
-  m3 :: M.Matrix
-  m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]
-  mm3 = (m3+m3)*m3
-  m5 :: M.Matrix
-  m5 = M.fromArray2 5 5 [1.0,2.0,3.0,4.0,5.0, 2.0,6.0,7.0,8.0,9.0
-                        ,3.0,7.0,10.0,11.0,12.0, 4.0,8.0,11.0,13.0,14.0
-                        ,5.0,9.0,12.0,14.0,15.0]
-  mm5 = (m5+m5)*m5
   md = MakeMD {m3: (c3+c3), m5: (c5+c5)}
 
   ch3 :: Cov3

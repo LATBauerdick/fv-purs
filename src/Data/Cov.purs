@@ -9,19 +9,16 @@ import Control.Monad.Eff ( forE )
 import Control.Monad.ST ( pureST )
 import Data.Array.ST (emptySTArray, peekSTArray, pokeSTArray
                      , pushAllSTArray, unsafeFreeze)
-import Data.Foldable ( sum )
+import Data.List ( List(..), range ) as L
+import Data.String ( length, fromCharArray ) as S
+import Data.Foldable ( maximum, sum )
 import Partial.Unsafe ( unsafePartial )
-import Data.Maybe ( Maybe (..) )
+import Data.Maybe ( Maybe (..), fromMaybe )
 import Control.MonadZero (guard)
 import Data.Int ( toNumber, floor )
 import Math ( abs, sqrt )
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 
-import Data.SimpleMatrix
-  ( Matrix
-  , transpose
-  , fromArray, fromArray2, toArray
-  ) as M
 import Stuff
 
 newtype Dim3 = DDim3 Int
@@ -137,23 +134,53 @@ instance matVeca :: Mat (Vec a) where
 {--   elementwise f (Jac {v: va}) (Jac {v: vb}) = (Jac {v: vc}) where --}
 {--     vc = A.zipWith f va vb --}
 
-class Mat1 a where
-  toMatrix :: a -> M.Matrix
-instance mat1Cova :: Mat1 (Cov a) where
-  toMatrix a@(Cov {v}) = case A.length v of
-                            6  -> M.fromArray2 3 3 v
-                            10 -> M.fromArray2 4 4 v
-                            15 -> M.fromArray2 5 5 v
-                            _ -> error $ "mat1Cova toMatrix "
+
+prettyMatrix :: Int -> Int -> Array Number -> String
+prettyMatrix r c v = unlines ls where
+  -- | /O(1)/. Unsafe variant of 'getElem', without bounds checking.
+  unsafeGet :: Int      -- ^ Row
+               -> Int      -- ^ Column
+               -> Array Number   -- ^ Matrix
+               -> Number
+  unsafeGet i j vv = unsafePartial $ A.unsafeIndex vv $ encode c i j
+  encode :: Int -> Int -> Int -> Int
+  encode m i j = (i-1)*m + j - 1
+  ls = do
+    i <- L.range 1 r
+    let ws :: L.List String
+        ws = map (\j -> fillBlanks mx (to3fix $ unsafeGet i j v)) (L.range 1 c)
+    pure $ "( " <> unwords ws <> " )"
+  mx = fromMaybe 0 (maximum $ map (S.length <<< to3fix) v)
+  fillBlanks k str =
+    (S.fromCharArray $ A.replicate (k - S.length str) ' ') <> str
+
+symMat :: Int -> Array Number -> Array Number
+symMat n vs = do
+  let
+      idx :: Int -> Int -> Int -- index into values array of symmetric matrices
+      idx i j | i <= j    = ((i-1)*n - (i-1)*(i-2)/2 + j-i)
+              | otherwise = ((j-1)*n - (j-1)*(j-2)/2 + i-j)
+  i <- A.range 1 n
+  j <- A.range 1 n
+  pure $ uidx vs (idx i j)
+
+class ShowMatrix a where
+  showMatrix :: a -> String
+instance showCova :: ShowMatrix (Cov a) where
+  showMatrix a@(Cov {v}) = case A.length v of
+                            6  -> prettyMatrix 3 3 $ symMat 3 v
+                            10 -> prettyMatrix 4 4 $ symMat 4 v
+                            15 -> prettyMatrix 5 5 $ symMat 5 v
+                            _ -> error $ "showCova showMatrix "
                                           <> show (A.length v)
-instance mat1Veca :: Mat1 (Vec a) where
-  toMatrix (Vec {v}) = M.fromArray (A.length v) v
-instance mat1Jac53 :: Mat1 (Jac Dim5 Dim3) where
-  toMatrix (Jac {v}) = M.fromArray2 5 3 v
-instance mat1Jac35 :: Mat1 (Jac Dim3 Dim5) where
-  toMatrix (Jac {v}) = M.fromArray2 3 5 v
-instance mat1Jacaa :: Mat1 (Jac a b) where
-  toMatrix j@(Jac {v: va, nr: r}) = M.fromArray2 r ((A.length va)/r) va
+instance showVeca :: ShowMatrix (Vec a) where
+  showMatrix (Vec {v}) = prettyMatrix (A.length v) 1 v
+instance showJac53 :: ShowMatrix (Jac Dim5 Dim3) where
+  showMatrix (Jac {v}) = prettyMatrix 5 3 v
+instance showJac35 :: ShowMatrix (Jac Dim3 Dim5) where
+  showMatrix (Jac {v}) = prettyMatrix 3 5 v
+instance showJacaa :: ShowMatrix (Jac a b) where
+  showMatrix j@(Jac {v: va, nr: r}) = prettyMatrix r ((A.length va)/r) va
 
 -----------------------------------------------------------------
 -- | funcitons for symetric matrices: Cov
@@ -428,7 +455,7 @@ instance semiringCov3 :: Semiring (Cov Dim3) where
 instance ringCov3 :: Ring (Cov Dim3) where
   sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
 instance showCov3 :: Show (Cov Dim3) where
-  show c = "Show (Cov Dim3) \n" <> (show $ toMatrix c)
+  show c = "Show (Cov Dim3) \n" <> showMatrix c
 
 instance semiringCov4 :: Semiring (Cov Dim4) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
@@ -438,7 +465,7 @@ instance semiringCov4 :: Semiring (Cov Dim4) where
 instance ringCov4 :: Ring (Cov Dim4) where
   sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
 instance showCov4 :: Show (Cov Dim4) where
-  show c = "Show (Cov Dim4)\n" <> (show $ toMatrix c)
+  show c = "Show (Cov Dim4)\n" <> showMatrix c
 
 instance semiringCov5 :: Semiring (Cov Dim5) where
   add (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (+) v1 v2}
@@ -448,7 +475,7 @@ instance semiringCov5 :: Semiring (Cov Dim5) where
 instance ringCov5 :: Ring (Cov Dim5) where
   sub (Cov {v: v1}) (Cov {v: v2}) = Cov {v: A.zipWith (-) v1 v2}
 instance showCov5 :: Show (Cov Dim5) where
-  show c = "Show (Cov Dim5)\n" <> (show $ toMatrix c)
+  show c = "Show (Cov Dim5)\n" <> showMatrix c
 
 instance semiringJac :: Semiring (Jac a b) where
   add (Jac {v: v1}) (Jac {v: v2, nr: r}) = Jac {v: A.zipWith (+) v1 v2, nr: r}
@@ -458,7 +485,7 @@ instance semiringJac :: Semiring (Jac a b) where
 instance ringJac :: Ring (Jac a b) where
   sub (Jac {v: v1}) (Jac {v: v2, nr: r}) = Jac {v: A.zipWith (-) v1 v2, nr: r}
 instance showJac :: Show (Jac a b) where
-  show a = "Show Jac\n" <> show (toMatrix a)
+  show a = "Show Jac\n" <> showMatrix a
 
 -- Instances for Vec -- these are always column vectors
 instance semiringVec3 :: Semiring (Vec Dim3) where
@@ -497,7 +524,7 @@ instance ringVec5 :: Ring (Vec Dim5) where
 {--   sub (Vec {v: v1}) (Vec {v: v2}) = Vec {v: A.zipWith (-) v1 v2} --}
 
 instance showVec :: Show (Vec a) where
-  show v = "Show Vec\n" <> show (toMatrix v)
+  show v = "Show Vec\n" <> showMatrix v
 
 scaleDiag :: Number -> Cov3 -> Cov3
 scaleDiag s (Cov {v}) = (Cov {v: v'}) where
@@ -754,8 +781,6 @@ testCov2 = s where
   c5 = fromArray [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0,11.0,12.0,13.0,14.0,15.0]
   c50 :: Cov5
   c50 = fromArray [15.0,14.0,13.0,12.0,11.0,10.0,9.0,8.0,7.0,6.0,5.0,4.0,3.0,2.0,1.0]
-  c50m :: Cov5
-  c50m = fromArray $ M.toArray $ toMatrix c50
   c51 :: Cov5
   c51 = one
   v3 :: Vec3
@@ -771,14 +796,6 @@ testCov2 = s where
 --  vv3 :: Vec3
 --  vv3 = tr j53 *. j53 *. c3 *. v3
 
-  m3 :: M.Matrix
-  m3 = M.fromArray2 3 3 [1.0,2.0,3.0,2.0,4.0,5.0,3.0,5.0,6.0]
---  mm3 = (m3+m3)*m3
-  m5 :: M.Matrix
-  m5 = M.fromArray2 5 5 [1.0,2.0,3.0,4.0,5.0, 2.0,6.0,7.0,8.0,9.0
-                        ,3.0,7.0,10.0,11.0,12.0, 4.0,8.0,11.0,13.0,14.0
-                        ,5.0,9.0,12.0,14.0,15.0]
---  mm5 = (m5+m5)*m5
   ch3 :: Cov3
   ch3 = fromArray [2.0, -1.0, 0.0, 2.0, -1.0, 2.0]
   cch3 = choldc ch3
