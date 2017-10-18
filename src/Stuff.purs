@@ -1,4 +1,16 @@
-module Stuff where
+module Stuff (
+    List (..), range, fromList
+  , fromIntegral
+  , words, unwords, unlines
+  , sqr, mod'
+  , irem, iflt
+  , normals, stats
+  , debug
+  , uidx, uJust
+  , to1fix, to2fix, to3fix, to5fix
+  , error
+  , undefined
+  ) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
@@ -8,8 +20,8 @@ import Math ( sqrt )
 import Data.Ord (signum)
 import Data.String ( takeWhile, dropWhile, toCharArray, fromCharArray, split, Pattern (..) )
 import Data.Char (toCharCode)
-import Data.List ( List(..), (:))
-import Data.Array ( unsafeIndex, range, length, take, concat ) as A
+import Data.List ( List(..), (:), range ) as L
+import Data.Array ( unsafeIndex, range, length, take, concat, fromFoldable ) as A
 import Data.Unfoldable ( replicateA )
 import Data.Tuple ( Tuple(..), fst, snd )
 import Data.Maybe ( Maybe(..), fromMaybe', fromJust )
@@ -21,6 +33,16 @@ import Text.Format ( format, precision, width )
 import Control.MonadZero ( guard )
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Math ( log, sqrt, pi, sin, cos ) as Math
+
+-- List, PureScript does not provide sugar
+type List a = L.List a
+range :: Int -> Int -> List Int
+range f t = L.range f t
+fromList :: forall f. Foldable f => f ~> Array
+fromList = A.fromFoldable
+
+fromIntegral :: Int -> Number
+fromIntegral = toNumber
 
 {-- -- | Basic numeric class. --}
 {-- class  Num a  where --}
@@ -147,10 +169,10 @@ divMod n d = (Tuple (n `div` d) (n `mod` d))
 -- | by white space.
 words :: String -> List String
 words s = case dropWhile isSpace s of
-                                "" -> Nil
+                                "" -> L.Nil
                                 str' -> let s0 = takeWhile (not isSpace) str'
                                             s1 = dropWhile (not isSpace) str'
-                                        in s0 : words s1
+                                        in s0 L.: words s1
 
 -- | 'break', applied to a predicate @p@ and a list @xs@, returns a tuple where
 -- | first element is longest prefix (possibly empty) of @xs@ of elements that
@@ -164,25 +186,25 @@ words s = case dropWhile isSpace s of
 
 break :: forall a. (a -> Boolean) -> List a -> (Tuple (List a) (List a))
 -- HBC version (stolen)
-break _ Nil             =  (Tuple Nil Nil)
-break p xs@(x:xs')
-           | p x        =  (Tuple Nil xs)
+break _ L.Nil             =  (Tuple L.Nil L.Nil)
+break p xs@(x L.: xs')
+           | p x        =  (Tuple L.Nil xs)
            | otherwise  =  let yszs = break p xs' 
                                ys = fst yszs
                                zs = snd yszs
-                           in (Tuple (x:ys) zs)
+                           in (Tuple (x L.: ys) zs)
 
 -- | 'unwords' is an inverse operation to 'words'.
 -- It joins words with separating spaces.
 unwords                 :: List String -> String
-unwords Nil             =  ""
+unwords L.Nil             =  ""
 unwords ws              =  foldr1 (\w s -> w <> " " <> s) ws
 
 -- | 'unlines' is an inverse operation to 'lines'.
 -- It joins lines, after appending a terminating newline to each.
 unlines                 :: List String -> String
-unlines Nil = ""
-unlines (l:ls) = l <> "\n" <> unlines ls
+unlines L.Nil = ""
+unlines (l L.: ls) = l <> "\n" <> unlines ls
 
 -- | A variant of 'foldr' that has no base case,
 -- and thus may only be applied to non-empty structures.
