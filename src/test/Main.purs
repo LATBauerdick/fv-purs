@@ -19,6 +19,7 @@ import Data.Foldable (sum, traverse_)
 import Data.List ( List (..), mapMaybe )
 
 import Test.Cov (testCov)
+import Data.Cov (testCov2)
 import Test.Random ( testRandom )
 
 import FV.Types
@@ -47,7 +48,7 @@ main = do
   let ds = tr05129e001412
   testHSlurp ds
   log "--Test Cov"
-  log $ testCov 0
+  log $ testCov2
   {-- log "--Test FVT" --}
   {-- -- send the list of tau tracks and a VHMeas to testFVT --}
   {-- testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412 --}
