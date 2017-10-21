@@ -6,7 +6,7 @@ import Data.Array (
     replicate, length, unsafeIndex, foldl
   , zipWith, take ) as A
 import Data.Array.ST (
-  emptySTArray, peekSTArray, pokeSTArray, pushAllSTArray, unsafeFreeze )
+  emptySTArray, peekSTArray, pokeSTArray, pushAllSTArray, unsafeFreeze, thaw )
 import Control.Monad.ST ( pureST )
 import Control.Monad.Eff ( forE )
 import Data.Foldable ( maximum, sum )
@@ -55,7 +55,7 @@ type Jacs = {aa :: Jac53, bb :: Jac53, h0 :: Vec5}
 indV :: Int -> Int -> Int -> Int
 indV w i0 j0 = (i0*w+j0)
 indVs :: Int -> Int -> Int -> Int
-indVs w i0 j0 | i0 <= j0  = (i0*w - (i0*(i0-1)) `div` 2 + j0-i0)
+indVs w i0 j0 | i0 <= j0   = (i0*w - (i0*(i0-1)) `div` 2 + j0-i0)
               | otherwise = (j0*w - (j0*(j0-1)) `div` 2 + i0-j0)
 -------------------------------------------------------------------------
 -------------------------------------------------------------------------
@@ -76,11 +76,11 @@ instance matCova :: Mat (Cov a) where
   val (Cov {v}) = v
   toArray c@(Cov {v}) = v' where
     l = A.length v
-    n = case l of -- ceil ((sqrt(8.0 * (toNumber l) + 1.0) - 1.0)/2.0)
+    n = case l of
       6  -> 3
       10 -> 4
       15 -> 5
-      _  -> error $ "matCova: toArray not supported for lenght " <> show l
+      _  -> error $ "matCova: toArray not supported for length " <> show l
     iv = indVs n
     v' = fromList $ do
       i0 <- range 0 (n-1)
@@ -102,10 +102,10 @@ instance matJacab :: Mat (Jac a b) where
 prettyMatrix :: Int -> Int -> Array Number -> String
 prettyMatrix r c v = unlines ls where
   -- | /O(1)/. Unsafe variant of 'getElem', without bounds checking.
-  unsafeGet :: Int      -- ^ Row
-               -> Int      -- ^ Column
-               -> Array Number   -- ^ Matrix
-               -> Number
+  unsafeGet :: Int          -- ^ Row
+            -> Int          -- ^ Column
+            -> Array Number -- ^ Matrix
+            -> Number
   unsafeGet i j vv = unsafePartial $ A.unsafeIndex vv $ encode c i j
   encode :: Int -> Int -> Int -> Int
   encode m i j = (i-1)*m + j - 1
@@ -121,7 +121,7 @@ prettyMatrix r c v = unlines ls where
 class ShowMat a where
   showMatrix :: a -> String
 instance showCova :: ShowMat (Cov a) where
-  showMatrix a@(Cov {v: v}) = let
+  showMatrix a@(Cov {v}) = let
     makeSymMat :: Int -> Array Number -> Array Number
     makeSymMat n vs = fromList $ do
       let iv = indVs n
@@ -142,7 +142,7 @@ instance showJac53 :: ShowMat (Jac Dim5 Dim3) where
 instance showJac35 :: ShowMat (Jac Dim3 Dim5) where
   showMatrix (Jac {v}) = prettyMatrix 3 5 v
 instance showJacaa :: ShowMat (Jac a b) where
-  showMatrix j@(Jac {v: v, nr: r}) = prettyMatrix r ((A.length v) `div` r) v
+  showMatrix j@(Jac {v, nr: r}) = prettyMatrix r ((A.length v) `div` r) v
 
 class ArrMat a where
   fromArray :: Array Number -> a
@@ -475,7 +475,7 @@ instance ringCov5 :: Ring (Cov Dim5) where
 instance semiringJac :: Semiring (Jac a b) where
   add (Jac {v: v1}) (Jac {v: v2, nr: r}) = Jac {v: A.zipWith (+) v1 v2, nr: r}
   zero = undefined
-  mul (Jac {v: v1}) (Jac {v: v2}) = undefined -- Cov {v: cov5StdMult v1 v2}
+  mul (Jac {v: v1}) (Jac {v: v2, nr :r}) = undefined
   one = undefined
 instance ringJac :: Ring (Jac a b) where
   sub (Jac {v: v1}) (Jac {v: v2, nr: r}) = Jac {v: A.zipWith (-) v1 v2, nr: r}
@@ -542,7 +542,7 @@ chol :: forall a. Cov a -> Jac a a
 chol = choldc
 choldc :: forall a. Cov a -> Jac a a
 choldc (Cov {v: a}) = Jac {v: a', nr: n} where
-  n  = case A.length a of
+  n = case A.length a of
         6  -> 3
         10 -> 4
         15 -> 5
@@ -550,12 +550,10 @@ choldc (Cov {v: a}) = Jac {v: a', nr: n} where
   ll = n*n
   w  = n
   idx :: Int -> Int -> Int
-  idx i j | i <= j    = ((i-1)*w - (i-1)*(i-2)/2 + j-i)
-          --| otherwise = ((j-1)*w - (j-1)*(j-2)/2 + i-j)
-          | otherwise = error "idx: i < j"
+  idx i j = indVs w (i-1) (j-1)
   idx' :: Int -> Int -> Int
-  idx' j i | i >= j   = (i-1)*w + j-1
-           | otherwise = error "idx': i < j"
+  idx' i j = indV w (j-1) (i-1)
+
   {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
   {-- run act = pureST (act >>= unsafeFreeze) --}
   {-- a' = run (do --}
@@ -607,17 +605,12 @@ cholInv (Cov {v: a}) = Cov {v: a'} where
         10 -> 4
         15 -> 5
         _  -> 0 -- error $ "cholInv: not supported for length " <> show (A.length a)
-  ll = n*n --n*(n+1)/2
-  idx :: Int -> Int -> Int -- index into values array of symmetric matrices
-  idx i j | i <= j    = ((i-1)*n - (i-1)*(i-2)/2 + j-i)
-          | otherwise = ((j-1)*n - (j-1)*(j-2)/2 + i-j)
-  idx' :: Int -> Int -> Int -- index into values array for full matrix
-  idx' i j = (i-1)*n + j-1
-  l = pureST ((do
-    -- make a STArray of n x n + space for diagonal +1 for summing
-    arr <- emptySTArray
-    void $ pushAllSTArray arr (A.replicate (ll+n+1) 0.0)
-
+  ll = n*n
+  l = pureST ((do -- make a STArray of n x n + space for diagonal +1 for summing
+    arr <- thaw (A.replicate (ll+n+1) 0.0)
+    -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
+    let idx i j = indVs n (i-1) (j-1)
+        idx' i j = indV n (i-1) (j-1)
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
     forE 1 (n+1) \i -> do
       forE i (n+1) \j -> do
@@ -662,12 +655,14 @@ cholInv (Cov {v: a}) = Cov {v: a'} where
         mp_j <- peekSTArray arr (ll+j-1)
         void $ pokeSTArray arr (idx' j i) ((uJust msum)/(uJust mp_j))
     pure arr) >>= unsafeFreeze)
+
   a' = fromList $ do
-    i <- range 1 n
-    j <- range i n
-    let aij = sum do
-                  k <- range 1 n
-                  pure $ (uidx l (idx' k i)) * (uidx l (idx' k j))
+    let idx = indV n
+    i <- range 0 (n-1)
+    j <- range i (n-1)
+    let aij = sum $ do
+                  k <- range 0 (n-1)
+                  pure $ (uidx l (idx k i)) * (uidx l (idx k j))
     pure $ aij
 
 --C version Numerical Recipies 2.9
