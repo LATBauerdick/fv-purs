@@ -609,60 +609,56 @@ cholInv (Cov {v: a}) = Cov {v: a'} where
   l = pureST ((do -- make a STArray of n x n + space for diagonal +1 for summing
     arr <- thaw (A.replicate (ll+n+1) 0.0)
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
-    let idx i j = indVs n (i-1) (j-1)
-        idx' i j = indV n (i-1) (j-1)
-    -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
-    forE 1 (n+1) \i -> do
-      forE i (n+1) \j -> do
-          let aij = uidx a (idx i j)
-          void $ if i==j then pokeSTArray arr (ll+i-1) aij
-                         else pokeSTArray arr (idx' j i) aij
-          forE 1 i \k -> do
-              maik <- peekSTArray arr (idx' i k)
-              majk <- peekSTArray arr (idx' j k)
-              maij <- if i==j then peekSTArray arr (ll+i-1)
-                              else peekSTArray arr (idx' j i)
-              let sum = (uJust maij) - (uJust maik) * (uJust majk)
-              void $ if i==j then pokeSTArray arr (ll+i-1) sum
-                             else pokeSTArray arr (idx' j i) sum
-          msum <- if i==j then peekSTArray arr (ll+i-1)
-                          else peekSTArray arr (idx' j i)
-          let sum' = uJust msum
-              sum = if i==j && sum' < 0.0
-                       then error ("choldInv: not a positive definite matrix "
-                                    <> show a)
-                       else sum'
-          mp_i' <- peekSTArray arr (ll+i-1)
-          let p_i' = uJust mp_i'
-              p_i = if i == j then sqrt sum else p_i'
-          void $ if i==j then pokeSTArray arr (ll+i-1) p_i
-                         else pokeSTArray arr (idx' j i) (sum/p_i)
-          pure $ unit
+    let ixa = indVs n
+        ixarr = indV n
+    forE 0 n \i0 -> do
+      forE i0 n \j0 -> do
+        let aij = uidx a (ixa i0 j0)
+        void $ if i0==j0 then pokeSTArray arr (ll+i0) aij
+                       else pokeSTArray arr (ixarr j0 i0) aij
+        forE 0 (i0+1) \k0 -> do
+          maik <- peekSTArray arr (ixarr i0 k0)
+          majk <- peekSTArray arr (ixarr j0 k0)
+          maij <- if i0==j0 then peekSTArray arr (ll+i0)
+                       else peekSTArray arr (ixarr j0 i0)
+          let sum = (uJust maij) - (uJust maik) * (uJust majk)
+          void $ if i0==j0 then pokeSTArray arr (ll+i0) sum
+                         else pokeSTArray arr (ixarr j0 i0) sum
+        msum <- if i0==j0 then peekSTArray arr (ll+i0)
+                        else peekSTArray arr (ixarr j0 i0)
+        let sum = if i0==j0 && (uJust msum) < 0.0
+                        then error ("choldInv: not a positive definite matrix "
+                                     <> show a)
+                        else (uJust msum)
+        mp_i' <- peekSTArray arr (ll+i0)
+        let p_i = if i0 == j0 then sqrt sum else (uJust mp_i')
+        void $ if i0==j0 then pokeSTArray arr (ll+i0) p_i
+                      else pokeSTArray arr (ixarr j0 i0) (sum/p_i)
+        pure $ unit
 
     -- invert L -> L^(-1)
-    forE 1 (n+1) \i -> do
-      mp_i <- peekSTArray arr (ll+i-1)
-      void $ pokeSTArray arr (idx' i i) (1.0/(uJust mp_i))
-      forE (i+1) (n+1) \j -> do
+    forE 0 n \i0 -> do
+      mp_i <- peekSTArray arr (ll+i0)
+      void $ pokeSTArray arr (ixarr i0 i0) (1.0/(uJust mp_i))
+      forE (i0+1) n \j0 -> do
         void $ pokeSTArray arr (ll+n) 0.0
-        forE i j \k -> do
-          majk <- peekSTArray arr (idx' j k)
-          maki <- peekSTArray arr (idx' k i)
+        forE i0 (j0+1) \k0 -> do
+          majk <- peekSTArray arr (ixarr j0 k0)
+          maki <- peekSTArray arr (ixarr k0 i0)
           sum <- peekSTArray arr (ll+n)
-          void $ pokeSTArray arr (ll+n)
-                    ((uJust sum) - (uJust majk) * (uJust maki))
+          void $ pokeSTArray arr (ll+n) ((uJust sum) - (uJust majk) * (uJust maki))
         msum <- peekSTArray arr (ll+n)
-        mp_j <- peekSTArray arr (ll+j-1)
-        void $ pokeSTArray arr (idx' j i) ((uJust msum)/(uJust mp_j))
+        mp_j <- peekSTArray arr (ll+j0)
+        void $ pokeSTArray arr (ixarr j0 i0) ((uJust msum)/(uJust mp_j))
     pure arr) >>= unsafeFreeze)
 
   a' = fromList $ do
     let idx = indV n
-    i <- range 0 (n-1)
-    j <- range i (n-1)
+    i0 <- range 0 (n-1)
+    j0 <- range i0 (n-1)
     let aij = sum $ do
-                  k <- range 0 (n-1)
-                  pure $ (uidx l (idx k i)) * (uidx l (idx k j))
+                  k0 <- range 0 (n-1)
+                  pure $ (uidx l (idx k0 i0)) * (uidx l (idx k0 j0))
     pure $ aij
 
 --C version Numerical Recipies 2.9
