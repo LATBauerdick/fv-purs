@@ -20,23 +20,14 @@ import Partial.Unsafe ( unsafePartial )
 
 import Stuff
 
-newtype Dim3 = DDim3 Int
-newtype Dim4 = DDim4 Int
-newtype Dim5 = DDim5 Int
-class DDim a where
-  ddim :: a -> Int
-instance ddim3 :: DDim Dim3 where
-  ddim _ = 3
-instance ddim4 :: DDim Dim4 where
-  ddim _ = 4
-instance ddim5 :: DDim Dim5 where
-  ddim _ = 5
-instance ddima :: DDim a where
-  ddim _ = undefined
-
 newtype Cov a = Cov { v :: Array Number }
 newtype Jac a b = Jac { v :: Array Number, nr :: Int }
 newtype Vec a = Vec { v :: Array Number }
+
+newtype Dim3 = DDim3 Int
+newtype Dim4 = DDim4 Int
+newtype Dim5 = DDim5 Int
+
 type Cov3 = Cov Dim3
 type Cov4 = Cov Dim4
 type Cov5 = Cov Dim5
@@ -548,51 +539,40 @@ choldc (Cov {v: a}) = Jac {v: a', nr: n} where
         15 -> 5
         _  -> 0 -- error $ "choldc: cannot deal with A.length " <> show (A.length a)
   ll = n*n
-  w  = n
-  idx :: Int -> Int -> Int
-  idx i j = indVs w (i-1) (j-1)
-  idx' :: Int -> Int -> Int
-  idx' i j = indV w (j-1) (i-1)
-
-  {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
-  {-- run act = pureST (act >>= unsafeFreeze) --}
-  {-- a' = run (do --}
   a' = A.take (n*n) $ pureST ((do
-    -- make a STArray of n x n + space for diagonal
-    arr <- emptySTArray
-    _ <- pushAllSTArray arr (A.replicate (ll+n) 0.0)
-
+    arr <- thaw (A.replicate (ll+n+1) 0.0)
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
-    forE 1 (w+1) \i -> do
-      forE i (w+1) \j -> do
-          _ <- pokeSTArray arr (idx' i j) (uidx a (idx i j))
-          let kmin = 1
-              kmax = (i-1) + 1
-          forE kmin kmax \k -> do
-              aik <- peekSTArray arr (idx' k i)
-              ajk <- peekSTArray arr (idx' k j)
-              sum <- peekSTArray arr (idx' i j)
-              void $ pokeSTArray arr (idx' i j) ((uJust sum)
-                                               - (uJust aik) * (uJust ajk))
-
-          msum <- peekSTArray arr (idx' i j)
-          let sum' = uJust msum
-              sum = if (i==j) && sum' < 0.0
-                       then error ("choldc: not a positive definite matrix " <> show a)
-                       else sum'
-          mp_i' <- peekSTArray arr (ll+i-1)
-          let p_i' = uJust mp_i'
-              p_i = if i == j then sqrt sum else p_i'
-          void $ if i==j
-                         then pokeSTArray arr (ll+i-1) p_i -- store diag terms outside main array
-                         else pokeSTArray arr (idx' i j) (sum/p_i)
-          pure $ unit
+    let ixa = indVs n
+        ixarr = indV n
+    forE 0 n \i0 -> do
+      forE i0 n \j0 -> do
+        let aij = uidx a (ixa i0 j0)
+        void $ if i0==j0 then pokeSTArray arr (ll+i0) aij
+                       else pokeSTArray arr (ixarr j0 i0) aij
+        forE 0 (i0+1) \k0 -> do
+          maik <- peekSTArray arr (ixarr i0 k0)
+          majk <- peekSTArray arr (ixarr j0 k0)
+          maij <- if i0==j0 then peekSTArray arr (ll+i0)
+                       else peekSTArray arr (ixarr j0 i0)
+          let sum = (uJust maij) - (uJust maik) * (uJust majk)
+          void $ if i0==j0 then pokeSTArray arr (ll+i0) sum
+                         else pokeSTArray arr (ixarr j0 i0) sum
+        msum <- if i0==j0 then peekSTArray arr (ll+i0)
+                        else peekSTArray arr (ixarr j0 i0)
+        let sum = if i0==j0 && (uJust msum) < 0.0
+                        then error ("choldc: not a positive definite matrix " <> show a)
+                        else (uJust msum)
+        mp_i' <- peekSTArray arr (ll+i0)
+        let p_i = if i0 == j0 then sqrt sum else (uJust mp_i')
+        void $ if i0==j0 then pokeSTArray arr (ll+i0) p_i
+                      else pokeSTArray arr (ixarr j0 i0) (sum/p_i)
+        pure $ unit
 
     -- copy diagonal back into array
-    forE 1 (w+1) \i -> do
-          maii <- peekSTArray arr (ll+i-1)
-          let aii = uJust maii
-          void $ pokeSTArray arr (idx' i i) aii
+    forE 0 n \i0 -> do
+      maii <- peekSTArray arr (ll+i0)
+      void $ pokeSTArray arr (ixarr i0 i0) (uJust maii)
+
     pure arr) >>= unsafeFreeze)
 
 -- | Matrix inversion using Cholesky decomposition
