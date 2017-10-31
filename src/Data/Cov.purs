@@ -27,24 +27,6 @@ newtype Vec a = Vec { v :: Array Number }
 newtype Dim3 = DDim3 Int
 newtype Dim4 = DDim4 Int
 newtype Dim5 = DDim5 Int
-<<<<<<< HEAD
-
-=======
-class DDim a where
-  ddim :: a -> Int
-instance ddim3 :: DDim Dim3 where
-  ddim _ = 3
-instance ddim4 :: DDim Dim4 where
-  ddim _ = 4
-instance ddim5 :: DDim Dim5 where
-  ddim _ = 5
-instance ddima :: DDim a where
-  ddim _ = undefined
-
-newtype Cov a = Cov { v :: Array Number }
-newtype Jac a b = Jac { v :: Array Number, nr :: Int }
-newtype Vec a = Vec { v :: Array Number }
->>>>>>> master
 type Cov3 = Cov Dim3
 type Cov4 = Cov Dim4
 type Cov5 = Cov Dim5
@@ -556,18 +538,6 @@ choldc (Cov {v: a}) = Jac {v: a', nr: n} where
         15 -> 5
         _  -> 0 -- error $ "choldc: cannot deal with A.length " <> show (A.length a)
   ll = n*n
-<<<<<<< HEAD
-=======
-  w  = n
-  idx :: Int -> Int -> Int
-  idx i j = indVs w (i-1) (j-1)
-  idx' :: Int -> Int -> Int
-  idx' i j = indV w (j-1) (i-1)
-
-  {-- run :: forall a. (forall h. Eff (st :: ST h) (STArray h a)) -> Array a --}
-  {-- run act = pureST (act >>= unsafeFreeze) --}
-  {-- a' = run (do --}
->>>>>>> master
   a' = A.take (n*n) $ pureST ((do
     arr <- thaw (A.replicate (ll+n+1) 0.0)
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
