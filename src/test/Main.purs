@@ -2,15 +2,15 @@ module Test.Main where
 
 import Prelude
   (Unit, bind, discard, map, pure, show, unit
-  , ($), (*), (<<<), (<>))
+  , ($), (*), (<<<), (<>), (=<<) )
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Random ( RANDOM )
 import Control.Monad.Eff.Exception ( EXCEPTION )
 import Control.Bind ( (=<<) )
-{-- import Node.FS.Sync (readTextFile) --}
-{-- import Node.FS (FS) --}
-{-- import Node.Encoding (Encoding(..)) --}
+import Node.FS.Sync (readTextFile)
+import Node.FS (FS)
+import Node.Encoding (Encoding(..))
 
 import Data.Monoid ( mempty )
 import Data.Tuple ( Tuple(..) )
@@ -34,10 +34,14 @@ import FV.Fit ( fit )
 import Data.Number ( fromString )
 import Stuff ( iflt, to1fix, words, uJust )
 
+
+readData :: forall eff. String -> Eff (fs :: FS, exception :: EXCEPTION | eff) String
+readData = readTextFile UTF8
+
 main :: forall e.  Eff ( console :: CONSOLE
                        , random :: RANDOM
                        , exception :: EXCEPTION
-                       {-- , fs :: FS --}
+                       , fs :: FS
                        | e) Unit
 main = do
   log "FVT Test Suite"
@@ -45,13 +49,16 @@ main = do
 
   log "Test hSlurp dat/tr05129e001412.dat"
   {-- ds <- readTextFile UTF8 "dat/tr05129e001412.dat" --}
-  let ds = tr05129e001412
-  testHSlurp ds
+  testHSlurp =<< readData "dat/tr05129e001412.dat"
   log "--Test Cov"
   log $ testCov2
-  {-- log "--Test FVT" --}
-  {-- -- send the list of tau tracks and a VHMeas to testFVT --}
-  {-- testFVT [0,2,3,4,5] <<< uJust <<< hSlurp $ tr05129e001412 --}
+  log "--Test FVT 1"
+  -- send the list of tau tracks and a VHMeas to testFVT
+  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr05129e001412.dat"
+  log "--Test FVT 2"
+  testFVT [0,1,2,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr05158e004656.dat"
+  log "--Test FVT 3"
+  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr07849e007984.dat"
   log "--Test Random"
   testRandom 100 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
                 <<< uJust <<< hSlurp $ tr05129e001412

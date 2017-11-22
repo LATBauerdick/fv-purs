@@ -6,7 +6,7 @@ import Control.Monad.Eff.Random ( RANDOM )
 import Control.Monad.Eff.Exception ( EXCEPTION )
 import Test.Assert (ASSERT)
 
-{-- import Node.FS (FS) --}
+import Node.FS (FS)
 import Data.List ( mapMaybe )
 import Data.Number ( fromString )
 import Stuff ( iflt, to1fix, words, uJust )
@@ -17,7 +17,7 @@ main :: forall e.  Eff ( console :: CONSOLE
                        {-- , assert :: ASSERT --}
                        , random :: RANDOM
                        , exception :: EXCEPTION
-                       {-- , fs :: FS --}
+                       , fs :: FS
                        | e) Unit
 main = do
   T.main
