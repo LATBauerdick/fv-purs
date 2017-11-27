@@ -7,7 +7,6 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Random ( RANDOM )
 import Control.Monad.Eff.Exception ( EXCEPTION )
-import Control.Bind ( (=<<) )
 import Node.FS.Sync (readTextFile)
 import Node.FS (FS)
 import Node.Encoding (Encoding(..))
@@ -16,9 +15,7 @@ import Data.Monoid ( mempty )
 import Data.Tuple ( Tuple(..) )
 import Data.Array ( length, zip, foldl )
 import Data.Foldable (sum, traverse_)
-import Data.List ( List (..), mapMaybe )
 
-import Test.Cov (testCov)
 import Data.Cov (testCov2)
 import Test.Random ( testRandom )
 
@@ -29,10 +26,10 @@ import FV.Types
   )
 
 import Test.Input ( hSlurp, hSlurpMCtruth )
+import Test.Cluster ( doCluster )
 import FV.Fit ( fit )
 
-import Data.Number ( fromString )
-import Stuff ( iflt, to1fix, words, uJust )
+import Stuff ( iflt, to1fix, uJust )
 
 
 readData :: forall eff. String -> Eff (fs :: FS, exception :: EXCEPTION | eff) String
@@ -57,11 +54,19 @@ main = do
   testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr05129e001412.dat"
   log "--Test FVT 2"
   testFVT [0,1,2,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr05158e004656.dat"
-  log "--Test FVT 3"
-  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr07849e007984.dat"
+  {-- log "--Test FVT 3" --}
+  {-- testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr07849e007984.dat" --}
+  log "--Test Cluster"
+  ds <- readData "dat/tr05129e001412.dat"
+  --ds <- readData "dat/tav-0.dat"
+  let vm = uJust $ hSlurp ds
+  traverse_ showHelix $ helices vm
+  traverse_ showMomentum $ helices vm
+  doCluster vm
   log "--Test Random"
   testRandom 100 <<< hFilter [0,2,3,4,5] <<< vBlowup 10000.0
-                <<< uJust <<< hSlurp $ tr05129e001412
+                 <<< uJust <<< hSlurp $ tr05129e001412
+  pure unit
 
 showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
 showMomentum h = log $ "pt,pz,fi,E ->" <> (show <<< fromHMeas) h

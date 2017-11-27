@@ -5,7 +5,7 @@ module Stuff (
   , sqr, mod'
   , irem, iflt
   , normals, stats
-  , debug
+  , debug, trace
   , uidx, uJust
   , to1fix, to2fix, to3fix, to5fix
   , error
@@ -32,7 +32,7 @@ import Data.Int ( round, toNumber, floor )
 import Text.Format ( format, precision, width )
 import Control.MonadZero ( guard )
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
-import Math ( log, sqrt, pi, sin, cos ) as Math
+import Math ( abs, log, sqrt, pi, sin, cos ) as Math
 
 -- List, PureScript does not provide sugar
 type List a = L.List a

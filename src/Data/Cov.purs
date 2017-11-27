@@ -5,20 +5,19 @@ import Prelude
 import Data.Array (
     replicate, length, unsafeIndex, foldl
   , zipWith, take ) as A
-import Data.Array.ST (
-  emptySTArray, peekSTArray, pokeSTArray, pushAllSTArray, unsafeFreeze, thaw )
+import Data.Array.ST ( peekSTArray, pokeSTArray, unsafeFreeze, thaw )
 import Control.Monad.ST ( pureST )
 import Control.Monad.Eff ( forE )
 import Data.Foldable ( maximum, sum )
 import Data.Maybe ( Maybe (..), fromMaybe )
 import Control.MonadZero (guard)
-import Data.Int ( toNumber, floor )
+import Data.Int ( floor )
 import Math ( abs, sqrt )
-import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 import Data.String ( length, fromCharArray ) as S
 import Partial.Unsafe ( unsafePartial )
 
-import Stuff
+import Stuff  ( List, error, fromIntegral, fromList, range, to3fix
+              , uJust, uidx, undefined, unlines, unwords)
 
 newtype Cov a = Cov { v :: Array Number }
 newtype Jac a b = Jac { v :: Array Number, nr :: Int }
@@ -111,7 +110,7 @@ prettyMatrix r c v = unlines ls where
 class ShowMat a where
   showMatrix :: a -> String
 instance showCova :: ShowMat (Cov a) where
-  showMatrix a@(Cov {v}) = let
+  showMatrix (Cov {v}) = let
     makeSymMat :: Int -> Array Number -> Array Number
     makeSymMat n vs = fromList $ do
       let iv = indVs n

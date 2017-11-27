@@ -3,32 +3,34 @@ module FV.Types
   , Prong (..), fitMomenta
   , Chi2 (..)
   , VHMeas (..), vertex, helices, hFilter
-  , XMeas (..), vBlowup
+  , XMeas (..), vBlowup, xXMeas, yXMeas, zXMeas
   , DMeas (..), class Pos, distance
   , HMeas (..)
   , QMeas (..), fromHMeas
   , PMeas (..), fromQMeas, invMass
   , MMeas (..)
+  , XFit (..)
+  , chi2Vertex, zVertex, z0Helix
   ) where
 
-import Prelude
-import Data.Array ( length, (!!), unsafeIndex, drop, zip, foldl )
+import Prelude ( class Semigroup, class Semiring, class Show, map, max, negate, show, zero, ($), (*), (+), (-), (/), (<<<), (<>) )
+import Data.Array ( length, unsafeIndex, drop, zip, foldl )
 import Data.Foldable ( fold )
-import Data.Monoid ( class Monoid, mempty )
+import Data.Monoid ( class Monoid )
 import Data.Tuple ( Tuple (..) )
 import Data.Array.Partial ( head )
-import Data.List ( List (..), (:) )
 import Partial.Unsafe ( unsafePartial )
-import Data.Int (round, toNumber)
 import Math ( sqrt, abs, pi, sin, cos )
 
-import Stuff
 import Data.Cov
+import Stuff
 
 -----------------------------------------------
 -- Prong
 -- a prong results from a vertex fit of N helices
 newtype Chi2  = Chi2 Number
+instance showChi2 :: Show Chi2 where
+  show (Chi2 c2) = show c2
 instance semiringChi2 :: Semiring Chi2 where
   add (Chi2 c0) (Chi2 c1) = Chi2 (c0+c1)
   zero = Chi2 0.0
@@ -103,6 +105,11 @@ instance showHMeas :: Show HMeas where
       dx = unsafePartial $ head sh
     s' = foldl f s00 (drop 1 $ zip hs sh) where
       f s (Tuple x dx)  = s <> to3fix x <> " +-" <> to3fix dx
+
+z0Helix :: HMeas -> Number
+z0Helix (HMeas h _ _) = z0 where
+  v = val h
+  z0 = uidx v 4
 
 -----------------------------------------------
 -- QMeas
@@ -309,4 +316,25 @@ showXMeas (XMeas v cv) = s' where
   s' = (f z dz) <<< (f y dy) <<< (f x dx) $
     "(r,z) =" <> "(" <> to2fix (sqrt (x*x + y*y))
               <> ", " <> to2fix z <> "), x y z ="
+
+xXMeas :: XMeas -> Number
+xXMeas (XMeas v _) = x where
+  x = uidx (toArray v) 0
+yXMeas :: XMeas -> Number
+yXMeas (XMeas v _) = y where
+  y = uidx (toArray v) 1
+zXMeas :: XMeas -> Number
+zXMeas (XMeas v _) = z where
+  z = uidx (toArray v) 2
+
+data XFit = XFit Vec3 Cov3 Chi2
+instance showXFit :: Show XFit where
+  show (XFit x xx c2) = showXMeas (XMeas x xx) <> ", chi2=" <> show c2
+
+chi2Vertex :: XFit -> Chi2
+chi2Vertex (XFit _ _ c2) = c2
+
+zVertex :: XFit -> Number
+zVertex (XFit v _ _) = z where
+  z = uidx (val v) 2
 
