@@ -1,16 +1,17 @@
 module Test.Input ( hSlurp, hSlurpMCtruth ) where
 
 import Prelude
-import Control.MonadZero (guard)
+import Prelude.Extended
+
+import Control.MonadZero ( guard )
 import Data.Number ( fromString )
-import Data.Int (fromString, round) as Data.Int
+import Data.Int ( fromString, round ) as Data.Int
 import Data.Array ( take, drop, (!!), fromFoldable, mapMaybe, range, slice )
 import Data.List ( head, index, slice, mapMaybe, drop ) as L
-import Data.Tuple (Tuple (..), fst)
+import Data.Tuple ( Tuple (..), fst )
 import Data.Maybe ( Maybe (Nothing, Just) )
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Plus (empty)
+import Effect ( Effect )
+import Control.Plus ( empty )
 
 import Math ( sin, cos )
 
@@ -19,7 +20,6 @@ import Partial.Unsafe (unsafePartial)
 
 import Data.Cov
 import FV.Types ( MCtruth (..), VHMeas (..), XMeas (..), HMeas (..) )
-import Stuff
 
 
 type FilePath = String -- from Node.Path
@@ -129,7 +129,7 @@ nxtH' _ ds = do
 -- slurp all files named in a list of pathNames
 {-- hSlurpAll :: forall eff. --}
 {--              Array FilePath --}
-{--              -> Eff (fs :: FS, exception :: EXCEPTION | eff) --}
+{--              -> Effect --}
 {--              (Maybe VHMeas) --}
 {-- hSlurpAll [] = do pure Nothing --}
 {-- hSlurpAll [p0] = do --}

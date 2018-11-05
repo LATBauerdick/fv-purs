@@ -4,12 +4,12 @@ module FV.Fit (
               ) where
 
 import Prelude ( bind, max, pure, show, ($), (+), (-), (<), (<<<), (<>), (==), (>), (||) )
+import Prelude.Extended ( debug )
 import Data.Array ( foldl, unzip, mapMaybe, length )
 import Data.Maybe ( Maybe (..) )
 import Data.Tuple ( Tuple (..) )
 import Math ( abs )
 
-import Stuff ( debug )
 import Data.Cov ( Vec3, Vec5, Cov3, Cov5, det, inv, invMaybe, tr, (*.), (.*.) )
 import FV.Jacob as J
 import FV.Types ( VHMeas (..), HMeas (..), QMeas (..), XMeas (..)

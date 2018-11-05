@@ -69,17 +69,16 @@ module Data.Random.Normal (
 
   ) where
 
-import Prelude
+import Prelude.Extended ( undefined, bind, negate, pure, ($), (*), (-) )
 {-- import Data.Traversable (mapAccumL) --}
-import Control.Monad.Eff ( Eff )
-import Control.Monad.Eff.Random ( random, RANDOM )
-import Data.Traversable ( traverse, for )
-import Data.Tuple
+import Effect ( Effect )
+import Effect.Random ( random )
+import Data.Traversable ( for )
+import Data.Tuple ( Tuple (..) )
 import Math ( sin, cos, log, sqrt, pi )
 import Data.List ( List ( Nil ), (:),  range, concat )
-import Stuff
 
-newStdGen ::  forall eff. Eff (random :: RANDOM | eff) Number
+newStdGen :: Effect Number
 newStdGen = random
 
 class RandomGen g where
@@ -118,7 +117,7 @@ instance randomGenStd :: RandomGen StdGen  where
   genRange _ = (Tuple 0.0 1.0)
 
 data StdGen = StdGen Number
-  {-- forall e. (Eff (random :: RANDOM | e) g) --}
+  {-- forall e. (Effect (random :: RANDOM | e) g) --}
 
 class Random a where
   randoms  :: forall g. RandomGen g => g -> List a
@@ -130,18 +129,19 @@ instance randomNumber :: Random Number where
     c = 0.345
     d = 0.456
     e = 0.567
-    f = 0.678
+    f = undefined -- 0.678
 
 {-- -- | Plural variant of 'random', producing an infinite list of --}
 {-- -- random values instead of returning a new generator. --}
 {-- randoms :: forall g a. RandomGen g => g -> List a --}
 {-- randoms g = build (\cons _nil -> buildRandoms cons random g) --}
-{-- -- | Produce an infinite list-equivalent of random values. --}
-{-- buildRandoms :: forall g a as. RandomGen g --}
-{--              => (a -> as -> as)  -- ^ E.g. '(:)' but subject to fusion --}
-{--              -> (g -> (Tuple a g))     -- ^ E.g. 'random' --}
-{--              -> g                -- ^ A 'RandomGen' instance --}
-{--              -> as --}
+
+-- | Produce an infinite list-equivalent of random values.
+buildRandoms :: forall g a as. RandomGen g
+              => (a -> as -> as)     -- e.g. '(:)', but subject to fusion
+              -> (g -> (Tuple a g))  -- e.g. 'random'
+              -> g                   -- a 'RandomGen' instance
+              -> as
 buildRandoms cons rand = go
   where
     -- The seq fixes part of #4218 and also makes fused Core simpler.
@@ -187,7 +187,7 @@ normal g0 = (Tuple 0.5111 g0) where
 -- is analogous to 'Random.randoms'.
 {-- normals :: forall g. RandomGen g => g -> List Number --}
 {-- normals = boxMullers <<< randoms --}
-normals :: forall e. Int -> Eff (random :: RANDOM | e) (List Number)
+normals :: Int -> Effect (List Number)
 normals n = rs where
   ns = range 0 (n-1)
   rs = do

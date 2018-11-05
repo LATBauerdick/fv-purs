@@ -1,9 +1,11 @@
-module Stuff (
-    List (..), range, fromList
+module Prelude.Extended
+  ( module Prelude
+  , List (..), range, fromList
   , fromIntegral
   , words, unwords, unlines
   , sqr, mod'
   , irem, iflt
+  , prettyMatrix
   , normals, stats
   , debug, trace
   , uidx, uJust
@@ -13,26 +15,30 @@ module Stuff (
   ) where
 
 import Prelude
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (log)
-import Control.Monad.Eff.Random ( random, RANDOM )
-import Math ( sqrt )
+import Effect ( Effect )
+import Effect.Console (log)
+import Effect.Random ( random )
+import Math ( log, sqrt, pi, sin, cos ) as Math
 import Data.Ord (signum)
-import Data.String ( takeWhile, dropWhile, toCharArray, fromCharArray, split, Pattern (..) )
+{-- import Data.String ( takeWhile, dropWhile, split, Pattern (..) ) --}
+import Data.String.CodeUnits ( fromCharArray )
+import Data.String ( length ) as S
+import Data.String.Utils ( words ) as Data.String.Utils
 import Data.Char (toCharCode)
-import Data.List ( List(..), (:), range ) as L
-import Data.Array ( unsafeIndex, range, length, take, concat, fromFoldable ) as A
+import Data.List ( List(..), (:), range, fromFoldable ) as L
+import Data.Array ( unsafeIndex, range, length, take, concat
+  , fromFoldable, replicate
+  ) as A
 import Data.Unfoldable ( replicateA )
 import Data.Tuple ( Tuple(..), fst, snd )
-import Data.Maybe ( Maybe(..), fromMaybe', fromJust )
-import Data.Foldable ( class Foldable, foldr, sum )
-import Partial.Unsafe (unsafePartial, unsafePartialBecause, unsafeCrashWith)
+import Data.Maybe ( Maybe(..), fromMaybe', fromMaybe, fromJust )
+import Data.Foldable ( class Foldable, foldr, sum, maximum )
+import Partial.Unsafe (unsafePartial, unsafeCrashWith)
 import Unsafe.Coerce ( unsafeCoerce ) as Unsafe.Coerce
 import Data.Int ( round, toNumber, floor )
 import Text.Format ( format, precision, width )
 import Control.MonadZero ( guard )
-import Control.Monad.Eff.Unsafe (unsafePerformEff)
-import Math ( abs, log, sqrt, pi, sin, cos ) as Math
+import Effect.Unsafe (unsafePerformEffect)
 
 -- List, PureScript does not provide sugar
 type List a = L.List a
@@ -90,7 +96,9 @@ isSpace c = if uc <= 0x337
     uc = toCharCode c
 
 trace :: forall a. String -> a -> a
-trace s a = const a (unsafePerformEff (log s))
+trace s a = const a (unsafePerformEffect (log s))
+
+debug :: forall a. a -> String -> a
 debug = flip trace
 {-- unsafePerformEff :: forall eff a. Eff eff a -> a --}
 {-- log :: forall eff. String -> Eff (console :: CONSOLE | eff) Unit --}
@@ -119,6 +127,25 @@ uidx = unsafePartial A.unsafeIndex
 
 uJust :: forall a. Maybe a -> a
 uJust = unsafePartial $ fromJust
+
+prettyMatrix :: Int -> Int -> Array Number -> String
+prettyMatrix r c v = unlines ls where
+  -- | /O(1)/. Unsafe variant of 'getElem', without bounds checking.
+  unsafeGet :: Int          -- ^ Row
+            -> Int          -- ^ Column
+            -> Array Number -- ^ Matrix
+            -> Number
+  unsafeGet i j vv = unsafePartial $ A.unsafeIndex vv $ encode c i j
+  encode :: Int -> Int -> Int -> Int
+  encode m i j = (i-1)*m + j - 1
+  ls = do
+    i <- range 1 r
+    let ws :: List String
+        ws = map (\j -> fillBlanks mx (to3fix $ unsafeGet i j v)) (range 1 c)
+    pure $ "( " <> unwords ws <> " )"
+  mx = fromMaybe 0 (maximum $ map (S.length <<< to3fix) v)
+  fillBlanks k str =
+    (fromCharArray $ A.replicate (k - S.length str) ' ') <> str
 
 -- | filter list of objects given list of indices in [a]
 -- | return list with only those b that have  indices that  are in rng [a]
@@ -168,11 +195,12 @@ divMod n d = (Tuple (n `div` d) (n `mod` d))
 -- | 'words' breaks a string up into a list of words, which were delimited
 -- | by white space.
 words :: String -> List String
-words s = case dropWhile isSpace s of
-                                "" -> L.Nil
-                                str' -> let s0 = takeWhile (not isSpace) str'
-                                            s1 = dropWhile (not isSpace) str'
-                                        in s0 L.: words s1
+words = L.fromFoldable <<< Data.String.Utils.words
+{-- words s = case dropWhile isSpace s of --}
+{--                                 "" -> L.Nil --}
+{--                                 str' -> let s0 = takeWhile (not isSpace) str' --}
+{--                                             s1 = dropWhile (not isSpace) str' --}
+{--                                         in s0 L.: words s1 --}
 
 -- | 'break', applied to a predicate @p@ and a list @xs@, returns a tuple where
 -- | first element is longest prefix (possibly empty) of @xs@ of elements that
@@ -227,7 +255,7 @@ error = unsafeCrashWith
 
 -- | generate a list of n normally distributed random values
 -- | usinging the Box-Muller method and the random function
-boxMuller :: forall e. Eff (random :: RANDOM | e) (Array Number)
+boxMuller :: Effect (Array Number)
 boxMuller = do
               u1 <- random
               u2 <- random
@@ -236,7 +264,7 @@ boxMuller = do
                   b1 = r * Math.cos t
                   b2 = r * Math.sin t
               pure $ [ b1, b2 ]
-normals :: forall e. Int -> Eff (random :: RANDOM | e) (Array Number)
+normals :: Int -> Effect (Array Number)
 normals n = do
   ls <- replicateA ((n+1)/2) $ boxMuller
   pure $ A.take n $ A.concat ls
@@ -246,4 +274,4 @@ stats :: Array Number -> Tuple Number Number
 stats xs = Tuple mean stddev where
   n = toNumber (A.length xs)
   mean = sum xs / n
-  stddev = sqrt $ sum (map (\v -> sqr (v-mean)) xs) / n
+  stddev = Math.sqrt $ sum (map (\v -> sqr (v-mean)) xs) / n

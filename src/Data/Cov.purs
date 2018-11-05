@@ -2,22 +2,26 @@ module Data.Cov
     where
 
 import Prelude
+import Prelude.Extended (
+    error, fromIntegral
+  , fromList, prettyMatrix, range, uJust, uidx, undefined
+  )
+
 import Data.Array (
-    replicate, length, unsafeIndex, foldl
-  , zipWith, take ) as A
-import Data.Array.ST ( peekSTArray, pokeSTArray, unsafeFreeze, thaw )
-import Control.Monad.ST ( pureST )
-import Control.Monad.Eff ( forE )
-import Data.Foldable ( maximum, sum )
-import Data.Maybe ( Maybe (..), fromMaybe )
+    replicate, length, foldl
+  , zipWith, take
+  ) as A
+import Data.Foldable ( sum )
+import Data.Maybe ( Maybe (..) )
 import Control.MonadZero (guard)
 import Data.Int ( floor )
 import Math ( abs, sqrt )
-import Data.String ( length, fromCharArray ) as S
 import Partial.Unsafe ( unsafePartial )
 
-import Stuff  ( List, error, fromIntegral, fromList, range, to3fix
-              , uJust, uidx, undefined, unlines, unwords)
+import Control.Monad.ST ( ST )
+import Control.Monad.ST ( run, for ) as ST
+import Data.Array.ST ( STArray )
+import Data.Array.ST ( peek, poke, unsafeFreeze, thaw ) as STA
 
 newtype Cov a = Cov { v :: Array Number }
 newtype Jac a b = Jac { v :: Array Number, nr :: Int }
@@ -88,25 +92,6 @@ instance matJacab :: Mat (Jac a b) where
   elementwise f (Jac {v: va}) (Jac {v: vb, nr: r}) = (Jac {v: vc, nr: r}) where
     vc = A.zipWith f va vb
 
-prettyMatrix :: Int -> Int -> Array Number -> String
-prettyMatrix r c v = unlines ls where
-  -- | /O(1)/. Unsafe variant of 'getElem', without bounds checking.
-  unsafeGet :: Int          -- ^ Row
-            -> Int          -- ^ Column
-            -> Array Number -- ^ Matrix
-            -> Number
-  unsafeGet i j vv = unsafePartial $ A.unsafeIndex vv $ encode c i j
-  encode :: Int -> Int -> Int -> Int
-  encode m i j = (i-1)*m + j - 1
-  ls = do
-    i <- range 1 r
-    let ws :: List String
-        ws = map (\j -> fillBlanks mx (to3fix $ unsafeGet i j v)) (range 1 c)
-    pure $ "( " <> unwords ws <> " )"
-  mx = fromMaybe 0 (maximum $ map (S.length <<< to3fix) v)
-  fillBlanks k str =
-    (S.fromCharArray $ A.replicate (k - S.length str) ' ') <> str
-
 class ShowMat a where
   showMatrix :: a -> String
 instance showCova :: ShowMat (Cov a) where
@@ -124,13 +109,13 @@ instance showCova :: ShowMat (Cov a) where
                             15 -> prettyMatrix 5 5 $ makeSymMat 5 v
                             _ -> error $ "showCova showMatrix "
                                           <> show (A.length v)
-instance showVeca :: ShowMat (Vec a) where
+else instance showVeca :: ShowMat (Vec a) where
   showMatrix (Vec {v}) = prettyMatrix (A.length v) 1 v
-instance showJac53 :: ShowMat (Jac Dim5 Dim3) where
+else instance showJac53 :: ShowMat (Jac Dim5 Dim3) where
   showMatrix (Jac {v}) = prettyMatrix 5 3 v
-instance showJac35 :: ShowMat (Jac Dim3 Dim5) where
+else instance showJac35 :: ShowMat (Jac Dim3 Dim5) where
   showMatrix (Jac {v}) = prettyMatrix 3 5 v
-instance showJacaa :: ShowMat (Jac a b) where
+else instance showJacaa :: ShowMat (Jac a b) where
   showMatrix j@(Jac {v, nr: r}) = prettyMatrix r ((A.length v) `div` r) v
 
 class ArrMat a where
@@ -525,10 +510,12 @@ subm2 n (Cov {v: v}) = Cov {v: _subm2 v} where
 -- A = L · L^T
 -- The Cholesky factor L is returned in the lower triangle of a,
 -- except for its diagonal elements which are returned in p[1..n].
-
-
 chol :: forall a. Cov a -> Jac a a
 chol = choldc
+
+run :: forall a. (forall r. ST r (STArray r a)) -> Array a
+run act = ST.run (act >>= STA.unsafeFreeze)
+
 choldc :: forall a. Cov a -> Jac a a
 choldc (Cov {v: a}) = Jac {v: a', nr: n} where
   n = case A.length a of
@@ -537,41 +524,54 @@ choldc (Cov {v: a}) = Jac {v: a', nr: n} where
         15 -> 5
         _  -> 0 -- error $ "choldc: cannot deal with A.length " <> show (A.length a)
   ll = n*n
-  a' = A.take (n*n) $ pureST ((do
-    arr <- thaw (A.replicate (ll+n+1) 0.0)
+  l = run (do
+    arr <- STA.thaw (A.replicate (ll+n+1) 0.0)
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
     let ixa = indVs n
         ixarr = indV n
-    forE 0 n \i0 -> do
-      forE i0 n \j0 -> do
+    ST.for 0 n \i0 -> do
+      ST.for i0 n \j0 -> do
         let aij = uidx a (ixa i0 j0)
-        void $ if i0==j0 then pokeSTArray arr (ll+i0) aij
-                       else pokeSTArray arr (ixarr j0 i0) aij
-        forE 0 (i0+1) \k0 -> do
-          maik <- peekSTArray arr (ixarr i0 k0)
-          majk <- peekSTArray arr (ixarr j0 k0)
-          maij <- if i0==j0 then peekSTArray arr (ll+i0)
-                       else peekSTArray arr (ixarr j0 i0)
+        _  <- if i0==j0
+                    then STA.poke (ll+i0) aij arr
+                    else STA.poke (ixarr j0 i0) aij arr
+        ST.for 0 (i0+1) \k0 -> do
+
+{-- peekSTArray :: forall a h r. STArray h a -> Int -> Eff (st :: ST h | r) (Maybe a) --}
+{-- peek :: forall h a.          Int -> STArray h a -> ST h (Maybe a) --}
+  {-- ST.run (do --}
+  {--   arr <- STA.thaw [1, 2, 3] --}
+  {--   STA.peek 2 arr) == Just 3 --}
+
+          maik <- STA.peek (ixarr i0 k0) arr
+          majk <- STA.peek (ixarr j0 k0) arr
+          maij <- if i0==j0
+                    then STA.peek (ll+i0) arr
+                    else STA.peek (ixarr j0 i0) arr
           let sum = (uJust maij) - (uJust maik) * (uJust majk)
-          void $ if i0==j0 then pokeSTArray arr (ll+i0) sum
-                         else pokeSTArray arr (ixarr j0 i0) sum
-        msum <- if i0==j0 then peekSTArray arr (ll+i0)
-                        else peekSTArray arr (ixarr j0 i0)
+          void $ if i0==j0
+                    then STA.poke (ll+i0) sum arr
+                    else STA.poke (ixarr j0 i0) sum arr
+        msum <- if i0==j0
+                    then STA.peek (ll+i0) arr
+                    else STA.peek (ixarr j0 i0) arr
         let sum = if i0==j0 && (uJust msum) < 0.0
-                        then error ("choldc: not a positive definite matrix " <> show a)
-                        else (uJust msum)
-        mp_i' <- peekSTArray arr (ll+i0)
+                    then error ("choldc: not a positive definite matrix " <> show a)
+                    else (uJust msum)
+        mp_i' <- STA.peek (ll+i0) arr
         let p_i = if i0 == j0 then sqrt sum else (uJust mp_i')
-        void $ if i0==j0 then pokeSTArray arr (ll+i0) p_i
-                      else pokeSTArray arr (ixarr j0 i0) (sum/p_i)
+        void $ if i0==j0
+                    then STA.poke (ll+i0) p_i arr
+                    else STA.poke (ixarr j0 i0) (sum/p_i) arr
         pure $ unit
 
     -- copy diagonal back into array
-    forE 0 n \i0 -> do
-      maii <- peekSTArray arr (ll+i0)
-      void $ pokeSTArray arr (ixarr i0 i0) (uJust maii)
+    ST.for 0 n \i0 -> do
+      maii <- STA.peek (ll+i0) arr
+      void $ STA.poke (ixarr i0 i0) (uJust maii) arr
 
-    pure arr) >>= unsafeFreeze)
+    pure arr)
+  a' = A.take (n*n) l
 
 -- | Matrix inversion using Cholesky decomposition
 -- | based on Numerical Recipies formula in 2.9
@@ -584,51 +584,57 @@ cholInv (Cov {v: a}) = Cov {v: a'} where
         15 -> 5
         _  -> 0 -- error $ "cholInv: not supported for length " <> show (A.length a)
   ll = n*n
-  l = pureST ((do -- make a STArray of n x n + space for diagonal +1 for summing
-    arr <- thaw (A.replicate (ll+n+1) 0.0)
+  l = run (do -- make a STArray of n x n + space for diagonal +1 for summing
+    arr <- STA.thaw (A.replicate (ll+n+1) 0.0)
     -- loop over input array using Numerical Recipies algorithm (chapter 2.9)
     let ixa = indVs n
         ixarr = indV n
-    forE 0 n \i0 -> do
-      forE i0 n \j0 -> do
+    ST.for 0 n \i0 -> do
+      ST.for i0 n \j0 -> do
         let aij = uidx a (ixa i0 j0)
-        void $ if i0==j0 then pokeSTArray arr (ll+i0) aij
-                       else pokeSTArray arr (ixarr j0 i0) aij
-        forE 0 (i0+1) \k0 -> do
-          maik <- peekSTArray arr (ixarr i0 k0)
-          majk <- peekSTArray arr (ixarr j0 k0)
-          maij <- if i0==j0 then peekSTArray arr (ll+i0)
-                       else peekSTArray arr (ixarr j0 i0)
+        void $ if i0==j0
+                  then STA.poke (ll+i0) aij arr
+                  else STA.poke (ixarr j0 i0) aij arr
+        ST.for 0 (i0+1) \k0 -> do
+          maik <- STA.peek (ixarr i0 k0) arr
+          majk <- STA.peek (ixarr j0 k0) arr
+          maij <- if i0==j0
+                      then STA.peek (ll+i0) arr
+                      else STA.peek (ixarr j0 i0) arr
           let sum = (uJust maij) - (uJust maik) * (uJust majk)
-          void $ if i0==j0 then pokeSTArray arr (ll+i0) sum
-                         else pokeSTArray arr (ixarr j0 i0) sum
-        msum <- if i0==j0 then peekSTArray arr (ll+i0)
-                        else peekSTArray arr (ixarr j0 i0)
+          void $ if i0==j0
+                    then STA.poke (ll+i0) sum arr
+                    else STA.poke (ixarr j0 i0) sum arr
+        msum <- if i0==j0
+                    then STA.peek (ll+i0) arr
+                    else STA.peek (ixarr j0 i0) arr
         let sum = if i0==j0 && (uJust msum) < 0.0
-                        then error ("choldInv: not a positive definite matrix "
-                                     <> show a)
-                        else (uJust msum)
-        mp_i' <- peekSTArray arr (ll+i0)
-        let p_i = if i0 == j0 then sqrt sum else (uJust mp_i')
-        void $ if i0==j0 then pokeSTArray arr (ll+i0) p_i
-                      else pokeSTArray arr (ixarr j0 i0) (sum/p_i)
+                    then error ("choldInv: not a positive definite matrix " <> show a)
+                    else (uJust msum)
+        mp_i' <- STA.peek (ll+i0) arr
+        let p_i = if i0 == j0
+                      then sqrt sum
+                      else (uJust mp_i')
+        void $ if i0==j0
+                  then STA.poke (ll+i0) p_i arr
+                  else STA.poke (ixarr j0 i0) (sum/p_i) arr
         pure $ unit
 
     -- invert L -> L^(-1)
-    forE 0 n \i0 -> do
-      mp_i <- peekSTArray arr (ll+i0)
-      void $ pokeSTArray arr (ixarr i0 i0) (1.0/(uJust mp_i))
-      forE (i0+1) n \j0 -> do
-        void $ pokeSTArray arr (ll+n) 0.0
-        forE i0 (j0+1) \k0 -> do
-          majk <- peekSTArray arr (ixarr j0 k0)
-          maki <- peekSTArray arr (ixarr k0 i0)
-          sum <- peekSTArray arr (ll+n)
-          void $ pokeSTArray arr (ll+n) ((uJust sum) - (uJust majk) * (uJust maki))
-        msum <- peekSTArray arr (ll+n)
-        mp_j <- peekSTArray arr (ll+j0)
-        void $ pokeSTArray arr (ixarr j0 i0) ((uJust msum)/(uJust mp_j))
-    pure arr) >>= unsafeFreeze)
+    ST.for 0 n \i0 -> do
+      mp_i <- STA.peek (ll+i0) arr
+      void $ STA.poke (ixarr i0 i0) (1.0/(uJust mp_i)) arr
+      ST.for (i0+1) n \j0 -> do
+        void $ STA.poke (ll+n) 0.0 arr
+        ST.for i0 (j0+1) \k0 -> do
+          majk <- STA.peek (ixarr j0 k0) arr
+          maki <- STA.peek (ixarr k0 i0) arr
+          sum <- STA.peek (ll+n) arr
+          void $ STA.poke (ll+n) ((uJust sum) - (uJust majk) * (uJust maki)) arr
+        msum <- STA.peek (ll+n) arr
+        mp_j <- STA.peek (ll+j0) arr
+        void $ STA.poke (ixarr j0 i0) ((uJust msum)/(uJust mp_j)) arr
+    pure arr)
 
   a' = fromList $ do
     let idx = indV n

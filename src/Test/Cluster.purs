@@ -2,11 +2,11 @@
 module Test.Cluster ( doCluster, fsmw ) where
 
 import Prelude
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console ( CONSOLE, log )
+import Effect ( Effect )
+import Effect.Console ( log )
 import FV.Types ( VHMeas )
 
-doCluster :: forall e. VHMeas -> Eff (console :: CONSOLE | e) Unit
+doCluster :: VHMeas -> Effect Unit
 doCluster vm' = do
   log "test doCluster"
 

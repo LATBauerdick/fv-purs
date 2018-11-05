@@ -3,13 +3,12 @@ module Test.Main where
 import Prelude
   (Unit, bind, discard, map, pure, show, unit
   , ($), (*), (<<<), (<>), (=<<) )
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log, logShow)
-import Control.Monad.Eff.Random ( RANDOM )
-import Control.Monad.Eff.Exception ( EXCEPTION )
-import Node.FS.Sync (readTextFile)
-import Node.FS (FS)
-import Node.Encoding (Encoding(..))
+import Prelude.Extended ( iflt, to1fix, uJust )
+
+import Effect ( Effect )
+import Effect.Console ( log, logShow )
+import Node.FS.Sync ( readTextFile )
+import Node.Encoding ( Encoding(..) )
 
 import Data.Monoid ( mempty )
 import Data.Tuple ( Tuple(..) )
@@ -22,24 +21,20 @@ import Test.Random ( testRandom )
 import FV.Types
   ( VHMeas, HMeas, QMeas
   , XMeas, Prong (Prong), Chi2 (Chi2)
-  , vertex, helices, hFilter, fromHMeas, fromQMeas, vBlowup, distance, invMass
+  , vertex, helices, hFilter, fromHMeas, fromQMeas
+  , vBlowup, distance, invMass
   )
 
 import Test.Input ( hSlurp, hSlurpMCtruth )
 import Test.Cluster ( doCluster )
 import FV.Fit ( fit )
 
-import Stuff ( iflt, to1fix, uJust )
 
 
-readData :: forall eff. String -> Eff (fs :: FS, exception :: EXCEPTION | eff) String
+readData :: String -> Effect String
 readData = readTextFile UTF8
 
-main :: forall e.  Eff ( console :: CONSOLE
-                       , random :: RANDOM
-                       , exception :: EXCEPTION
-                       , fs :: FS
-                       | e) Unit
+main :: Effect Unit
 main = do
   log "FVT Test Suite"
   log "--Test hSlurp"
@@ -68,11 +63,11 @@ main = do
                  <<< uJust <<< hSlurp $ tr05129e001412
   pure unit
 
-showMomentum :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
+showMomentum :: HMeas -> Effect Unit
 showMomentum h = log $ "pt,pz,fi,E ->" <> (show <<< fromHMeas) h
-showHelix :: forall e. HMeas -> Eff (console :: CONSOLE | e) Unit
+showHelix :: HMeas -> Effect Unit
 showHelix h = log $ "Helix ->" <> (show h)
-showProng :: forall e. Prong -> Eff (console:: CONSOLE |e) Prong
+showProng :: Prong -> Effect Prong
 showProng (Prong pr@{nProng: n, fitVertex: v, fitMomenta: ql, fitChi2s: cl, measurements: m}) = do
   let
       showCl :: String -> Array Chi2 -> String
@@ -85,7 +80,7 @@ showProng (Prong pr@{nProng: n, fitVertex: v, fitMomenta: ql, fitChi2s: cl, meas
   log $ sc <> sd <> scl <> sm
   pure $ Prong pr
 
-testFVT :: forall e. Array Int -> VHMeas -> Eff (console :: CONSOLE | e) Unit
+testFVT :: Array Int -> VHMeas -> Effect Unit
 testFVT l5 vm = do
   let hel = helices vm
   traverse_ showHelix hel
@@ -94,13 +89,13 @@ testFVT l5 vm = do
   _ <- showProng <<< fit <<< hFilter l5 <<< vBlowup 10000.0 $ vm
   pure unit
 
-doFitTest :: forall e. VHMeas 
+doFitTest :: VHMeas 
             -> Array Int
-            -> Eff (console :: CONSOLE | e) Unit
+            -> Effect Unit
 doFitTest vm' l5 = do
   let vm = vBlowup 10000.0 vm'
   let showLen xs = show $ length xs
-      showQChi2 :: forall e0. (Tuple QMeas Chi2) -> Eff (console :: CONSOLE | e0) Unit
+      showQChi2 :: (Tuple QMeas Chi2) -> Effect Unit
       showQChi2 (Tuple qm (Chi2 chi2)) = log $ "q"
                                 <> " chi2 ->" <> to1fix chi2
                                 <> " pt,pz,fi,E ->"
@@ -132,9 +127,7 @@ doFitTest vm' l5 = do
   log $           "Final vertex -> " <> show fitVertex
   log $           "end of doFitTest------------------------------------------"
 
-testHSlurp :: String -> forall e. Eff (console :: CONSOLE
-                                          {-- , fs :: FS --}
-                                          | e) Unit
+testHSlurp :: String -> Effect Unit
 testHSlurp ds = do
   logShow $ hSlurp ds
   logShow $ hSlurp tav4

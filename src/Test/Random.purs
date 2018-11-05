@@ -1,9 +1,10 @@
 module Test.Random ( testRandom ) where
 
-import Prelude
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console ( CONSOLE, log )
-import Control.Monad.Eff.Random ( RANDOM )
+import Prelude.Extended ( normals, stats, show , bind, discard, pure, map, Unit, unit
+  , (<<<) , ($), (+), (<>), (<$>)
+  )
+import Effect ( Effect )
+import Effect.Console ( log )
 import Data.List.Lazy ( replicateM )
 import Data.Array ( fromFoldable, zipWith ) as A
 import Data.Traversable ( for )
@@ -13,7 +14,6 @@ import Data.Cov ( chol, fromArray, toArray, (*.), Vec5 )
 import FV.Fit ( fit )
 import FV.Types ( VHMeas(..), HMeas(..), MMeas(..)
   , invMass, fromQMeas, fitMomenta )
-import Stuff ( normals, stats )
 
 {-- import qualified Graphics.Gnuplot.Frame.OptionSet as Opts --}
 {-- import Graphics.Histogram --}
@@ -21,7 +21,7 @@ import Stuff ( normals, stats )
 --| Randomizable TypeClass to provide randomize method
 --| for MC smearing of a measurement
 class Randomizable a where
-  randomize :: forall e. a -> Eff (random :: RANDOM | e) a
+  randomize :: a -> Effect a
 --| randomize a single helix parameters measurement, based on the cov matrix
 --| return randomized helix
 instance randomizableHMeas :: Randomizable HMeas where
@@ -43,9 +43,7 @@ fitm :: VHMeas -> Number
 fitm vm = m where
   MMeas {m: m} = invMass <<< map fromQMeas <<< fitMomenta $ fit vm
 
-testRandom :: forall e. Int
-              -> VHMeas
-              -> Eff (console :: CONSOLE, random :: RANDOM | e) Unit
+testRandom :: Int -> VHMeas -> Effect Unit
 testRandom cnt vm = do
   log $ "Fit Mass  " <> (show <<< invMass <<< map fromQMeas
                         <<< fitMomenta <<< fit $ vm)

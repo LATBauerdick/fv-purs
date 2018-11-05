@@ -14,6 +14,8 @@ module FV.Types
   ) where
 
 import Prelude ( class Semigroup, class Semiring, class Show, map, max, negate, show, zero, ($), (*), (+), (-), (/), (<<<), (<>) )
+import Prelude.Extended
+
 import Data.Array ( length, unsafeIndex, drop, zip, foldl )
 import Data.Foldable ( fold )
 import Data.Monoid ( class Monoid )
@@ -23,7 +25,6 @@ import Partial.Unsafe ( unsafePartial )
 import Math ( sqrt, abs, pi, sin, cos )
 
 import Data.Cov
-import Stuff
 
 -----------------------------------------------
 -- Prong
