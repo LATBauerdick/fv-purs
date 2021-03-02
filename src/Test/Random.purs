@@ -28,7 +28,7 @@ instance randomizableHMeas :: Randomizable HMeas where
   randomize (HMeas h hh w0) = do
     rs <- normals 5
     let h' = fromArray $ A.zipWith (+) (toArray h)
-                                       (toArray (chol hh *. (fromArray rs)::Vec5))
+                                       (toArray (chol hh *. ((fromArray rs)::Vec5)))
     pure $ HMeas h' hh w0
 
 --| randomize a vertex measurement by randomizing each helix parameter measurement

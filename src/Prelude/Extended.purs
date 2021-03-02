@@ -23,7 +23,7 @@ import Data.Ord (signum)
 {-- import Data.String ( takeWhile, dropWhile, split, Pattern (..) ) --}
 import Data.String.CodeUnits ( fromCharArray )
 import Data.String ( length ) as S
-import Data.String.Utils ( words ) as Data.String.Utils
+import Data.String.Extra ( words ) as Data.String.Extra
 import Data.Char (toCharCode)
 import Data.List ( List(..), (:), range, fromFoldable ) as L
 import Data.Array ( unsafeIndex, range, length, take, concat
@@ -195,7 +195,7 @@ divMod n d = (Tuple (n `div` d) (n `mod` d))
 -- | 'words' breaks a string up into a list of words, which were delimited
 -- | by white space.
 words :: String -> List String
-words = L.fromFoldable <<< Data.String.Utils.words
+words = L.fromFoldable <<< Data.String.Extra.words
 {-- words s = case dropWhile isSpace s of --}
 {--                                 "" -> L.Nil --}
 {--                                 str' -> let s0 = takeWhile (not isSpace) str' --}

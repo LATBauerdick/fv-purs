@@ -247,7 +247,10 @@ instance symMatCov5 :: SymMat Dim5 where
       + e*e*g*g*m - 2.0*e*e*g*h*k + e*e*h*h*j
   diag (Cov {v}) = _diag v where
     _diag :: Array Number -> Array Number
-    _diag = unsafePartial $ \[a,_,_,_,_,b,_,_,_,c,_,_,d,_,e] -> [a,b,c,d,e]
+    _diag = xxx where
+      xxx = case A.length v of
+              15 -> unsafePartial $ \[a,_,_,_,_,b,_,_,_,c,_,_,d,_,e] -> [a,b,c,d,e]
+              _  -> error $ "symMatCov5 diag: wrong length of Cov v " <> show (A.length v)
 
 class MulMat a b c | a b -> c where
   mulm :: a -> b -> c

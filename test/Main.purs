@@ -41,12 +41,14 @@ main = do
 
   log "Test hSlurp dat/tr05129e001412.dat"
   {-- ds <- readTextFile UTF8 "dat/tr05129e001412.dat" --}
-  testHSlurp =<< readData "dat/tr05129e001412.dat"
+  -- testHSlurp =<< readData "dat/tr05129e001412.dat"
+  testHSlurp =<< readData "dat/tav-0.dat"
   log "--Test Cov"
   log $ testCov2
   log "--Test FVT 1"
   -- send the list of tau tracks and a VHMeas to testFVT
-  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr05129e001412.dat"
+  -- testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr05129e001412.dat"
+  testFVT [0,2,3,4,5] <<< uJust <<< hSlurp =<< readData "dat/tav-1.dat"
   log "--Test FVT 2"
   testFVT [0,1,2,4,5] <<< uJust <<< hSlurp =<< readData "dat/tr05158e004656.dat"
   {-- log "--Test FVT 3" --}
